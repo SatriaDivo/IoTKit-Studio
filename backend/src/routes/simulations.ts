@@ -9,7 +9,7 @@ router.use(authMiddleware);
 
 router.post("/start", simulationController.start);
 router.post("/stop", simulationController.stop);
-router.get("/:projectId/status", simulationController.getStatus);
-router.get("/:projectId/stats", simulationController.getStats);
+router.get("/status/:projectId", simulationController.getStatus);
+router.get("/stats/:projectId", simulationController.getStats);
 
 export default router;
