@@ -352,6 +352,14 @@ export default function ProjectDetailPage() {
             <Save className="h-4 w-4 mr-2" />
             {saving ? "Saving..." : "Save"}
           </Button>
+          <Button
+            variant="outline"
+            onClick={handleSave}
+            disabled={saving || isSimulationRunning}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? "Updating..." : "Update"}
+          </Button>
           {!isSimulationRunning ? (
             <Button
               onClick={handleStartSimulation}
