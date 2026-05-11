@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Save, Play, Plus, X, Upload, Square } from "lucide-react";
@@ -29,6 +29,8 @@ export default function ProjectDetailPage() {
   const [stopping, setStopping] = useState(false);
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
   const [simulationStats, setSimulationStats] = useState<any>(null);
+  // Use ref instead of state for interval - avoids stale closure bug
+  const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [statsInterval, setStatsInterval] = useState<NodeJS.Timeout | null>(
     null,
   );
@@ -63,15 +65,17 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (params.id) {
       fetchProject(params.id as string).finally(() => setLoading(false));
-      // Fetch simulation status on page load to sync state with backend
       fetchSimulationStatus();
     }
 
-    // Cleanup on unmount - stop all polling
+    // Cleanup: guaranteed to stop polling on unmount using ref
     return () => {
-      stopStatsPolling();
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+        statsIntervalRef.current = null;
+      }
     };
-  }, [params.id, fetchProject]);
+  }, [params.id]);
 
   const addPayloadField = () => {
     setPayloadFields([
@@ -199,26 +203,19 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const fetchSimulationStatus = async () => {
-    try {
-      const response = await api.get(`/simulations/status/${params.id}`);
-      const { isRunning, stats } = response.data;
-      setIsSimulationRunning(isRunning);
-      if (stats) setSimulationStats(stats);
-      if (isRunning) startStatsPolling();
-    } catch (error: any) {
-      if (error.response?.status !== 404) {
-        console.error("Failed to fetch simulation status:", error);
-      }
-      setIsSimulationRunning(false);
+  const stopStatsPolling = useCallback(() => {
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+      setStatsInterval(null);
     }
-  };
+  }, []);
 
-  const startStatsPolling = () => {
-    // Prevent duplicate intervals
-    if (statsInterval) return;
+  const startStatsPolling = useCallback(() => {
+    // Prevent duplicate intervals using ref
+    if (statsIntervalRef.current) return;
 
-    // Poll every 5 seconds (reduced from 2s to lower server load)
+    // Poll every 5 seconds
     const interval = setInterval(async () => {
       try {
         const response = await api.get(`/simulations/status/${params.id}`);
@@ -236,15 +233,24 @@ export default function ProjectDetailPage() {
       }
     }, 5000);
 
+    statsIntervalRef.current = interval;
     setStatsInterval(interval);
-  };
+  }, [params.id, stopStatsPolling]);
 
-  const stopStatsPolling = () => {
-    if (statsInterval) {
-      clearInterval(statsInterval);
-      setStatsInterval(null);
+  const fetchSimulationStatus = useCallback(async () => {
+    try {
+      const response = await api.get(`/simulations/status/${params.id}`);
+      const { isRunning, stats } = response.data;
+      setIsSimulationRunning(isRunning);
+      if (stats) setSimulationStats(stats);
+      if (isRunning) startStatsPolling();
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.error("Failed to fetch simulation status:", error);
+      }
+      setIsSimulationRunning(false);
     }
-  };
+  }, [params.id, startStatsPolling]);
 
   const handleImportPayload = () => {
     try {
