@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, Play, Trash2, Plus, X, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Play,
+  Trash2,
+  Plus,
+  X,
+  Upload,
+  Square,
+} from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { PayloadField } from "@/types";
 import toast from "react-hot-toast";
+import { api } from "@/lib/api";
 
 export default function ProjectDetailPage() {
   const router = useRouter();
@@ -24,6 +34,13 @@ export default function ProjectDetailPage() {
   const { currentProject, fetchProject } = useProjectStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [isSimulationRunning, setIsSimulationRunning] = useState(false);
+  const [simulationStats, setSimulationStats] = useState<any>(null);
+  const [statsInterval, setStatsInterval] = useState<NodeJS.Timeout | null>(
+    null,
+  );
 
   // Payload fields state
   const [payloadFields, setPayloadFields] = useState<PayloadField[]>([
@@ -52,7 +69,13 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (params.id) {
       fetchProject(params.id as string).finally(() => setLoading(false));
+      fetchSimulationStatus();
     }
+
+    // Cleanup on unmount
+    return () => {
+      stopStatsPolling();
+    };
   }, [params.id, fetchProject]);
 
   const addPayloadField = () => {
@@ -84,39 +107,119 @@ export default function ProjectDetailPage() {
   };
 
   const handleSave = async () => {
+    if (payloadFields.length === 0) {
+      toast.error("Please add at least one payload field");
+      return;
+    }
+
     setSaving(true);
     try {
-      // TODO: Implement API call to save payload and simulation settings
-      console.log("Saving configuration:", {
-        payloadFields,
-        simulationSettings,
+      // Save payload configuration to backend
+      await api.post("/payloads", {
+        name: `${currentProject?.name} Payload`,
+        structure: payloadFields,
+        template: false,
+        projectId: params.id,
       });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
       toast.success("Configuration saved successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save configuration:", error);
-      toast.error("Failed to save configuration");
+      toast.error(
+        error.response?.data?.error || "Failed to save configuration",
+      );
     } finally {
       setSaving(false);
     }
   };
 
   const handleStartSimulation = async () => {
+    if (payloadFields.length === 0) {
+      toast.error(
+        "Please add at least one payload field before starting simulation",
+      );
+      return;
+    }
+
+    setStarting(true);
     try {
-      // TODO: Implement API call to start simulation
-      console.log("Starting simulation with:", {
+      // Start simulation
+      await api.post("/simulations/start", {
         projectId: params.id,
-        payloadFields,
-        simulationSettings,
+        payloadStructure: payloadFields,
+        interval: simulationSettings.interval,
+        batchSize: simulationSettings.batchSize,
       });
 
-      toast.success("Simulation started! (Feature coming soon)");
-    } catch (error) {
+      setIsSimulationRunning(true);
+      toast.success("Simulation started successfully!");
+
+      // Start polling for stats
+      startStatsPolling();
+    } catch (error: any) {
       console.error("Failed to start simulation:", error);
-      toast.error("Failed to start simulation");
+      toast.error(error.response?.data?.error || "Failed to start simulation");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const handleStopSimulation = async () => {
+    setStopping(true);
+    try {
+      await api.post("/simulations/stop", {
+        projectId: params.id,
+      });
+
+      setIsSimulationRunning(false);
+      toast.success("Simulation stopped successfully!");
+
+      // Stop polling
+      stopStatsPolling();
+    } catch (error: any) {
+      console.error("Failed to stop simulation:", error);
+      toast.error(error.response?.data?.error || "Failed to stop simulation");
+    } finally {
+      setStopping(false);
+    }
+  };
+
+  const fetchSimulationStatus = async () => {
+    try {
+      const response = await api.get(`/simulations/status/${params.id}`);
+      setIsSimulationRunning(response.data.isRunning);
+      if (response.data.stats) {
+        setSimulationStats(response.data.stats);
+      }
+    } catch (error) {
+      console.error("Failed to fetch simulation status:", error);
+    }
+  };
+
+  const startStatsPolling = () => {
+    // Poll every 2 seconds
+    const interval = setInterval(async () => {
+      try {
+        const response = await api.get(`/simulations/status/${params.id}`);
+        if (response.data.stats) {
+          setSimulationStats(response.data.stats);
+        }
+        if (!response.data.isRunning) {
+          setIsSimulationRunning(false);
+          stopStatsPolling();
+        }
+      } catch (error) {
+        console.error("Failed to fetch stats:", error);
+      }
+    }, 2000);
+
+    setStatsInterval(interval);
+  };
+
+  const stopStatsPolling = () => {
+    if (statsInterval) {
+      clearInterval(statsInterval);
+      setStatsInterval(null);
     }
   };
 
@@ -219,14 +322,32 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleSave} disabled={saving}>
+          <Button
+            variant="outline"
+            onClick={handleSave}
+            disabled={saving || isSimulationRunning}
+          >
             <Save className="h-4 w-4 mr-2" />
             {saving ? "Saving..." : "Save"}
           </Button>
-          <Button onClick={handleStartSimulation}>
-            <Play className="h-4 w-4 mr-2" />
-            Start Simulation
-          </Button>
+          {!isSimulationRunning ? (
+            <Button
+              onClick={handleStartSimulation}
+              disabled={starting || payloadFields.length === 0}
+            >
+              <Play className="h-4 w-4 mr-2" />
+              {starting ? "Starting..." : "Start Simulation"}
+            </Button>
+          ) : (
+            <Button
+              variant="destructive"
+              onClick={handleStopSimulation}
+              disabled={stopping}
+            >
+              <Square className="h-4 w-4 mr-2" />
+              {stopping ? "Stopping..." : "Stop Simulation"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -562,6 +683,7 @@ export default function ProjectDetailPage() {
                     })
                   }
                   min={100}
+                  disabled={isSimulationRunning}
                 />
                 <p className="text-xs text-muted-foreground">
                   Time between each payload send
@@ -581,6 +703,7 @@ export default function ProjectDetailPage() {
                     })
                   }
                   min={1}
+                  disabled={isSimulationRunning}
                 />
                 <p className="text-xs text-muted-foreground">
                   Number of payloads per batch
@@ -600,6 +723,7 @@ export default function ProjectDetailPage() {
                     })
                   }
                   min={0}
+                  disabled={isSimulationRunning}
                 />
                 <p className="text-xs text-muted-foreground">
                   0 = run until stopped manually
@@ -609,6 +733,67 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Simulation Stats */}
+      {isSimulationRunning && simulationStats && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="glass border-green-500/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-green-500">
+                    Simulation Running
+                  </CardTitle>
+                  <CardDescription>Real-time statistics</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-sm text-green-500">Live</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Total Sent</p>
+                  <p className="text-2xl font-bold">
+                    {simulationStats.totalSent || 0}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Success</p>
+                  <p className="text-2xl font-bold text-green-500">
+                    {simulationStats.successCount || 0}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Errors</p>
+                  <p className="text-2xl font-bold text-red-500">
+                    {simulationStats.errorCount || 0}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Success Rate</p>
+                  <p className="text-2xl font-bold">
+                    {simulationStats.totalSent > 0
+                      ? (
+                          (simulationStats.successCount /
+                            simulationStats.totalSent) *
+                          100
+                        ).toFixed(1)
+                      : 0}
+                    %
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Danger Zone */}
       <motion.div
