@@ -94,6 +94,22 @@ export default function ProjectDetailPage() {
     projectIdRef.current = id;
     fetchProject(id).finally(() => setLoading(false));
 
+    // Load saved payload configuration
+    api
+      .get(`/payloads/project/${id}`)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          try {
+            const structure = JSON.parse(data[0].structure);
+            if (Array.isArray(structure) && structure.length > 0) {
+              setPayloadFields(structure);
+              setHasUnsavedChanges(false);
+            }
+          } catch {}
+        }
+      })
+      .catch(() => {}); // No payload yet, use default
+
     // Check if simulation is already running when entering the page
     api
       .get(`/simulations/status/${id}`)
@@ -146,12 +162,37 @@ export default function ProjectDetailPage() {
   // ─── Save ────────────────────────────────────────────────────────────────────
 
   const savePayload = async () => {
-    await api.post("/payloads", {
-      name: `${currentProject?.name} Payload`,
-      structure: payloadFields,
-      template: false,
-      projectId: params.id,
-    });
+    // Check if payload already exists for this project → update, else create
+    try {
+      const existing = await api.get(`/payloads/project/${params.id}`);
+      const payloads = existing.data;
+
+      if (payloads && payloads.length > 0) {
+        await api.put(`/payloads/${payloads[0].id}`, {
+          name: `${currentProject?.name} Payload`,
+          structure: payloadFields,
+        });
+      } else {
+        await api.post("/payloads", {
+          name: `${currentProject?.name} Payload`,
+          structure: payloadFields,
+          template: false,
+          projectId: params.id,
+        });
+      }
+    } catch (err: any) {
+      // If GET fails (404), just create new
+      if (err.response?.status === 404) {
+        await api.post("/payloads", {
+          name: `${currentProject?.name} Payload`,
+          structure: payloadFields,
+          template: false,
+          projectId: params.id,
+        });
+      } else {
+        throw err;
+      }
+    }
     setHasUnsavedChanges(false);
   };
 
