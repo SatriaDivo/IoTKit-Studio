@@ -1,16 +1,28 @@
 import { Request, Response, NextFunction } from "express";
 
-interface RateLimitStore {
-  [key: string]: {
-    count: number;
-    resetTime: number;
-  };
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
 }
 
-const store: RateLimitStore = {};
+const store = new Map<string, RateLimitEntry>();
 
-const WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000"); // 15 minutes
-const MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100");
+// Development: very permissive. Production: tighten these values.
+const WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "60000"); // 1 minute
+const MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "500"); // 500 per minute
+
+// Cleanup expired entries every 5 minutes to prevent memory leak
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of store.entries()) {
+      if (now > entry.resetTime) {
+        store.delete(key);
+      }
+    }
+  },
+  5 * 60 * 1000,
+);
 
 export const rateLimiter = (
   req: Request,
@@ -19,18 +31,16 @@ export const rateLimiter = (
 ) => {
   const ip = req.ip || req.socket.remoteAddress || "unknown";
   const now = Date.now();
+  const entry = store.get(ip);
 
-  if (!store[ip] || now > store[ip].resetTime) {
-    store[ip] = {
-      count: 1,
-      resetTime: now + WINDOW_MS,
-    };
+  if (!entry || now > entry.resetTime) {
+    store.set(ip, { count: 1, resetTime: now + WINDOW_MS });
     return next();
   }
 
-  store[ip].count++;
+  entry.count++;
 
-  if (store[ip].count > MAX_REQUESTS) {
+  if (entry.count > MAX_REQUESTS) {
     return res.status(429).json({
       error: "Too many requests, please try again later.",
     });

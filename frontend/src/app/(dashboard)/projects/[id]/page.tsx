@@ -203,17 +203,10 @@ export default function ProjectDetailPage() {
     try {
       const response = await api.get(`/simulations/status/${params.id}`);
       const { isRunning, stats } = response.data;
-
       setIsSimulationRunning(isRunning);
       if (stats) setSimulationStats(stats);
-
-      // If simulation is already running (user navigated away and came back),
-      // resume polling automatically
-      if (isRunning) {
-        startStatsPolling();
-      }
+      if (isRunning) startStatsPolling();
     } catch (error: any) {
-      // Silently ignore 404 - project has no simulation yet, this is normal
       if (error.response?.status !== 404) {
         console.error("Failed to fetch simulation status:", error);
       }
@@ -222,16 +215,15 @@ export default function ProjectDetailPage() {
   };
 
   const startStatsPolling = () => {
-    // Don't start if already polling
+    // Prevent duplicate intervals
     if (statsInterval) return;
 
+    // Poll every 5 seconds (reduced from 2s to lower server load)
     const interval = setInterval(async () => {
       try {
         const response = await api.get(`/simulations/status/${params.id}`);
         const { isRunning, stats } = response.data;
-
         if (stats) setSimulationStats(stats);
-
         if (!isRunning) {
           setIsSimulationRunning(false);
           stopStatsPolling();
@@ -242,7 +234,7 @@ export default function ProjectDetailPage() {
           stopStatsPolling();
         }
       }
-    }, 2000);
+    }, 5000);
 
     setStatsInterval(interval);
   };
