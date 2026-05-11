@@ -28,7 +28,12 @@ export default function ProjectsPage() {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {},
   );
+  // Display status: 'idle' | 'running' | 'stopped'
+  const [projectStatus, setProjectStatus] = useState<
+    Record<string, "idle" | "running" | "stopped">
+  >({});
   const intervalsRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const idleTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   useEffect(() => {
     fetchProjects().finally(() => setLoading(false));
@@ -46,22 +51,38 @@ export default function ProjectsPage() {
     // Cleanup all intervals on unmount
     return () => {
       Object.values(intervalsRef.current).forEach(clearInterval);
+      Object.values(idleTimersRef.current).forEach(clearTimeout);
       intervalsRef.current = {};
+      idleTimersRef.current = {};
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects.length]);
 
+  const setIdleAfterDelay = (projectId: string) => {
+    // Clear any existing idle timer
+    if (idleTimersRef.current[projectId]) {
+      clearTimeout(idleTimersRef.current[projectId]);
+    }
+    // After 10 seconds, change status from 'stopped' to 'idle'
+    idleTimersRef.current[projectId] = setTimeout(() => {
+      setProjectStatus((prev) => ({ ...prev, [projectId]: "idle" }));
+      delete idleTimersRef.current[projectId];
+    }, 10000);
+  };
+
   const fetchProjectSimStatus = async (projectId: string) => {
     try {
       const res = await api.get(`/simulations/status/${projectId}`);
-      setRunningProjects((prev) => ({
+      const isRunning = res.data.isRunning;
+      setRunningProjects((prev) => ({ ...prev, [projectId]: isRunning }));
+      setProjectStatus((prev) => ({
         ...prev,
-        [projectId]: res.data.isRunning,
+        [projectId]: isRunning ? "running" : "idle",
       }));
-      // If running, start polling for this project
-      if (res.data.isRunning) startPolling(projectId);
+      if (isRunning) startPolling(projectId);
     } catch {
       setRunningProjects((prev) => ({ ...prev, [projectId]: false }));
+      setProjectStatus((prev) => ({ ...prev, [projectId]: "idle" }));
     }
   };
 
@@ -71,11 +92,11 @@ export default function ProjectsPage() {
     intervalsRef.current[projectId] = setInterval(async () => {
       try {
         const res = await api.get(`/simulations/status/${projectId}`);
-        setRunningProjects((prev) => ({
-          ...prev,
-          [projectId]: res.data.isRunning,
-        }));
-        if (!res.data.isRunning) {
+        const isRunning = res.data.isRunning;
+        setRunningProjects((prev) => ({ ...prev, [projectId]: isRunning }));
+        if (!isRunning) {
+          setProjectStatus((prev) => ({ ...prev, [projectId]: "stopped" }));
+          setIdleAfterDelay(projectId);
           clearInterval(intervalsRef.current[projectId]);
           delete intervalsRef.current[projectId];
         }
@@ -116,6 +137,7 @@ export default function ProjectsPage() {
       });
 
       setRunningProjects((prev) => ({ ...prev, [projectId]: true }));
+      setProjectStatus((prev) => ({ ...prev, [projectId]: "running" }));
       toast.success("Simulation started!");
       startPolling(projectId);
     } catch (error: any) {
@@ -130,6 +152,8 @@ export default function ProjectsPage() {
     try {
       await api.post("/simulations/stop", { projectId });
       setRunningProjects((prev) => ({ ...prev, [projectId]: false }));
+      setProjectStatus((prev) => ({ ...prev, [projectId]: "stopped" }));
+      setIdleAfterDelay(projectId);
       stopPolling(projectId);
       toast.success("Simulation stopped!");
     } catch (error: any) {
@@ -191,6 +215,29 @@ export default function ProjectsPage() {
           {projects.map((project, index) => {
             const isRunning = runningProjects[project.id] ?? false;
             const isLoading = actionLoading[project.id] ?? false;
+            const status = projectStatus[project.id] ?? "idle";
+
+            const statusConfig = {
+              running: {
+                label: "Running",
+                dot: "bg-green-500 animate-pulse",
+                text: "text-green-500",
+                border: "border-green-500/50",
+              },
+              stopped: {
+                label: "Stopped",
+                dot: "bg-red-500",
+                text: "text-red-500",
+                border: "border-red-500/30",
+              },
+              idle: {
+                label: "Idle",
+                dot: "bg-gray-500",
+                text: "text-gray-400",
+                border: "",
+              },
+            };
+            const cfg = statusConfig[status];
 
             return (
               <motion.div
@@ -200,7 +247,7 @@ export default function ProjectsPage() {
                 transition={{ delay: index * 0.05 }}
               >
                 <Card
-                  className={`glass hover:border-primary transition-colors ${isRunning ? "border-green-500/50" : ""}`}
+                  className={`glass hover:border-primary transition-colors ${cfg.border}`}
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -212,15 +259,12 @@ export default function ProjectsPage() {
                           {project.description || "No description"}
                         </CardDescription>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        {isRunning && (
-                          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                        )}
-                        <div
-                          className={`h-2 w-2 rounded-full ${
-                            isRunning ? "bg-green-500" : "bg-gray-500"
-                          }`}
-                        />
+                      {/* Status badge top-right */}
+                      <div
+                        className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${cfg.text} border-current`}
+                      >
+                        <div className={`h-2 w-2 rounded-full ${cfg.dot}`} />
+                        {cfg.label}
                       </div>
                     </div>
                   </CardHeader>
@@ -250,14 +294,6 @@ export default function ProjectsPage() {
                             : "Never"}
                         </span>
                       </div>
-                      {isRunning && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground">Status</span>
-                          <span className="text-xs text-green-500 font-medium">
-                            ● Running
-                          </span>
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-2 mt-4">
