@@ -76,6 +76,10 @@ export default function LogsPage() {
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const autoRefreshRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   useEffect(() => {
     fetchProjects();
     fetchLogs();
@@ -135,6 +139,22 @@ export default function LogsPage() {
       log.protocol.toLowerCase().includes(search.toLowerCase());
     return matchSearch;
   });
+
+  // Pagination calculations
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentLogs = filtered.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, typeFilter, projectFilter, itemsPerPage]);
+
+  const handleItemsPerPageChange = (value: number) => {
+    setItemsPerPage(value);
+    setCurrentPage(1);
+  };
 
   const formatTime = (ts: string) => {
     const d = new Date(ts);
@@ -306,98 +326,194 @@ export default function LogsPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-1.5 max-h-[600px] overflow-y-auto pr-1">
-              {filtered.map((log) => {
-                const cfg = TYPE_CONFIG[log.type] || TYPE_CONFIG.event;
-                const Icon = cfg.icon;
-                const isExpanded = expandedLog === log.id;
+            <>
+              <div className="space-y-1.5 max-h-[600px] overflow-y-auto pr-1">
+                {currentLogs.map((log) => {
+                  const cfg = TYPE_CONFIG[log.type] || TYPE_CONFIG.event;
+                  const Icon = cfg.icon;
+                  const isExpanded = expandedLog === log.id;
 
-                return (
-                  <motion.div
-                    key={log.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className={`border rounded-lg overflow-hidden ${cfg.border} bg-card/50`}
-                  >
-                    <button
-                      className="w-full text-left p-3 flex items-start gap-3 hover:bg-muted/20 transition-colors"
-                      onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+                  return (
+                    <motion.div
+                      key={log.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={`border rounded-lg overflow-hidden ${cfg.border} bg-card/50`}
                     >
-                      <div
-                        className={`p-1.5 rounded-md ${cfg.bg} mt-0.5 shrink-0`}
+                      <button
+                        className="w-full text-left p-3 flex items-start gap-3 hover:bg-muted/20 transition-colors"
+                        onClick={() =>
+                          setExpandedLog(isExpanded ? null : log.id)
+                        }
                       >
-                        <Icon className={`h-3.5 w-3.5 ${cfg.color}`} />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`text-xs font-medium px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color}`}
-                          >
-                            {cfg.label}
-                          </span>
-                          <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
-                            {log.protocol}
-                          </span>
-                          {log.project && (
-                            <span className="text-xs text-muted-foreground">
-                              {log.project.name}
-                            </span>
-                          )}
-                          {log.statusCode && (
-                            <span
-                              className={`text-xs font-mono ${log.statusCode >= 400 ? "text-red-400" : "text-green-400"}`}
-                            >
-                              {log.statusCode}
-                            </span>
-                          )}
-                          {log.latency && (
-                            <span className="text-xs text-muted-foreground">
-                              {log.latency}ms
-                            </span>
-                          )}
+                        <div
+                          className={`p-1.5 rounded-md ${cfg.bg} mt-0.5 shrink-0`}
+                        >
+                          <Icon className={`h-3.5 w-3.5 ${cfg.color}`} />
                         </div>
-                        <p className="text-sm mt-1 truncate">{log.message}</p>
-                      </div>
 
-                      <div className="text-right shrink-0">
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {formatTime(log.timestamp)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(log.timestamp)}
-                        </p>
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 text-muted-foreground ml-auto mt-1 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                        />
-                      </div>
-                    </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`text-xs font-medium px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color}`}
+                            >
+                              {cfg.label}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+                              {log.protocol}
+                            </span>
+                            {log.project && (
+                              <span className="text-xs text-muted-foreground">
+                                {log.project.name}
+                              </span>
+                            )}
+                            {log.statusCode && (
+                              <span
+                                className={`text-xs font-mono ${log.statusCode >= 400 ? "text-red-400" : "text-green-400"}`}
+                              >
+                                {log.statusCode}
+                              </span>
+                            )}
+                            {log.latency && (
+                              <span className="text-xs text-muted-foreground">
+                                {log.latency}ms
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm mt-1 truncate">{log.message}</p>
+                        </div>
 
-                    {/* Expanded payload */}
-                    {isExpanded && log.payload && (
-                      <div className="border-t border-border px-3 pb-3 pt-2">
-                        <p className="text-xs text-muted-foreground mb-1.5 font-medium">
-                          Payload:
-                        </p>
-                        <pre className="text-xs bg-muted p-2 rounded-md overflow-x-auto max-h-[200px] overflow-y-auto">
-                          {(() => {
-                            try {
-                              return JSON.stringify(
-                                JSON.parse(log.payload!),
-                                null,
-                                2,
-                              );
-                            } catch {
-                              return log.payload;
-                            }
-                          })()}
-                        </pre>
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {formatTime(log.timestamp)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(log.timestamp)}
+                          </p>
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 text-muted-foreground ml-auto mt-1 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Expanded payload */}
+                      {isExpanded && log.payload && (
+                        <div className="border-t border-border px-3 pb-3 pt-2">
+                          <p className="text-xs text-muted-foreground mb-1.5 font-medium">
+                            Payload:
+                          </p>
+                          <pre className="text-xs bg-muted p-2 rounded-md overflow-x-auto max-h-[200px] overflow-y-auto">
+                            {(() => {
+                              try {
+                                return JSON.stringify(
+                                  JSON.parse(log.payload!),
+                                  null,
+                                  2,
+                                );
+                              } catch {
+                                return log.payload;
+                              }
+                            })()}
+                          </pre>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Pagination Controls */}
+              {filtered.length > 0 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-blue-50">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600">Show:</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) =>
+                        handleItemsPerPageChange(Number(e.target.value))
+                      }
+                      className="px-3 py-1.5 text-sm border border-blue-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400"
+                    >
+                      <option value={10}>10</option>
+                      <option value={15}>15</option>
+                      <option value={20}>20</option>
+                    </select>
+                    <span className="text-sm text-slate-600">
+                      entries per page
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600">
+                      Showing {indexOfFirstItem + 1} to{" "}
+                      {Math.min(indexOfLastItem, filtered.length)} of{" "}
+                      {filtered.length} logs
+                    </span>
+
+                    <div className="flex items-center gap-1 ml-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="h-8 w-8 p-0 border-blue-200 text-slate-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        ‹
+                      </Button>
+
+                      {/* Page Numbers */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                        (page) => {
+                          if (
+                            page === 1 ||
+                            page === totalPages ||
+                            (page >= currentPage - 1 && page <= currentPage + 1)
+                          ) {
+                            return (
+                              <Button
+                                key={page}
+                                variant={
+                                  currentPage === page ? "default" : "outline"
+                                }
+                                size="sm"
+                                onClick={() => setCurrentPage(page)}
+                                className={`h-8 w-8 p-0 ${
+                                  currentPage === page
+                                    ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white"
+                                    : "border-blue-200 text-slate-700 hover:bg-blue-50"
+                                }`}
+                              >
+                                {page}
+                              </Button>
+                            );
+                          } else if (
+                            page === currentPage - 2 ||
+                            page === currentPage + 2
+                          ) {
+                            return (
+                              <span key={page} className="px-1 text-slate-400">
+                                ...
+                              </span>
+                            );
+                          }
+                          return null;
+                        },
+                      )}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="h-8 w-8 p-0 border-blue-200 text-slate-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        ›
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

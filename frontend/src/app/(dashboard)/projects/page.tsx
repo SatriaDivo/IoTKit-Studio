@@ -188,10 +188,13 @@ export default function ProjectsPage() {
     toast.success("Project deleted successfully!");
   };
   const getProtocolColor = (protocol: string) => {
-    if (protocol.includes("HTTP")) return "text-blue-500";
-    if (protocol.includes("MQTT")) return "text-green-500";
-    if (protocol.includes("WS")) return "text-purple-500";
-    return "text-gray-500";
+    if (protocol.includes("HTTP"))
+      return "text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md text-xs";
+    if (protocol.includes("MQTT"))
+      return "text-green-600 bg-green-50 px-2 py-0.5 rounded-md text-xs";
+    if (protocol.includes("WS"))
+      return "text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md text-xs";
+    return "text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md text-xs";
   };
 
   if (loading) {
@@ -204,24 +207,40 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Projects</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold text-slate-800">Projects</h1>
+          <p className="text-slate-600 mt-1">
             Manage your IoT simulation projects
           </p>
         </div>
-        <Button onClick={() => router.push("/projects/new")}>
+        <Button
+          onClick={() => router.push("/projects/new")}
+          className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg"
+        >
           <Plus className="h-4 w-4 mr-2" />
           New Project
         </Button>
       </div>
 
+      {/* Empty State */}
       {projects.length === 0 ? (
-        <Card className="glass">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">No projects yet</p>
-            <Button onClick={() => router.push("/projects/new")}>
+        <Card className="bg-white border-blue-100 shadow-md">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="h-20 w-20 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+              <Plus className="h-10 w-10 text-blue-500" />
+            </div>
+            <p className="text-slate-600 mb-4 text-lg font-medium">
+              No projects yet
+            </p>
+            <p className="text-slate-500 text-sm mb-6">
+              Create your first IoT simulation project to get started
+            </p>
+            <Button
+              onClick={() => router.push("/projects/new")}
+              className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Create Your First Project
             </Button>
@@ -238,20 +257,23 @@ export default function ProjectsPage() {
               running: {
                 label: "Running",
                 dot: "bg-green-500 animate-pulse",
-                text: "text-green-500",
-                border: "border-green-500/50",
+                text: "text-green-700",
+                bg: "bg-green-50",
+                border: "border-green-200",
               },
               stopped: {
                 label: "Stopped",
                 dot: "bg-red-500",
-                text: "text-red-500",
-                border: "border-red-500/30",
+                text: "text-red-700",
+                bg: "bg-red-50",
+                border: "border-red-200",
               },
               idle: {
                 label: "Idle",
-                dot: "bg-gray-500",
-                text: "text-gray-400",
-                border: "",
+                dot: "bg-slate-400",
+                text: "text-slate-600",
+                bg: "bg-slate-50",
+                border: "border-slate-200",
               },
             };
             const cfg = statusConfig[status];
@@ -264,21 +286,21 @@ export default function ProjectsPage() {
                 transition={{ delay: index * 0.05 }}
               >
                 <Card
-                  className={`glass hover:border-primary transition-colors ${cfg.border}`}
+                  className={`bg-white border shadow-md hover:shadow-lg transition-all duration-200 ${cfg.border}`}
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg">
+                        <CardTitle className="text-lg text-slate-800">
                           {project.name}
                         </CardTitle>
-                        <CardDescription className="mt-1">
+                        <CardDescription className="mt-1 text-slate-600">
                           {project.description || "No description"}
                         </CardDescription>
                       </div>
                       {/* Status badge top-right */}
                       <div
-                        className={`flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full border ${cfg.text} border-current`}
+                        className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.text} border ${cfg.border}`}
                       >
                         <div className={`h-2 w-2 rounded-full ${cfg.dot}`} />
                         {cfg.label}
@@ -288,7 +310,7 @@ export default function ProjectsPage() {
                   <CardContent>
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Protocol</span>
+                        <span className="text-slate-500">Protocol</span>
                         <span
                           className={`font-medium ${getProtocolColor(project.protocol)}`}
                         >
@@ -296,16 +318,14 @@ export default function ProjectsPage() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Host</span>
-                        <span className="font-medium truncate ml-2">
+                        <span className="text-slate-500">Host</span>
+                        <span className="font-medium text-slate-700 truncate ml-2">
                           {project.host}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">
-                          Last Activity
-                        </span>
-                        <span className="text-xs">
+                        <span className="text-slate-500">Last Activity</span>
+                        <span className="text-xs text-slate-600">
                           {project.lastActivity
                             ? formatDate(project.lastActivity)
                             : "Never"}
@@ -317,7 +337,7 @@ export default function ProjectsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1"
+                        className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
                         onClick={() => router.push(`/projects/${project.id}`)}
                       >
                         <Edit className="h-3 w-3 mr-1" />
@@ -329,7 +349,7 @@ export default function ProjectsPage() {
                           size="sm"
                           onClick={() => handleStart(project.id)}
                           disabled={isLoading}
-                          className="flex-1"
+                          className="flex-1 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white"
                         >
                           <Play className="h-3 w-3 mr-1" />
                           {isLoading ? "..." : "Start"}
@@ -340,7 +360,7 @@ export default function ProjectsPage() {
                           variant="destructive"
                           onClick={() => handleStop(project.id)}
                           disabled={isLoading}
-                          className="flex-1"
+                          className="flex-1 bg-red-500 hover:bg-red-600"
                         >
                           <Square className="h-3 w-3 mr-1" />
                           {isLoading ? "..." : "Stop"}
@@ -372,32 +392,34 @@ export default function ProjectsPage() {
 
       {/* Custom Delete Confirmation Dialog */}
       {deleteDialog.open && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden"
+            className="bg-white border border-blue-100 rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center gap-3 p-6 border-b border-border">
-              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                <Trash2 className="h-5 w-5 text-destructive" />
+            <div className="flex items-center gap-3 p-6 border-b border-blue-100">
+              <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-red-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold">Delete Project</h2>
-                <p className="text-sm text-muted-foreground">
+                <h2 className="text-lg font-semibold text-slate-800">
+                  Delete Project
+                </h2>
+                <p className="text-sm text-slate-600">
                   This action cannot be undone
                 </p>
               </div>
             </div>
 
             {/* Body */}
-            <div className="p-6">
-              <p className="text-sm text-muted-foreground">
+            <div className="p-6 bg-slate-50/50">
+              <p className="text-sm text-slate-700">
                 Are you sure you want to delete{" "}
-                <span className="font-semibold text-foreground">
-                  "{deleteDialog.projectName}"
+                <span className="font-semibold text-slate-900">
+                  &quot;{deleteDialog.projectName}&quot;
                 </span>
                 ? All payload configurations, simulation history, and logs will
                 be permanently removed.
@@ -405,9 +427,10 @@ export default function ProjectsPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 pb-6">
+            <div className="flex items-center justify-end gap-3 px-6 pb-6 pt-4">
               <Button
                 variant="outline"
+                className="border-slate-200 text-slate-700 hover:bg-slate-50"
                 onClick={() =>
                   setDeleteDialog({
                     open: false,
@@ -418,7 +441,11 @@ export default function ProjectsPage() {
               >
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={confirmDelete}>
+              <Button
+                variant="destructive"
+                className="bg-red-500 hover:bg-red-600 text-white"
+                onClick={confirmDelete}
+              >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Project
               </Button>
