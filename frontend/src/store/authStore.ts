@@ -9,7 +9,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => void;
-  checkAuth: () => void;
+  checkAuth: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -42,10 +42,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, token: null, isAuthenticated: false });
   },
 
-  checkAuth: () => {
+  checkAuth: async () => {
     const token = localStorage.getItem("token");
     if (token) {
-      set({ token, isAuthenticated: true });
+      try {
+        // Fetch user data with the token
+        const response = await api.get("/auth/me");
+        set({ user: response.data, token, isAuthenticated: true });
+      } catch (error) {
+        // Token invalid, clear it
+        localStorage.removeItem("token");
+        set({ user: null, token: null, isAuthenticated: false });
+      }
+    } else {
+      set({ user: null, token: null, isAuthenticated: false });
     }
   },
 }));

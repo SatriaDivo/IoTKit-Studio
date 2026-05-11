@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import Sidebar from "@/components/layout/Sidebar";
@@ -13,13 +13,30 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const { isAuthenticated, checkAuth } = useAuthStore();
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    checkAuth();
-    if (!isAuthenticated) {
+    const verify = async () => {
+      await checkAuth();
+      setChecking(false);
+    };
+    verify();
+  }, []);
+
+  useEffect(() => {
+    if (!checking && !isAuthenticated) {
       router.push("/login");
     }
-  }, [isAuthenticated, checkAuth, router]);
+  }, [checking, isAuthenticated, router]);
+
+  // Show loading spinner while checking auth
+  if (checking) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return null;
