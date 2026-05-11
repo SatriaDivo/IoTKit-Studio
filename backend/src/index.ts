@@ -8,6 +8,11 @@ import { errorHandler } from "./middleware/errorHandler";
 import { rateLimiter } from "./middleware/rateLimiter";
 import { Logger } from "./utils/logger";
 
+// Import services
+import { schedulerManager } from "./services/scheduler";
+import { jobManager } from "./services/jobManager";
+import { heraService, droneService, carbonService } from "./modules";
+
 // Import routes
 import authRoutes from "./routes/auth";
 import projectRoutes from "./routes/projects";
@@ -78,17 +83,57 @@ io.on("connection", (socket) => {
 // Export io for use in other modules
 export { io };
 
+// Initialize services
+async function initializeServices() {
+  try {
+    // Start scheduler
+    schedulerManager.start();
+    Logger.info("✅ Scheduler started");
+
+    // Register modules
+    jobManager.registerModule("hera", heraService);
+    jobManager.registerModule("drone", droneService);
+    jobManager.registerModule("carbon", carbonService);
+    Logger.info("✅ Modules registered: HERA, DRONE, Carbon");
+
+    Logger.info("✅ All services initialized");
+  } catch (error: any) {
+    Logger.error("❌ Failed to initialize services:", error);
+    process.exit(1);
+  }
+}
+
 // Start server
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
   Logger.info(`🚀 IoTKit-Studio Backend running on port ${PORT}`);
   Logger.info(`Environment: ${process.env.NODE_ENV || "development"}`);
+
+  // Initialize services after server starts
+  await initializeServices();
 });
 
 // Graceful shutdown
-process.on("SIGTERM", () => {
-  Logger.info("SIGTERM signal received: closing HTTP server");
+async function gracefulShutdown(signal: string) {
+  Logger.info(`${signal} signal received: closing HTTP server`);
+
+  // Shutdown job manager
+  await jobManager.shutdown();
+
+  // Shutdown scheduler
+  schedulerManager.shutdown();
+
+  // Close HTTP server
   httpServer.close(() => {
     Logger.info("HTTP server closed");
     process.exit(0);
   });
-});
+
+  // Force exit after 10 seconds
+  setTimeout(() => {
+    Logger.error("Forced shutdown after timeout");
+    process.exit(1);
+  }, 10000);
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

@@ -46,6 +46,12 @@ export class SimulationController {
         project,
       );
 
+      // Update project status to active
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { status: "active" },
+      });
+
       await prisma.simulation.create({
         data: {
           projectId,
@@ -78,6 +84,12 @@ export class SimulationController {
       }
 
       simulationManager.stopSimulation(projectId);
+
+      // Update project status to inactive
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { status: "inactive" },
+      });
 
       const simulation = await prisma.simulation.findFirst({
         where: {

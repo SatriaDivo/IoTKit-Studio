@@ -128,7 +128,12 @@ export default function ProjectsPage() {
       const payloads = payloadRes.data;
 
       if (!payloads || payloads.length === 0) {
-        toast.error("No payload configured. Please configure payload first.");
+        toast.error(
+          "No payload configured. Redirecting to project settings...",
+        );
+        setActionLoading((prev) => ({ ...prev, [projectId]: false }));
+        // Redirect to project detail page to configure payload
+        router.push(`/projects/${projectId}`);
         return;
       }
 

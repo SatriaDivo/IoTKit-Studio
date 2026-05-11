@@ -55,18 +55,36 @@ model Payload {
 
 model Simulation {
   id              String   @id @default(uuid())
-  status          String   @default("stopped") // running, stopped, paused
-  interval        Int      @default(1000) // milliseconds
+  jobId           String?  @unique // For job manager
+  moduleName      String   @default("custom") // hera, drone, carbon, custom
+  mode            String   @default("interval") // interval, manual, scenario
+  status          String   @default("idle") // idle, running, stopped, error
+  interval        Int      @default(5000) // milliseconds
   batchSize       Int      @default(1)
+  targetCount     Int?     // Auto-stop after N sends
+  payloadKind     String?  // For modules with multiple kinds
+  payloadOptions  String?  // JSON string
+  
+  // Stats
   totalSent       Int      @default(0)
   successCount    Int      @default(0)
   errorCount      Int      @default(0)
+  
+  // Tracking
+  lastRunAt       DateTime?
+  lastPayload     String?  // JSON string
+  lastResponse    String?  // JSON string
+  lastError       String?
+  
   startedAt       DateTime?
   stoppedAt       DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   projectId       String
   project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([moduleName, status])
+  @@index([projectId, status])
 }
 
 model Log {
@@ -80,4 +98,24 @@ model Log {
   timestamp   DateTime @default(now())
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Dataset {
+  id                String   @id @default(uuid())
+  moduleName        String   // hera, drone, carbon
+  fileName          String
+  filePath          String
+  filePathRelative  String?
+  fileSizeBytes     BigInt
+  checksumSha256    String
+  delimiter         String   @default(",")
+  loadedRows        Int      @default(0)
+  skippedRows       Int      @default(0)
+  isActive          Boolean  @default(false)
+  lastLoadedAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([moduleName, fileName])
+  @@index([moduleName, isActive])
 }

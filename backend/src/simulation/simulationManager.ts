@@ -100,18 +100,38 @@ export class SimulationManager extends EventEmitter {
           stats.errorCount++;
         }
 
-        // Save log to database
+        // Save log to database - request
         await prisma.log.create({
           data: {
             type: "request",
             protocol: project.protocol,
-            message: `Payload sent to ${project.host}`,
+            message: `→ POST ${project.endpoint || "/"} | ${result.latency}ms | ${result.statusCode}`,
             payload: JSON.stringify(payload),
             statusCode: result.statusCode || null,
             latency: result.latency || null,
             projectId,
           },
         });
+
+        // For HTTP: also save the server response as a separate log entry
+        if (
+          (project.protocol === "HTTP" || project.protocol === "HTTPS") &&
+          result.data !== undefined
+        ) {
+          await prisma.log.create({
+            data: {
+              type: result.success ? "response" : "error",
+              protocol: project.protocol,
+              message: result.success
+                ? `← ${result.statusCode} OK`
+                : `← ${result.statusCode} Error`,
+              payload: JSON.stringify(result.data),
+              statusCode: result.statusCode || null,
+              latency: result.latency || null,
+              projectId,
+            },
+          });
+        }
 
         this.emit("payloadSent", {
           projectId,
