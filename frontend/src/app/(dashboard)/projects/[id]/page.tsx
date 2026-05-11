@@ -63,8 +63,8 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (params.id) {
       fetchProject(params.id as string).finally(() => setLoading(false));
-      // Don't fetch simulation status on load to avoid 404 errors
-      // Status will be checked when user clicks Start Simulation
+      // Fetch simulation status on page load to sync state with backend
+      fetchSimulationStatus();
     }
 
     // Cleanup on unmount - stop all polling
@@ -202,22 +202,21 @@ export default function ProjectDetailPage() {
   const fetchSimulationStatus = async () => {
     try {
       const response = await api.get(`/simulations/status/${params.id}`);
-      setIsSimulationRunning(response.data.isRunning);
-      if (response.data.stats) {
-        setSimulationStats(response.data.stats);
-      }
+      const { isRunning, stats } = response.data;
 
-      // Start polling if simulation is running
-      if (response.data.isRunning && !statsInterval) {
+      setIsSimulationRunning(isRunning);
+      if (stats) setSimulationStats(stats);
+
+      // If simulation is already running (user navigated away and came back),
+      // resume polling automatically
+      if (isRunning) {
         startStatsPolling();
       }
     } catch (error: any) {
-      // Silently ignore 404 errors (project has no simulation yet)
-      // This is normal for new projects
+      // Silently ignore 404 - project has no simulation yet, this is normal
       if (error.response?.status !== 404) {
         console.error("Failed to fetch simulation status:", error);
       }
-      // Make sure we're not running
       setIsSimulationRunning(false);
     }
   };
@@ -226,24 +225,20 @@ export default function ProjectDetailPage() {
     // Don't start if already polling
     if (statsInterval) return;
 
-    // Poll every 2 seconds
     const interval = setInterval(async () => {
       try {
         const response = await api.get(`/simulations/status/${params.id}`);
-        if (response.data.stats) {
-          setSimulationStats(response.data.stats);
-        }
-        if (!response.data.isRunning) {
+        const { isRunning, stats } = response.data;
+
+        if (stats) setSimulationStats(stats);
+
+        if (!isRunning) {
           setIsSimulationRunning(false);
           stopStatsPolling();
         }
       } catch (error: any) {
-        // Stop polling on critical errors
         if (error.response?.status === 404 || error.response?.status === 401) {
-          console.error(
-            "Stopping stats polling due to error:",
-            error.response?.status,
-          );
+          setIsSimulationRunning(false);
           stopStatsPolling();
         }
       }
