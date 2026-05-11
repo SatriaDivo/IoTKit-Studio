@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Edit, Play } from "lucide-react";
+import { Plus, Trash2, Edit } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,8 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects().finally(() => setLoading(false));
-  }, [fetchProjects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this project?")) {
@@ -136,15 +137,6 @@ export default function ProjectsPage() {
                     >
                       <Edit className="h-3 w-3 mr-1" />
                       Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        router.push(`/simulation?project=${project.id}`)
-                      }
-                    >
-                      <Play className="h-3 w-3" />
                     </Button>
                     <Button
                       size="sm"

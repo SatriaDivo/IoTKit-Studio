@@ -68,13 +68,13 @@ export default function ProjectDetailPage() {
       fetchSimulationStatus();
     }
 
-    // Cleanup: guaranteed to stop polling on unmount using ref
     return () => {
       if (statsIntervalRef.current) {
         clearInterval(statsIntervalRef.current);
         statsIntervalRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   const addPayloadField = () => {
