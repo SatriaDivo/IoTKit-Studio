@@ -351,13 +351,13 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 items-start">
         {/* Project Info */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="glass">
+          <Card className="glass h-[500px]">
             <CardHeader>
               <CardTitle>Project Information</CardTitle>
               <CardDescription>Basic project configuration</CardDescription>
@@ -420,7 +420,7 @@ export default function ProjectDetailPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <Card className="glass">
+          <Card className="glass h-[500px] flex flex-col">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -445,7 +445,7 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-hidden">
               {payloadFields.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <p className="text-sm mb-4">No fields added yet</p>
@@ -455,9 +455,9 @@ export default function ProjectDetailPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="h-full flex flex-col space-y-4">
                   {/* Scrollable Fields List */}
-                  <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2">
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-2">
                     {payloadFields.map((field, index) => (
                       <div
                         key={index}
