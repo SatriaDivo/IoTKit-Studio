@@ -34,6 +34,12 @@ export default function ProjectsPage() {
   >({});
   const intervalsRef = useRef<Record<string, NodeJS.Timeout>>({});
   const idleTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
+  // Delete confirmation dialog
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    projectId: string;
+    projectName: string;
+  }>({ open: false, projectId: "", projectName: "" });
 
   useEffect(() => {
     fetchProjects().finally(() => setLoading(false));
@@ -170,6 +176,12 @@ export default function ProjectsPage() {
     }
   };
 
+  const confirmDelete = async () => {
+    stopPolling(deleteDialog.projectId);
+    await deleteProject(deleteDialog.projectId);
+    setDeleteDialog({ open: false, projectId: "", projectName: "" });
+    toast.success("Project deleted successfully!");
+  };
   const getProtocolColor = (protocol: string) => {
     if (protocol.includes("HTTP")) return "text-blue-500";
     if (protocol.includes("MQTT")) return "text-green-500";
@@ -333,7 +345,13 @@ export default function ProjectsPage() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => handleDelete(project.id)}
+                        onClick={() =>
+                          setDeleteDialog({
+                            open: true,
+                            projectId: project.id,
+                            projectName: project.name,
+                          })
+                        }
                         disabled={isRunning}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -344,6 +362,63 @@ export default function ProjectsPage() {
               </motion.div>
             );
           })}
+        </div>
+      )}
+
+      {/* Custom Delete Confirmation Dialog */}
+      {deleteDialog.open && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 p-6 border-b border-border">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Delete Project</h2>
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-6">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete{" "}
+                <span className="font-semibold text-foreground">
+                  "{deleteDialog.projectName}"
+                </span>
+                ? All payload configurations, simulation history, and logs will
+                be permanently removed.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 pb-6">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setDeleteDialog({
+                    open: false,
+                    projectId: "",
+                    projectName: "",
+                  })
+                }
+              >
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDelete}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Project
+              </Button>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>
