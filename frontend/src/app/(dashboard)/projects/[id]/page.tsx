@@ -69,10 +69,11 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (params.id) {
       fetchProject(params.id as string).finally(() => setLoading(false));
-      fetchSimulationStatus();
+      // Don't fetch simulation status on load to avoid 404 errors
+      // Status will be checked when user clicks Start Simulation
     }
 
-    // Cleanup on unmount
+    // Cleanup on unmount - stop all polling
     return () => {
       stopStatsPolling();
     };
@@ -197,10 +198,13 @@ export default function ProjectDetailPage() {
         startStatsPolling();
       }
     } catch (error: any) {
-      // Only log error if it's not a 404 (project might not have simulation yet)
+      // Silently ignore 404 errors (project has no simulation yet)
+      // This is normal for new projects
       if (error.response?.status !== 404) {
         console.error("Failed to fetch simulation status:", error);
       }
+      // Make sure we're not running
+      setIsSimulationRunning(false);
     }
   };
 
