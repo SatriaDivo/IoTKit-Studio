@@ -3,16 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  Save,
-  Play,
-  Trash2,
-  Plus,
-  X,
-  Upload,
-  Square,
-} from "lucide-react";
+import { ArrowLeft, Save, Play, Plus, X, Upload, Square } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +57,9 @@ export default function ProjectDetailPage() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importJson, setImportJson] = useState("");
 
+  // Track if payload has been modified
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
   useEffect(() => {
     if (params.id) {
       fetchProject(params.id as string).finally(() => setLoading(false));
@@ -90,10 +84,12 @@ export default function ProjectDetailPage() {
         required: false,
       },
     ]);
+    setHasUnsavedChanges(true);
   };
 
   const removePayloadField = (index: number) => {
     setPayloadFields(payloadFields.filter((_, i) => i !== index));
+    setHasUnsavedChanges(true);
   };
 
   const updatePayloadField = (
@@ -105,6 +101,7 @@ export default function ProjectDetailPage() {
         i === index ? { ...field, ...updates } : field,
       ),
     );
+    setHasUnsavedChanges(true);
   };
 
   const handleSave = async () => {
@@ -115,7 +112,6 @@ export default function ProjectDetailPage() {
 
     setSaving(true);
     try {
-      // Save payload configuration to backend
       await api.post("/payloads", {
         name: `${currentProject?.name} Payload`,
         structure: payloadFields,
@@ -123,6 +119,7 @@ export default function ProjectDetailPage() {
         projectId: params.id,
       });
 
+      setHasUnsavedChanges(false);
       toast.success("Configuration saved successfully!");
     } catch (error: any) {
       console.error("Failed to save configuration:", error);
@@ -142,9 +139,28 @@ export default function ProjectDetailPage() {
       return;
     }
 
+    // Auto-save if there are unsaved changes
+    if (hasUnsavedChanges) {
+      toast("Saving payload first...", { icon: "💾" });
+      setSaving(true);
+      try {
+        await api.post("/payloads", {
+          name: `${currentProject?.name} Payload`,
+          structure: payloadFields,
+          template: false,
+          projectId: params.id,
+        });
+        setHasUnsavedChanges(false);
+      } catch (error: any) {
+        toast.error("Failed to save payload before starting");
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+    }
+
     setStarting(true);
     try {
-      // Start simulation
       await api.post("/simulations/start", {
         projectId: params.id,
         payloadStructure: payloadFields,
@@ -154,8 +170,6 @@ export default function ProjectDetailPage() {
 
       setIsSimulationRunning(true);
       toast.success("Simulation started successfully!");
-
-      // Start polling for stats
       startStatsPolling();
     } catch (error: any) {
       console.error("Failed to start simulation:", error);
@@ -295,6 +309,7 @@ export default function ProjectDetailPage() {
 
       processObject(parsed);
       setPayloadFields(fields);
+      setHasUnsavedChanges(true);
       setShowImportDialog(false);
       setImportJson("");
       toast.success(`Successfully imported ${fields.length} fields!`);
@@ -327,6 +342,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
+      {console.log("Render - isSimulationRunning:", isSimulationRunning)}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
@@ -355,29 +371,28 @@ export default function ProjectDetailPage() {
           <Button
             variant="outline"
             onClick={handleSave}
-            disabled={saving || isSimulationRunning}
+            disabled={saving || isSimulationRunning || !hasUnsavedChanges}
           >
             <Save className="h-4 w-4 mr-2" />
             {saving ? "Updating..." : "Update"}
           </Button>
-          {!isSimulationRunning ? (
-            <Button
-              onClick={handleStartSimulation}
-              disabled={starting || payloadFields.length === 0}
-            >
-              <Play className="h-4 w-4 mr-2" />
-              {starting ? "Starting..." : "Start Simulation"}
-            </Button>
-          ) : (
-            <Button
-              variant="destructive"
-              onClick={handleStopSimulation}
-              disabled={stopping}
-            >
-              <Square className="h-4 w-4 mr-2" />
-              {stopping ? "Stopping..." : "Stop Simulation"}
-            </Button>
-          )}
+          <Button
+            onClick={handleStartSimulation}
+            disabled={
+              starting || payloadFields.length === 0 || isSimulationRunning
+            }
+          >
+            <Play className="h-4 w-4 mr-2" />
+            {starting ? "Starting..." : "Start Simulation"}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleStopSimulation}
+            disabled={stopping || !isSimulationRunning}
+          >
+            <Square className="h-4 w-4 mr-2" />
+            {stopping ? "Stopping..." : "Stop Simulation"}
+          </Button>
         </div>
       </div>
 
@@ -824,26 +839,6 @@ export default function ProjectDetailPage() {
           </Card>
         </motion.div>
       )}
-
-      {/* Danger Zone */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <Card className="glass border-destructive/50">
-          <CardHeader>
-            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-            <CardDescription>Irreversible actions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="destructive" disabled>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Project
-            </Button>
-          </CardContent>
-        </Card>
-      </motion.div>
 
       {/* Import JSON Dialog */}
       {showImportDialog && (
