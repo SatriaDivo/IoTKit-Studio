@@ -23,16 +23,17 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const params = useParams();
   const { currentProject, fetchProject } = useProjectStore();
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
   const [simulationStats, setSimulationStats] = useState<any>(null);
-  // Use ref to store interval - guaranteed cleanup, no stale closure
-  const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importJson, setImportJson] = useState("");
 
-  // Payload fields state
   const [payloadFields, setPayloadFields] = useState<PayloadField[]>([
     {
       name: "temperature",
@@ -45,34 +46,73 @@ export default function ProjectDetailPage() {
     },
   ]);
 
-  // Simulation settings state
   const [simulationSettings, setSimulationSettings] = useState({
     interval: 1000,
     batchSize: 1,
     duration: 0,
   });
 
-  // Import payload state
-  const [showImportDialog, setShowImportDialog] = useState(false);
-  const [importJson, setImportJson] = useState("");
+  // Ref-based interval — immune to stale closures
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const projectIdRef = useRef<string>("");
 
-  // Track if payload has been modified
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  // ─── Polling helpers ────────────────────────────────────────────────────────
+
+  const clearPolling = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const startPolling = (projectId: string) => {
+    clearPolling(); // ensure no duplicate
+    intervalRef.current = setInterval(async () => {
+      try {
+        const res = await api.get(`/simulations/status/${projectId}`);
+        const { isRunning, stats } = res.data;
+        if (stats) setSimulationStats(stats);
+        if (!isRunning) {
+          setIsSimulationRunning(false);
+          clearPolling();
+        }
+      } catch (err: any) {
+        if (err.response?.status === 404 || err.response?.status === 401) {
+          setIsSimulationRunning(false);
+          clearPolling();
+        }
+      }
+    }, 5000);
+  };
+
+  // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (params.id) {
-      fetchProject(params.id as string).finally(() => setLoading(false));
-      fetchSimulationStatus();
-    }
+    const id = params.id as string;
+    if (!id) return;
 
-    return () => {
-      if (statsIntervalRef.current) {
-        clearInterval(statsIntervalRef.current);
-        statsIntervalRef.current = null;
-      }
-    };
+    projectIdRef.current = id;
+    fetchProject(id).finally(() => setLoading(false));
+
+    // Check if simulation is already running when entering the page
+    api
+      .get(`/simulations/status/${id}`)
+      .then(({ data }) => {
+        setIsSimulationRunning(data.isRunning);
+        if (data.stats) setSimulationStats(data.stats);
+        if (data.isRunning) startPolling(id);
+      })
+      .catch(() => {
+        // 404 = no simulation yet, that's fine
+        setIsSimulationRunning(false);
+      });
+
+    // Cleanup on unmount — guaranteed via ref
+    return () => clearPolling();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  // ─── Payload helpers ─────────────────────────────────────────────────────────
 
   const addPayloadField = () => {
     setPayloadFields([
@@ -98,62 +138,54 @@ export default function ProjectDetailPage() {
     updates: Partial<PayloadField>,
   ) => {
     setPayloadFields(
-      payloadFields.map((field, i) =>
-        i === index ? { ...field, ...updates } : field,
-      ),
+      payloadFields.map((f, i) => (i === index ? { ...f, ...updates } : f)),
     );
     setHasUnsavedChanges(true);
   };
 
+  // ─── Save ────────────────────────────────────────────────────────────────────
+
+  const savePayload = async () => {
+    await api.post("/payloads", {
+      name: `${currentProject?.name} Payload`,
+      structure: payloadFields,
+      template: false,
+      projectId: params.id,
+    });
+    setHasUnsavedChanges(false);
+  };
+
   const handleSave = async () => {
     if (payloadFields.length === 0) {
-      toast.error("Please add at least one payload field");
+      toast.error("Add at least one payload field");
       return;
     }
-
     setSaving(true);
     try {
-      await api.post("/payloads", {
-        name: `${currentProject?.name} Payload`,
-        structure: payloadFields,
-        template: false,
-        projectId: params.id,
-      });
-
-      setHasUnsavedChanges(false);
-      toast.success("Configuration saved successfully!");
-    } catch (error: any) {
-      console.error("Failed to save configuration:", error);
-      toast.error(
-        error.response?.data?.error || "Failed to save configuration",
-      );
+      await savePayload();
+      toast.success("Configuration saved!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to save");
     } finally {
       setSaving(false);
     }
   };
 
+  // ─── Simulation ──────────────────────────────────────────────────────────────
+
   const handleStartSimulation = async () => {
     if (payloadFields.length === 0) {
-      toast.error(
-        "Please add at least one payload field before starting simulation",
-      );
+      toast.error("Add at least one payload field");
       return;
     }
 
-    // Auto-save if there are unsaved changes
     if (hasUnsavedChanges) {
       toast("Saving payload first...", { icon: "💾" });
       setSaving(true);
       try {
-        await api.post("/payloads", {
-          name: `${currentProject?.name} Payload`,
-          structure: payloadFields,
-          template: false,
-          projectId: params.id,
-        });
-        setHasUnsavedChanges(false);
-      } catch (error: any) {
-        toast.error("Failed to save payload before starting");
+        await savePayload();
+      } catch {
+        toast.error("Failed to save payload");
         setSaving(false);
         return;
       }
@@ -168,13 +200,11 @@ export default function ProjectDetailPage() {
         interval: simulationSettings.interval,
         batchSize: simulationSettings.batchSize,
       });
-
       setIsSimulationRunning(true);
-      toast.success("Simulation started successfully!");
-      startStatsPolling();
-    } catch (error: any) {
-      console.error("Failed to start simulation:", error);
-      toast.error(error.response?.data?.error || "Failed to start simulation");
+      toast.success("Simulation started!");
+      startPolling(params.id as string);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to start simulation");
     } finally {
       setStarting(false);
     }
@@ -183,138 +213,73 @@ export default function ProjectDetailPage() {
   const handleStopSimulation = async () => {
     setStopping(true);
     try {
-      await api.post("/simulations/stop", {
-        projectId: params.id,
-      });
-
+      await api.post("/simulations/stop", { projectId: params.id });
       setIsSimulationRunning(false);
-      toast.success("Simulation stopped successfully!");
-
-      // Stop polling
-      stopStatsPolling();
-    } catch (error: any) {
-      console.error("Failed to stop simulation:", error);
-      toast.error(error.response?.data?.error || "Failed to stop simulation");
+      clearPolling();
+      toast.success("Simulation stopped!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to stop simulation");
     } finally {
       setStopping(false);
     }
   };
 
-  const stopStatsPolling = () => {
-    if (statsIntervalRef.current) {
-      clearInterval(statsIntervalRef.current);
-      statsIntervalRef.current = null;
-    }
-  };
-
-  const startStatsPolling = () => {
-    // Prevent duplicate intervals
-    if (statsIntervalRef.current) return;
-
-    statsIntervalRef.current = setInterval(async () => {
-      try {
-        const response = await api.get(`/simulations/status/${params.id}`);
-        const { isRunning, stats } = response.data;
-        if (stats) setSimulationStats(stats);
-        if (!isRunning) {
-          setIsSimulationRunning(false);
-          // Clear via ref directly - no stale closure issue
-          if (statsIntervalRef.current) {
-            clearInterval(statsIntervalRef.current);
-            statsIntervalRef.current = null;
-          }
-        }
-      } catch (error: any) {
-        if (error.response?.status === 404 || error.response?.status === 401) {
-          setIsSimulationRunning(false);
-          if (statsIntervalRef.current) {
-            clearInterval(statsIntervalRef.current);
-            statsIntervalRef.current = null;
-          }
-        }
-      }
-    }, 5000);
-  };
-
-  const fetchSimulationStatus = async () => {
-    try {
-      const response = await api.get(`/simulations/status/${params.id}`);
-      const { isRunning, stats } = response.data;
-      setIsSimulationRunning(isRunning);
-      if (stats) setSimulationStats(stats);
-      if (isRunning) startStatsPolling();
-    } catch (error: any) {
-      if (error.response?.status !== 404) {
-        console.error("Failed to fetch simulation status:", error);
-      }
-      setIsSimulationRunning(false);
-    }
-  };
+  // ─── Import JSON ─────────────────────────────────────────────────────────────
 
   const handleImportPayload = () => {
     try {
       const parsed = JSON.parse(importJson);
       const fields: PayloadField[] = [];
-
       const processObject = (obj: any, prefix = "") => {
         Object.entries(obj).forEach(([key, value]) => {
-          const fieldName = prefix ? `${prefix}.${key}` : key;
-          const valueType = typeof value;
-
-          if (
-            valueType === "object" &&
-            value !== null &&
-            !Array.isArray(value)
-          ) {
-            // Nested object - process recursively
-            processObject(value, fieldName);
+          const name = prefix ? `${prefix}.${key}` : key;
+          const t = typeof value;
+          if (t === "object" && value !== null && !Array.isArray(value)) {
+            processObject(value, name);
           } else {
-            // Create field based on value type
-            let field: PayloadField = {
-              name: fieldName,
+            const field: PayloadField = {
+              name,
               type: "string",
               mode: "static",
               value: "",
               required: false,
             };
-
-            if (valueType === "number") {
+            if (t === "number") {
               field.type = "number";
               field.mode = "random";
               field.min = 0;
               field.max = 100;
               field.value = value;
-            } else if (valueType === "boolean") {
+            } else if (t === "boolean") {
               field.type = "boolean";
               field.mode = "static";
               field.value = value;
-            } else if (valueType === "string") {
+            } else {
               field.type = "string";
               field.mode = "static";
               field.value = value;
             }
-
             fields.push(field);
           }
         });
       };
-
       processObject(parsed);
       setPayloadFields(fields);
       setHasUnsavedChanges(true);
       setShowImportDialog(false);
       setImportJson("");
-      toast.success(`Successfully imported ${fields.length} fields!`);
-    } catch (error) {
-      toast.error("Invalid JSON format. Please check your input.");
-      console.error("Import error:", error);
+      toast.success(`Imported ${fields.length} fields!`);
+    } catch {
+      toast.error("Invalid JSON format.");
     }
   };
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
       </div>
     );
   }
@@ -334,7 +299,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      {console.log("Render - isSimulationRunning:", isSimulationRunning)}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
@@ -388,8 +353,9 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
+      {/* Project Info + Payload Config */}
       <div className="grid gap-6 md:grid-cols-2 items-start">
-        {/* Project Info */}
+        {/* Left: Project Info */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -436,13 +402,7 @@ export default function ProjectDetailPage() {
                 <Label>Status</Label>
                 <div className="flex items-center gap-2">
                   <div
-                    className={`h-2 w-2 rounded-full ${
-                      currentProject.status === "active"
-                        ? "bg-green-500"
-                        : currentProject.status === "error"
-                          ? "bg-red-500"
-                          : "bg-gray-500"
-                    }`}
+                    className={`h-2 w-2 rounded-full ${currentProject.status === "active" ? "bg-green-500" : currentProject.status === "error" ? "bg-red-500" : "bg-gray-500"}`}
                   />
                   <span className="capitalize">{currentProject.status}</span>
                 </div>
@@ -451,7 +411,7 @@ export default function ProjectDetailPage() {
           </Card>
         </motion.div>
 
-        {/* Payload Configuration */}
+        {/* Right: Payload Configuration */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -493,7 +453,6 @@ export default function ProjectDetailPage() {
                 </div>
               ) : (
                 <div className="h-full flex flex-col space-y-4">
-                  {/* Scrollable Fields List */}
                   <div className="flex-1 overflow-y-auto space-y-2 pr-2">
                     {payloadFields.map((field, index) => (
                       <div
@@ -508,7 +467,6 @@ export default function ProjectDetailPage() {
                         >
                           <X className="h-3 w-3" />
                         </Button>
-
                         <div className="grid grid-cols-4 gap-2 pr-6">
                           <div className="space-y-1">
                             <Label className="text-xs">Name</Label>
@@ -523,7 +481,6 @@ export default function ProjectDetailPage() {
                               className="h-8 text-xs"
                             />
                           </div>
-
                           <div className="space-y-1">
                             <Label className="text-xs">Type</Label>
                             <select
@@ -540,7 +497,6 @@ export default function ProjectDetailPage() {
                               <option value="boolean">Boolean</option>
                             </select>
                           </div>
-
                           <div className="space-y-1">
                             <Label className="text-xs">Mode</Label>
                             <select
@@ -558,7 +514,6 @@ export default function ProjectDetailPage() {
                               <option value="timestamp">Time</option>
                             </select>
                           </div>
-
                           {field.type === "number" && (
                             <div className="space-y-1">
                               <Label className="text-xs">Unit</Label>
@@ -575,8 +530,6 @@ export default function ProjectDetailPage() {
                             </div>
                           )}
                         </div>
-
-                        {/* Second row for value/range inputs */}
                         <div className="grid grid-cols-4 gap-2 pr-6">
                           {field.mode === "static" && (
                             <div className="space-y-1 col-span-2">
@@ -593,7 +546,6 @@ export default function ProjectDetailPage() {
                               />
                             </div>
                           )}
-
                           {field.mode === "random" &&
                             field.type === "number" && (
                               <div className="space-y-1 col-span-4">
@@ -627,13 +579,10 @@ export default function ProjectDetailPage() {
                                 </div>
                               </div>
                             )}
-
                           {field.mode === "incremental" &&
                             field.type === "number" && (
                               <div className="space-y-1 col-span-2">
-                                <Label className="text-xs">
-                                  Start Value (optional)
-                                </Label>
+                                <Label className="text-xs">Start Value</Label>
                                 <Input
                                   type="number"
                                   value={field.value || 0}
@@ -651,8 +600,6 @@ export default function ProjectDetailPage() {
                       </div>
                     ))}
                   </div>
-
-                  {/* JSON Preview */}
                   <div className="border-t pt-3">
                     <h4 className="text-xs font-semibold mb-2">
                       JSON Preview:
@@ -660,23 +607,17 @@ export default function ProjectDetailPage() {
                     <pre className="bg-muted p-2 rounded-md text-xs overflow-x-auto max-h-[120px] overflow-y-auto">
                       {JSON.stringify(
                         payloadFields.reduce(
-                          (acc, field) => {
-                            let value;
-                            if (field.mode === "static") {
-                              value = field.value;
-                            } else if (
-                              field.mode === "random" &&
-                              field.type === "number"
-                            ) {
-                              value = `<random ${field.min}-${field.max}>`;
-                            } else if (field.mode === "incremental") {
-                              value = "<incremental>";
-                            } else if (field.mode === "timestamp") {
-                              value = "<timestamp>";
-                            } else {
-                              value = `<${field.mode}>`;
-                            }
-                            acc[field.name] = value;
+                          (acc, f) => {
+                            acc[f.name] =
+                              f.mode === "static"
+                                ? f.value
+                                : f.mode === "random" && f.type === "number"
+                                  ? `<random ${f.min}-${f.max}>`
+                                  : f.mode === "incremental"
+                                    ? "<incremental>"
+                                    : f.mode === "timestamp"
+                                      ? "<timestamp>"
+                                      : `<${f.mode}>`;
                             return acc;
                           },
                           {} as Record<string, any>,
@@ -711,7 +652,6 @@ export default function ProjectDetailPage() {
                 <Input
                   id="interval"
                   type="number"
-                  placeholder="1000"
                   value={simulationSettings.interval}
                   onChange={(e) =>
                     setSimulationSettings({
@@ -731,7 +671,6 @@ export default function ProjectDetailPage() {
                 <Input
                   id="batch"
                   type="number"
-                  placeholder="1"
                   value={simulationSettings.batchSize}
                   onChange={(e) =>
                     setSimulationSettings({
@@ -751,7 +690,6 @@ export default function ProjectDetailPage() {
                 <Input
                   id="duration"
                   type="number"
-                  placeholder="0 = Unlimited"
                   value={simulationSettings.duration}
                   onChange={(e) =>
                     setSimulationSettings({
@@ -771,7 +709,7 @@ export default function ProjectDetailPage() {
         </Card>
       </motion.div>
 
-      {/* Simulation Stats */}
+      {/* Live Stats */}
       {isSimulationRunning && simulationStats && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -867,37 +805,22 @@ export default function ProjectDetailPage() {
                   <textarea
                     id="json-input"
                     className="w-full h-64 p-3 rounded-md border border-input bg-background font-mono text-sm"
-                    placeholder={`Example:
-{
-  "temperature": 25.5,
-  "humidity": 60,
-  "pressure": 1013.25,
-  "location": "Room A",
-  "status": "active"
-}`}
+                    placeholder={`{\n  "temperature": 25.5,\n  "humidity": 60\n}`}
                     value={importJson}
                     onChange={(e) => setImportJson(e.target.value)}
                   />
                 </div>
-
                 <div className="bg-muted p-3 rounded-md text-xs space-y-1">
                   <p className="font-semibold">Import Notes:</p>
                   <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                    <li>
-                      Number values will be set to Random mode (0-100 range)
-                    </li>
-                    <li>String values will be set to Static mode</li>
-                    <li>Boolean values will be set to Static mode</li>
-                    <li>
-                      You can adjust mode, range, and other settings after
-                      import
-                    </li>
+                    <li>Number → Random mode (0–100 range)</li>
+                    <li>String → Static mode</li>
+                    <li>Boolean → Static mode</li>
                     <li>
                       Nested objects will be flattened (e.g., sensor.temp)
                     </li>
                   </ul>
                 </div>
-
                 <div className="flex gap-2 justify-end">
                   <Button
                     variant="outline"
