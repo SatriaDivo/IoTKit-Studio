@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PayloadField } from "@/types";
+import toast from "react-hot-toast";
 
 export default function ProjectDetailPage() {
   const router = useRouter();
@@ -94,10 +95,10 @@ export default function ProjectDetailPage() {
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      alert("Configuration saved successfully!");
+      toast.success("Configuration saved successfully!");
     } catch (error) {
       console.error("Failed to save configuration:", error);
-      alert("Failed to save configuration");
+      toast.error("Failed to save configuration");
     } finally {
       setSaving(false);
     }
@@ -112,10 +113,10 @@ export default function ProjectDetailPage() {
         simulationSettings,
       });
 
-      alert("Simulation started! (Feature coming soon)");
+      toast.success("Simulation started! (Feature coming soon)");
     } catch (error) {
       console.error("Failed to start simulation:", error);
-      alert("Failed to start simulation");
+      toast.error("Failed to start simulation");
     }
   };
 
@@ -171,9 +172,9 @@ export default function ProjectDetailPage() {
       setPayloadFields(fields);
       setShowImportDialog(false);
       setImportJson("");
-      alert(`Successfully imported ${fields.length} fields!`);
+      toast.success(`Successfully imported ${fields.length} fields!`);
     } catch (error) {
-      alert("Invalid JSON format. Please check your input.");
+      toast.error("Invalid JSON format. Please check your input.");
       console.error("Import error:", error);
     }
   };
@@ -400,8 +401,27 @@ export default function ProjectDetailPage() {
                             </select>
                           </div>
 
-                          {field.mode === "static" && (
+                          {field.type === "number" && (
                             <div className="space-y-1">
+                              <Label className="text-xs">Unit</Label>
+                              <Input
+                                value={field.unit || ""}
+                                onChange={(e) =>
+                                  updatePayloadField(index, {
+                                    unit: e.target.value,
+                                  })
+                                }
+                                placeholder="°C, %, ppm"
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Second row for value/range inputs */}
+                        <div className="grid grid-cols-4 gap-2 pr-6">
+                          {field.mode === "static" && (
+                            <div className="space-y-1 col-span-2">
                               <Label className="text-xs">Value</Label>
                               <Input
                                 value={field.value || ""}
@@ -410,7 +430,7 @@ export default function ProjectDetailPage() {
                                     value: e.target.value,
                                   })
                                 }
-                                placeholder="value"
+                                placeholder="Enter value"
                                 className="h-8 text-xs"
                               />
                             </div>
@@ -418,49 +438,53 @@ export default function ProjectDetailPage() {
 
                           {field.mode === "random" &&
                             field.type === "number" && (
-                              <>
-                                <div className="space-y-1 col-span-2">
-                                  <Label className="text-xs">Range</Label>
-                                  <div className="flex gap-1">
-                                    <Input
-                                      type="number"
-                                      value={field.min || 0}
-                                      onChange={(e) =>
-                                        updatePayloadField(index, {
-                                          min: parseFloat(e.target.value),
-                                        })
-                                      }
-                                      placeholder="Min"
-                                      className="h-8 text-xs"
-                                    />
-                                    <Input
-                                      type="number"
-                                      value={field.max || 100}
-                                      onChange={(e) =>
-                                        updatePayloadField(index, {
-                                          max: parseFloat(e.target.value),
-                                        })
-                                      }
-                                      placeholder="Max"
-                                      className="h-8 text-xs"
-                                    />
-                                  </div>
+                              <div className="space-y-1 col-span-4">
+                                <Label className="text-xs">Range</Label>
+                                <div className="flex gap-2 items-center">
+                                  <Input
+                                    type="number"
+                                    value={field.min || 0}
+                                    onChange={(e) =>
+                                      updatePayloadField(index, {
+                                        min: parseFloat(e.target.value),
+                                      })
+                                    }
+                                    placeholder="Min"
+                                    className="h-8 text-xs"
+                                  />
+                                  <span className="text-xs text-muted-foreground">
+                                    to
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    value={field.max || 100}
+                                    onChange={(e) =>
+                                      updatePayloadField(index, {
+                                        max: parseFloat(e.target.value),
+                                      })
+                                    }
+                                    placeholder="Max"
+                                    className="h-8 text-xs"
+                                  />
                                 </div>
-                              </>
+                              </div>
                             )}
 
-                          {field.type === "number" &&
-                            field.mode !== "random" && (
-                              <div className="space-y-1">
-                                <Label className="text-xs">Unit</Label>
+                          {field.mode === "incremental" &&
+                            field.type === "number" && (
+                              <div className="space-y-1 col-span-2">
+                                <Label className="text-xs">
+                                  Start Value (optional)
+                                </Label>
                                 <Input
-                                  value={field.unit || ""}
+                                  type="number"
+                                  value={field.value || 0}
                                   onChange={(e) =>
                                     updatePayloadField(index, {
-                                      unit: e.target.value,
+                                      value: parseFloat(e.target.value),
                                     })
                                   }
-                                  placeholder="°C, %"
+                                  placeholder="0"
                                   className="h-8 text-xs"
                                 />
                               </div>
