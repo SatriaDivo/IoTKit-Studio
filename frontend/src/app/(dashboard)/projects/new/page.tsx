@@ -45,8 +45,9 @@ export default function NewProjectPage() {
         port: formData.port ? parseInt(formData.port) : undefined,
         status: "inactive" as const,
       };
-      await createProject(data);
-      router.push("/projects");
+      const newProject = await createProject(data);
+      // Redirect to project detail page to configure payload
+      router.push(`/projects/${newProject.id}`);
     } catch (error) {
       console.error("Failed to create project:", error);
     } finally {

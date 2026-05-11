@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   FolderKanban,
-  FileJson,
   Play,
   ScrollText,
   Settings,
@@ -15,7 +14,6 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", href: "/projects", icon: FolderKanban },
-  { name: "Payload Builder", href: "/payload-builder", icon: FileJson },
   { name: "Simulation", href: "/simulation", icon: Play },
   { name: "Logs", href: "/logs", icon: ScrollText },
   { name: "Settings", href: "/settings", icon: Settings },
