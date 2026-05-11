@@ -191,12 +191,23 @@ export default function ProjectDetailPage() {
       if (response.data.stats) {
         setSimulationStats(response.data.stats);
       }
-    } catch (error) {
-      console.error("Failed to fetch simulation status:", error);
+
+      // Start polling if simulation is running
+      if (response.data.isRunning && !statsInterval) {
+        startStatsPolling();
+      }
+    } catch (error: any) {
+      // Only log error if it's not a 404 (project might not have simulation yet)
+      if (error.response?.status !== 404) {
+        console.error("Failed to fetch simulation status:", error);
+      }
     }
   };
 
   const startStatsPolling = () => {
+    // Don't start if already polling
+    if (statsInterval) return;
+
     // Poll every 2 seconds
     const interval = setInterval(async () => {
       try {
@@ -208,8 +219,15 @@ export default function ProjectDetailPage() {
           setIsSimulationRunning(false);
           stopStatsPolling();
         }
-      } catch (error) {
-        console.error("Failed to fetch stats:", error);
+      } catch (error: any) {
+        // Stop polling on critical errors
+        if (error.response?.status === 404 || error.response?.status === 401) {
+          console.error(
+            "Stopping stats polling due to error:",
+            error.response?.status,
+          );
+          stopStatsPolling();
+        }
       }
     }, 2000);
 
