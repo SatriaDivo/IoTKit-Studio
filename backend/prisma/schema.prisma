@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  name      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+}
+
+model Project {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  protocol        String   // HTTP, HTTPS, MQTT, MQTTS, WS, WSS
+  host            String
+  port            Int?
+  endpoint        String?  // For HTTP or WS path
+  topic           String?  // For MQTT
+  authToken       String?
+  username        String?
+  password        String?
+  sslEnabled      Boolean  @default(false)
+  autoReconnect   Boolean  @default(true)
+  status          String   @default("inactive") // active, inactive, error
+  lastActivity    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payloads        Payload[]
+  logs            Log[]
+  simulations     Simulation[]
+}
+
+model Payload {
+  id          String   @id @default(uuid())
+  name        String
+  structure   String   // JSON string of payload structure
+  template    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Simulation {
+  id              String   @id @default(uuid())
+  status          String   @default("stopped") // running, stopped, paused
+  interval        Int      @default(1000) // milliseconds
+  batchSize       Int      @default(1)
+  totalSent       Int      @default(0)
+  successCount    Int      @default(0)
+  errorCount      Int      @default(0)
+  startedAt       DateTime?
+  stoppedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Log {
+  id          String   @id @default(uuid())
+  type        String   // request, response, error, event
+  protocol    String
+  message     String
+  payload     String?  // JSON string
+  statusCode  Int?
+  latency     Int?     // milliseconds
+  timestamp   DateTime @default(now())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
