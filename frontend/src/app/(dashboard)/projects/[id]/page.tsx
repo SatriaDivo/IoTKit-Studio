@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Save, Play, Plus, X, Upload, Square } from "lucide-react";
@@ -29,11 +29,8 @@ export default function ProjectDetailPage() {
   const [stopping, setStopping] = useState(false);
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
   const [simulationStats, setSimulationStats] = useState<any>(null);
-  // Use ref instead of state for interval - avoids stale closure bug
+  // Use ref to store interval - guaranteed cleanup, no stale closure
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [statsInterval, setStatsInterval] = useState<NodeJS.Timeout | null>(
-    null,
-  );
 
   // Payload fields state
   const [payloadFields, setPayloadFields] = useState<PayloadField[]>([
@@ -203,41 +200,43 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const stopStatsPolling = useCallback(() => {
+  const stopStatsPolling = () => {
     if (statsIntervalRef.current) {
       clearInterval(statsIntervalRef.current);
       statsIntervalRef.current = null;
-      setStatsInterval(null);
     }
-  }, []);
+  };
 
-  const startStatsPolling = useCallback(() => {
-    // Prevent duplicate intervals using ref
+  const startStatsPolling = () => {
+    // Prevent duplicate intervals
     if (statsIntervalRef.current) return;
 
-    // Poll every 5 seconds
-    const interval = setInterval(async () => {
+    statsIntervalRef.current = setInterval(async () => {
       try {
         const response = await api.get(`/simulations/status/${params.id}`);
         const { isRunning, stats } = response.data;
         if (stats) setSimulationStats(stats);
         if (!isRunning) {
           setIsSimulationRunning(false);
-          stopStatsPolling();
+          // Clear via ref directly - no stale closure issue
+          if (statsIntervalRef.current) {
+            clearInterval(statsIntervalRef.current);
+            statsIntervalRef.current = null;
+          }
         }
       } catch (error: any) {
         if (error.response?.status === 404 || error.response?.status === 401) {
           setIsSimulationRunning(false);
-          stopStatsPolling();
+          if (statsIntervalRef.current) {
+            clearInterval(statsIntervalRef.current);
+            statsIntervalRef.current = null;
+          }
         }
       }
     }, 5000);
+  };
 
-    statsIntervalRef.current = interval;
-    setStatsInterval(interval);
-  }, [params.id, stopStatsPolling]);
-
-  const fetchSimulationStatus = useCallback(async () => {
+  const fetchSimulationStatus = async () => {
     try {
       const response = await api.get(`/simulations/status/${params.id}`);
       const { isRunning, stats } = response.data;
@@ -250,7 +249,7 @@ export default function ProjectDetailPage() {
       }
       setIsSimulationRunning(false);
     }
-  }, [params.id, startStatsPolling]);
+  };
 
   const handleImportPayload = () => {
     try {
