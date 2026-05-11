@@ -15,17 +15,24 @@ export default function Header() {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
+    <header className="h-16 border-b border-border bg-white flex items-center justify-between px-6 shadow-sm">
       <div className="flex items-center gap-4">
-        <h2 className="text-lg font-semibold">Welcome back!</h2>
+        <h2 className="text-lg font-semibold text-slate-800">Welcome back!</h2>
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 text-sm">
-          <User className="h-4 w-4" />
-          <span>{user?.email || "User"}</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-100">
+          <User className="h-4 w-4 text-blue-600" />
+          <span className="text-sm font-medium text-slate-700">
+            {user?.email || "User"}
+          </span>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleLogout}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLogout}
+          className="text-slate-600 hover:text-red-600 hover:bg-red-50"
+        >
           <LogOut className="h-4 w-4 mr-2" />
           Logout
         </Button>

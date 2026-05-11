@@ -4,26 +4,31 @@
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 189 94% 43%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 189 94% 43%;
-    --radius: 0.5rem;
+    /* Light Theme - Modern Blue */
+    --background: 210 100% 99%; /* #F8FBFF - Very light blue background */
+    --foreground: 222 47% 11%; /* #0F172A - Dark navy text */
+    --card: 0 0% 100%; /* #FFFFFF - Pure white cards */
+    --card-foreground: 222 47% 11%; /* #0F172A - Dark navy text */
+    --popover: 0 0% 100%; /* #FFFFFF - White popover */
+    --popover-foreground: 222 47% 11%; /* #0F172A - Dark navy text */
+    --primary: 199 89% 48%; /* #0EA5E9 - Accent Blue */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF - White text on primary */
+    --secondary: 210 100% 95%; /* #E0F2FE - Soft Blue */
+    --secondary-foreground: 199 89% 48%; /* #0EA5E9 - Accent Blue text */
+    --muted: 210 40% 96%; /* #F1F5F9 - Light gray-blue */
+    --muted-foreground: 215 16% 47%; /* #64748B - Slate text */
+    --accent: 199 95% 74%; /* #38BDF8 - Primary Blue */
+    --accent-foreground: 222 47% 11%; /* #0F172A - Dark navy text */
+    --destructive: 0 84% 60%; /* #EF4444 - Soft red */
+    --destructive-foreground: 0 0% 100%; /* #FFFFFF - White text */
+    --border: 214 32% 91%; /* #D8E7F5 - Soft blue-gray border */
+    --input: 214 32% 91%; /* #D8E7F5 - Soft blue-gray input border */
+    --ring: 199 89% 48%; /* #0EA5E9 - Accent Blue ring */
+    --radius: 0.75rem; /* Rounded corners */
+
+    /* Custom colors */
+    --success: 142 71% 45%; /* #22C55E - Soft green */
+    --warning: 38 92% 50%; /* #F59E0B - Amber */
   }
 }
 
@@ -32,31 +37,86 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
   }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Light theme */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-secondary;
+  @apply bg-secondary/30;
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground rounded-full;
+  @apply bg-primary/30 hover:bg-primary/50;
+  border-radius: 10px;
+  transition: background-color 0.2s;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-primary;
-}
-
-/* Glassmorphism effect */
+/* Modern card effect - Light theme */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid hsl(var(--border));
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.05),
+    0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+/* Soft shadow utilities */
+.shadow-soft {
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.05),
+    0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+.shadow-soft-lg {
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+/* Code editor style for JSON preview */
+.code-preview {
+  background: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Badge styles */
+.badge-success {
+  @apply bg-green-50 text-green-700 border-green-200;
+}
+
+.badge-error {
+  @apply bg-red-50 text-red-700 border-red-200;
+}
+
+.badge-warning {
+  @apply bg-amber-50 text-amber-700 border-amber-200;
+}
+
+.badge-info {
+  @apply bg-blue-50 text-blue-700 border-blue-200;
+}
+
+/* Input focus ring */
+.input-focus {
+  @apply focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200;
+}
+
+/* Button hover effects */
+.btn-hover {
+  @apply transition-all duration-200 hover:shadow-md active:scale-[0.98];
 }
