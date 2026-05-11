@@ -5,6 +5,9 @@ import { HttpClient } from "../protocols/http/httpClient";
 import { MqttClient } from "../protocols/mqtt/mqttClient";
 import { WsClient } from "../protocols/websocket/wsClient";
 import { Logger } from "../utils/logger";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export class SimulationManager extends EventEmitter {
   private simulations: Map<string, NodeJS.Timeout> = new Map();
@@ -55,6 +58,7 @@ export class SimulationManager extends EventEmitter {
         batchSize,
         client,
         generator,
+        project,
       );
     }, interval);
 
@@ -70,6 +74,7 @@ export class SimulationManager extends EventEmitter {
     batchSize: number,
     client: any,
     generator: PayloadGenerator,
+    project: any,
   ): Promise<void> {
     const stats = this.stats.get(projectId)!;
 
@@ -95,6 +100,19 @@ export class SimulationManager extends EventEmitter {
           stats.errorCount++;
         }
 
+        // Save log to database
+        await prisma.log.create({
+          data: {
+            type: "request",
+            protocol: project.protocol,
+            message: `Payload sent to ${project.host}`,
+            payload: JSON.stringify(payload),
+            statusCode: result.statusCode || null,
+            latency: result.latency || null,
+            projectId,
+          },
+        });
+
         this.emit("payloadSent", {
           projectId,
           payload,
@@ -106,6 +124,19 @@ export class SimulationManager extends EventEmitter {
         stats.errorCount++;
 
         Logger.error(`Simulation error for project ${projectId}:`, error);
+
+        // Save error log to database
+        await prisma.log
+          .create({
+            data: {
+              type: "error",
+              protocol: project.protocol,
+              message: error.message || "Unknown error",
+              payload: JSON.stringify(payload),
+              projectId,
+            },
+          })
+          .catch(() => {}); // Don't throw if log save fails
 
         this.emit("payloadError", {
           projectId,

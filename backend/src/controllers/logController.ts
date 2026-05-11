@@ -5,6 +5,37 @@ import { AuthRequest } from "../middleware/auth";
 const prisma = new PrismaClient();
 
 export class LogController {
+  async getAll(req: AuthRequest, res: Response) {
+    try {
+      const { type, limit = 100, projectId } = req.query;
+
+      // Get all projects belonging to this user
+      const userProjects = await prisma.project.findMany({
+        where: { userId: req.user!.userId },
+        select: { id: true },
+      });
+
+      const projectIds = userProjects.map((p) => p.id);
+
+      const logs = await prisma.log.findMany({
+        where: {
+          projectId: { in: projectIds },
+          ...(type && { type: type as string }),
+          ...(projectId && { projectId: projectId as string }),
+        },
+        orderBy: { timestamp: "desc" },
+        take: parseInt(limit as string),
+        include: {
+          project: { select: { name: true, protocol: true } },
+        },
+      });
+
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
   async getByProject(req: AuthRequest, res: Response) {
     try {
       const { projectId } = req.params;
