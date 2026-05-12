@@ -8,6 +8,16 @@ const controller = new AIAgentController();
 // All routes require authentication
 router.use(authMiddleware);
 
+// Session management
+router.get("/sessions", (req, res) => controller.getSessions(req, res));
+router.get("/sessions/current", (req, res) =>
+  controller.getCurrentSession(req, res),
+);
+router.post("/sessions", (req, res) => controller.createSession(req, res));
+router.delete("/sessions/:id", (req, res) =>
+  controller.deleteSession(req, res),
+);
+
 // Chat with AI
 router.post("/chat", (req, res) => controller.chat(req, res));
 

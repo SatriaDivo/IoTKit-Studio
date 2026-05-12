@@ -15,9 +15,125 @@ interface Task {
 }
 
 export class AIAgentController {
+  // Get all chat sessions for user
+  async getSessions(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user!.userId;
+      const { limit = 50, offset = 0 } = req.query;
+
+      const sessions = await prisma.chatSession.findMany({
+        where: { userId },
+        include: {
+          messages: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { content: true, createdAt: true, role: true },
+          },
+          _count: { select: { messages: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: Number(limit),
+        skip: Number(offset),
+      });
+
+      const sessionsDTO = sessions.map((s) => ({
+        id: s.id,
+        title: s.title,
+        lastMessage: s.messages[0]?.content.substring(0, 100),
+        lastMessageAt: s.messages[0]?.createdAt,
+        lastMessageRole: s.messages[0]?.role,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+        messageCount: s._count.messages,
+      }));
+
+      res.json({ sessions: sessionsDTO });
+    } catch (error: any) {
+      console.error("Get Sessions Error:", error);
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  }
+
+  // Get or create current session
+  async getCurrentSession(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user!.userId;
+
+      // Get or create a default session
+      let session = await prisma.chatSession.findFirst({
+        where: { userId, title: "Current Chat" },
+        include: {
+          messages: {
+            orderBy: { createdAt: "asc" },
+            take: 100, // Last 100 messages
+          },
+        },
+      });
+
+      if (!session) {
+        session = await prisma.chatSession.create({
+          data: {
+            userId,
+            title: "Current Chat",
+          },
+          include: {
+            messages: true,
+          },
+        });
+      }
+
+      res.json({ session });
+    } catch (error: any) {
+      console.error("Get Current Session Error:", error);
+      res.status(500).json({ error: "Failed to fetch session" });
+    }
+  }
+
+  // Create new session
+  async createSession(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user!.userId;
+      const { title } = req.body;
+
+      const session = await prisma.chatSession.create({
+        data: {
+          userId,
+          title: title || `Chat ${new Date().toLocaleString()}`,
+        },
+      });
+
+      res.status(201).json({ session });
+    } catch (error: any) {
+      console.error("Create Session Error:", error);
+      res.status(500).json({ error: "Failed to create session" });
+    }
+  }
+
+  // Delete session
+  async deleteSession(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.userId;
+
+      const session = await prisma.chatSession.deleteMany({
+        where: { id, userId },
+      });
+
+      if (session.count === 0) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Delete Session Error:", error);
+      res.status(500).json({ error: "Failed to delete session" });
+    }
+  }
+
   async chat(req: AuthRequest, res: Response) {
     try {
-      const { message, conversationHistory } = req.body;
+      const { message, conversationHistory, sessionId } = req.body;
+      const userId = req.user!.userId;
 
       if (!message || typeof message !== "string") {
         return res.status(400).json({ error: "Message is required" });
@@ -33,6 +149,33 @@ export class AIAgentController {
           message: "Please add OPENROUTER_API_KEY to your .env file",
         });
       }
+
+      // Get or create session
+      let session;
+      if (sessionId) {
+        session = await prisma.chatSession.findFirst({
+          where: { id: sessionId, userId },
+        });
+      }
+
+      if (!session) {
+        // Create default session
+        session = await prisma.chatSession.create({
+          data: {
+            userId,
+            title: "Current Chat",
+          },
+        });
+      }
+
+      // Save user message to database FIRST
+      const userMessage = await prisma.chatMessage.create({
+        data: {
+          sessionId: session.id,
+          role: "user",
+          content: message,
+        },
+      });
 
       // Build messages array with enhanced system prompt
       const messages = [
@@ -150,9 +293,27 @@ IMPORTANT:
         // Not an action plan, just regular response
       }
 
+      // Save AI response to database
+      const assistantMessage = await prisma.chatMessage.create({
+        data: {
+          sessionId: session.id,
+          role: "assistant",
+          content: aiMessage,
+          metadata: actionPlan ? { actionPlan } : undefined,
+        },
+      });
+
+      // Update session timestamp
+      await prisma.chatSession.update({
+        where: { id: session.id },
+        data: { updatedAt: new Date() },
+      });
+
       res.json({
         message: aiMessage,
         actionPlan,
+        sessionId: session.id,
+        messageId: assistantMessage.id,
         model: response.data.model,
         usage: response.data.usage,
       });

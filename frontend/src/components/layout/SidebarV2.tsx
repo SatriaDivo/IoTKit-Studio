@@ -74,7 +74,7 @@ export default function SidebarV2({ collapsed = false }: SidebarV2Props) {
 
   return (
     <div
-      className={`${collapsed ? "w-20" : "w-64"} bg-white border-r border-blue-100 flex flex-col shadow-sm transition-all duration-300`}
+      className={`${collapsed ? "w-20" : "w-64"} h-screen bg-white border-r border-blue-100 flex flex-col shadow-sm transition-all duration-300`}
     >
       {/* Logo Section */}
       <div
@@ -171,9 +171,9 @@ export default function SidebarV2({ collapsed = false }: SidebarV2Props) {
         })}
       </nav>
 
-      {/* Footer */}
+      {/* Footer - Always at bottom */}
       {!collapsed && (
-        <div className="p-4 border-t border-blue-100 bg-blue-50/30">
+        <div className="p-4 border-t border-blue-100 bg-blue-50/30 shrink-0">
           <div className="text-xs text-slate-500 font-medium">
             Version 1.0.0
           </div>

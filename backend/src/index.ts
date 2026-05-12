@@ -12,6 +12,7 @@ import { Logger } from "./utils/logger";
 import { schedulerManager } from "./services/scheduler";
 import { jobManager } from "./services/jobManager";
 import { heraService, droneService, carbonService } from "./modules";
+import { startChatCleanupScheduler } from "./services/chatCleanupScheduler";
 
 // Import routes
 import authRoutes from "./routes/auth";
@@ -91,6 +92,10 @@ async function initializeServices() {
     // Start scheduler
     schedulerManager.start();
     Logger.info("✅ Scheduler started");
+
+    // Start chat cleanup scheduler (runs daily at 00:00)
+    startChatCleanupScheduler();
+    Logger.info("✅ Chat cleanup scheduler started");
 
     // Register modules
     jobManager.registerModule("hera", heraService);
