@@ -72,35 +72,54 @@ export default function AIAgentPage() {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Save loading state to localStorage
+  // Save and load loading state
   useEffect(() => {
     localStorage.setItem("ai-agent-loading", JSON.stringify(loading));
   }, [loading]);
 
-  // Load loading state on mount
   useEffect(() => {
     const savedLoading = localStorage.getItem("ai-agent-loading");
     if (savedLoading) {
       try {
-        const isLoading = JSON.parse(savedLoading);
-        setLoading(isLoading);
-      } catch (error) {
-        console.error("Failed to load loading state:", error);
+        setLoading(JSON.parse(savedLoading));
+      } catch (e) {
+        console.error("Failed to load loading state");
+      }
+    }
+
+    // Restore pending message if exists
+    const pendingData = localStorage.getItem("ai-agent-pending");
+    if (pendingData) {
+      try {
+        const { message, timestamp } = JSON.parse(pendingData);
+        // Only restore if less than 5 minutes old
+        if (Date.now() - timestamp < 5 * 60 * 1000) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              ...message,
+              createdAt: new Date(message.createdAt),
+            },
+          ]);
+          setLoading(true);
+        } else {
+          // Clear old pending data
+          localStorage.removeItem("ai-agent-pending");
+        }
+      } catch (e) {
+        console.error("Failed to restore pending message");
       }
     }
   }, []);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load sessions on mount
   useEffect(() => {
     loadSessions();
   }, []);
 
-  // Load current session messages
   useEffect(() => {
     if (currentSessionId) {
       loadSessionMessages(currentSessionId);
@@ -112,8 +131,6 @@ export default function AIAgentPage() {
       setLoadingSessions(true);
       const response = await api.get("/ai-agent/sessions");
       setSessions(response.data.sessions);
-
-      // Auto-select first session or load current
       if (response.data.sessions.length > 0 && !currentSessionId) {
         setCurrentSessionId(response.data.sessions[0].id);
       }
@@ -128,29 +145,19 @@ export default function AIAgentPage() {
     try {
       const response = await api.get(`/ai-agent/sessions/current`);
       if (response.data.session && response.data.session.messages) {
-        const msgs = response.data.session.messages.map((m: any) => {
-          const msg: Message = {
-            id: m.id,
-            role: m.role,
-            content: m.content,
-            createdAt: new Date(m.createdAt),
-            metadata: m.metadata,
-          };
-
-          // If message has actionPlan in metadata, extract it
-          if (m.metadata && m.metadata.actionPlan) {
-            // Don't add tasks here, they will be added during execution
-          }
-
-          return msg;
-        });
+        const msgs = response.data.session.messages.map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          createdAt: new Date(m.createdAt),
+          metadata: m.metadata,
+        }));
         setMessages(msgs);
       } else {
         setMessages([]);
       }
     } catch (error: any) {
       console.error("Failed to load messages:", error);
-      toast.error("Failed to load chat history");
       setMessages([]);
     }
   };
@@ -179,7 +186,6 @@ export default function AIAgentPage() {
       setSessions(sessions.filter((s) => s.id !== sessionId));
 
       if (currentSessionId === sessionId) {
-        // Select another session or create new
         if (sessions.length > 1) {
           const nextSession = sessions.find((s) => s.id !== sessionId);
           setCurrentSessionId(nextSession?.id || null);
@@ -203,7 +209,6 @@ export default function AIAgentPage() {
     setInput("");
     setLoading(true);
 
-    // Optimistically add user message
     const tempUserMessage: Message = {
       id: `temp-${Date.now()}`,
       role: "user",
@@ -212,8 +217,16 @@ export default function AIAgentPage() {
     };
     setMessages((prev) => [...prev, tempUserMessage]);
 
+    // Save pending state
+    localStorage.setItem(
+      "ai-agent-pending",
+      JSON.stringify({
+        message: tempUserMessage,
+        timestamp: Date.now(),
+      }),
+    );
+
     try {
-      // Call AI API - message will be saved to database by backend
       const response = await api.post("/ai-agent/chat", {
         message: userMessageContent,
         sessionId: currentSessionId,
@@ -223,39 +236,40 @@ export default function AIAgentPage() {
         })),
       });
 
-      // Remove temp message and add real messages from server
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
 
-      // Reload messages from server to get the saved ones
       if (response.data.sessionId) {
         setCurrentSessionId(response.data.sessionId);
         await loadSessionMessages(response.data.sessionId);
-        await loadSessions(); // Refresh session list
+        await loadSessions();
       }
 
-      // If there's an action plan, execute it
       if (response.data.actionPlan) {
         await executeActionPlan(
           response.data.messageId,
           response.data.actionPlan,
         );
       }
+
+      // Clear pending state
+      localStorage.removeItem("ai-agent-pending");
     } catch (error: any) {
       console.error("AI Error:", error);
-      // Remove temp message
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMessage.id));
 
-      // Add error message
       const errorMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
         content:
           error.response?.data?.message ||
-          "Sorry, I encountered an error. Please make sure the OpenRouter API key is configured.",
+          "Sorry, I encountered an error. Please try again.",
         createdAt: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
       toast.error("Failed to send message");
+
+      // Clear pending state
+      localStorage.removeItem("ai-agent-pending");
     } finally {
       setLoading(false);
     }
@@ -271,17 +285,14 @@ export default function AIAgentPage() {
       status: "pending",
     }));
 
-    // Update message with tasks
     setMessages((prev) =>
       prev.map((m) => (m.id === messageId ? { ...m, tasks } : m)),
     );
 
-    // Execute tasks sequentially
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
       const actionTask = actionPlan.tasks[i];
 
-      // Update task to running
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
@@ -296,13 +307,11 @@ export default function AIAgentPage() {
       );
 
       try {
-        // Execute action
         const result = await api.post("/ai-agent/execute", {
           action: actionTask.action,
           params: actionTask.params,
         });
 
-        // Update task to completed
         setMessages((prev) =>
           prev.map((m) =>
             m.id === messageId
@@ -348,17 +357,6 @@ export default function AIAgentPage() {
         toast.error(`Failed: ${task.title}`);
         break;
       }
-    }
-
-    const allCompleted = tasks.every((t) => {
-      const currentTask = messages
-        .find((m) => m.id === messageId)
-        ?.tasks?.find((mt) => mt.id === t.id);
-      return currentTask?.status === "completed";
-    });
-
-    if (allCompleted) {
-      toast.success("All tasks completed successfully! 🎉");
     }
   };
 
@@ -408,48 +406,55 @@ export default function AIAgentPage() {
   ];
 
   return (
-    <div className="h-full flex gap-4">
-      {/* Sidebar - Chat History */}
-      <div className="w-64 flex flex-col bg-white border border-blue-100 rounded-lg shadow-sm">
-        <div className="p-3 border-b border-blue-100">
+    <div className="flex h-[calc(100vh-6rem)] gap-4">
+      {/* Sidebar - Chat History (280px fixed) */}
+      <div className="w-[280px] flex-shrink-0 flex flex-col bg-white border border-blue-100 rounded-lg shadow-sm">
+        <div className="p-4 border-b border-blue-100">
           <Button
             onClick={createNewSession}
-            className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white"
-            size="sm"
+            className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white h-10"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Chat
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="flex-1 overflow-y-auto p-3">
           {loadingSessions ? (
-            <div className="text-center text-slate-500 text-sm py-4">
-              Loading...
+            <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+              <Loader2 className="h-6 w-6 animate-spin mb-2" />
+              <p className="text-sm">Loading chats...</p>
             </div>
           ) : sessions.length === 0 ? (
-            <div className="text-center text-slate-500 text-sm py-4">
-              No chat history
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+              <MessageSquare className="h-12 w-12 mb-3 opacity-30" />
+              <p className="text-sm font-medium">No chat history</p>
+              <p className="text-xs mt-1">Start a new conversation!</p>
             </div>
           ) : (
             sessions.map((session) => (
               <div
                 key={session.id}
-                className={`group p-2 rounded-lg mb-1 cursor-pointer transition-colors ${
+                className={`group p-3 rounded-lg mb-2 cursor-pointer transition-all ${
                   currentSessionId === session.id
-                    ? "bg-blue-50 border border-blue-200"
-                    : "hover:bg-slate-50"
+                    ? "bg-blue-50 border-2 border-blue-300 shadow-sm"
+                    : "hover:bg-slate-50 border-2 border-transparent"
                 }`}
                 onClick={() => setCurrentSessionId(session.id)}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">
+                    <p className="text-sm font-medium text-slate-800 truncate mb-1.5">
                       {session.lastMessage || "New Chat"}
                     </p>
-                    <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
                       <Clock className="h-3 w-3" />
-                      {new Date(session.createdAt).toLocaleDateString()}
+                      {new Date(session.createdAt).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
                   </div>
                   <button
@@ -457,9 +462,10 @@ export default function AIAgentPage() {
                       e.stopPropagation();
                       deleteSession(session.id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-100 rounded-md transition-all"
+                    title="Delete chat"
                   >
-                    <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                    <Trash2 className="h-4 w-4 text-red-600" />
                   </button>
                 </div>
               </div>
@@ -467,22 +473,25 @@ export default function AIAgentPage() {
           )}
         </div>
 
-        <div className="p-2 border-t border-blue-100 text-xs text-slate-500 text-center">
-          Chat auto-deletes at 00:00
+        <div className="p-3 border-t border-blue-100 bg-slate-50 rounded-b-lg">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-600">
+            <Clock className="h-3.5 w-3.5" />
+            <span>Auto-deletes at 00:00</span>
+          </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col gap-4">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col gap-4 min-w-0">
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <Bot className="h-6 w-6 text-white" />
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-lg">
+            <Bot className="h-7 w-7 text-white" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-1">
               Autonomous AI Agent
-              <span className="px-2 py-0.5 text-xs font-semibold bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded">
+              <span className="px-2.5 py-1 text-xs font-semibold bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-md shadow-sm">
                 Auto-Execute
               </span>
             </h1>
@@ -493,61 +502,65 @@ export default function AIAgentPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3 flex-1 min-h-0">
-          {/* Chat Interface */}
-          <div className="lg:col-span-2 flex flex-col min-h-0">
+        {/* Chat and Quick Start Grid */}
+        <div className="grid grid-cols-5 gap-4 flex-1 min-h-0">
+          {/* Chat Interface - 3/5 width */}
+          <div className="col-span-3 flex flex-col min-h-0">
             <Card className="bg-white border-blue-100 shadow-sm flex flex-col flex-1 min-h-0">
-              <CardHeader className="border-b border-blue-50 py-3 flex-shrink-0">
-                <CardTitle className="text-base text-slate-800 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-blue-500" />
+              <CardHeader className="border-b border-blue-50 py-3.5 px-5 flex-shrink-0">
+                <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-blue-500" />
                   Chat & Execute
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col p-0 min-h-0">
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                  {messages.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-slate-500">
-                      <div className="text-center">
-                        <Bot className="h-12 w-12 mx-auto mb-3 text-blue-300" />
-                        <p className="text-sm">Start a conversation!</p>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {messages.length === 0 && !loading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center text-slate-400">
+                        <Bot className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                        <p className="text-lg font-medium mb-1">
+                          Start a conversation!
+                        </p>
+                        <p className="text-sm">
+                          Ask me to create an IoT project
+                        </p>
                       </div>
                     </div>
                   ) : (
-                    messages.map((message, index) => (
+                    messages.map((message) => (
                       <motion.div
                         key={message.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
                         className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[85%] rounded-lg p-3 ${
+                          className={`max-w-[85%] rounded-xl p-4 ${
                             message.role === "user"
-                              ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white"
+                              ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md"
                               : "bg-blue-50 text-slate-800 border border-blue-100"
                           }`}
                         >
-                          <div className="flex items-start gap-2">
+                          <div className="flex items-start gap-3">
                             {message.role === "assistant" && (
-                              <Bot className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                              <Bot className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
                             )}
                             <div className="flex-1">
                               <p className="text-sm whitespace-pre-wrap leading-relaxed">
                                 {message.content}
                               </p>
 
-                              {/* Task List */}
                               {message.tasks && message.tasks.length > 0 && (
-                                <div className="mt-2 space-y-1.5 bg-white/50 rounded-lg p-2 border border-blue-200">
-                                  <p className="text-xs font-semibold text-slate-700 mb-1">
+                                <div className="mt-3 space-y-2 bg-white/60 rounded-lg p-3 border border-blue-200">
+                                  <p className="text-xs font-semibold text-slate-700 mb-2">
                                     Executing Tasks:
                                   </p>
                                   {message.tasks.map((task) => (
                                     <div
                                       key={task.id}
-                                      className="flex items-center gap-2 text-xs"
+                                      className="flex items-center gap-2.5 text-xs"
                                     >
                                       {task.status === "pending" && (
                                         <div className="h-4 w-4 rounded-full border-2 border-slate-300 shrink-0" />
@@ -584,15 +597,19 @@ export default function AIAgentPage() {
                               )}
 
                               <p
-                                className={`text-xs mt-1 ${
+                                className={`text-xs mt-2 ${
                                   message.role === "user"
                                     ? "text-blue-100"
                                     : "text-slate-500"
                                 }`}
                               >
-                                {new Date(
-                                  message.createdAt,
-                                ).toLocaleTimeString()}
+                                {new Date(message.createdAt).toLocaleTimeString(
+                                  "id-ID",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  },
+                                )}
                               </p>
                             </div>
                           </div>
@@ -603,17 +620,17 @@ export default function AIAgentPage() {
 
                   {loading && (
                     <div className="flex justify-start">
-                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                        <div className="flex items-center gap-2">
-                          <Bot className="h-4 w-4 text-blue-500" />
-                          <div className="flex gap-1">
-                            <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-bounce" />
+                      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <Bot className="h-5 w-5 text-blue-500" />
+                          <div className="flex gap-1.5">
+                            <div className="h-2 w-2 bg-blue-500 rounded-full animate-bounce" />
                             <div
-                              className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-bounce"
+                              className="h-2 w-2 bg-blue-500 rounded-full animate-bounce"
                               style={{ animationDelay: "0.1s" }}
                             />
                             <div
-                              className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-bounce"
+                              className="h-2 w-2 bg-blue-500 rounded-full animate-bounce"
                               style={{ animationDelay: "0.2s" }}
                             />
                           </div>
@@ -626,8 +643,8 @@ export default function AIAgentPage() {
                 </div>
 
                 {/* Input */}
-                <div className="border-t border-blue-50 p-3">
-                  <div className="flex items-center gap-2">
+                <div className="border-t border-blue-50 p-4 bg-slate-50">
+                  <div className="flex items-center gap-3">
                     <Input
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
@@ -635,23 +652,22 @@ export default function AIAgentPage() {
                         e.key === "Enter" && !loading && handleSend()
                       }
                       placeholder="Tell me what project you want to create..."
-                      className="flex-1 border-blue-200 focus:border-blue-400 text-sm"
+                      className="flex-1 border-blue-200 focus:border-blue-400 h-11"
                       disabled={loading}
                     />
                     <Button
                       onClick={handleSend}
                       disabled={loading || !input.trim()}
-                      className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white px-4"
-                      size="sm"
+                      className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white h-11 px-6"
                     >
                       {loading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
-                        <Send className="h-4 w-4" />
+                        <Send className="h-5 w-5" />
                       )}
                     </Button>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1.5">
+                  <p className="text-xs text-slate-500 mt-2 text-center">
                     Press Enter to send • Chat saves automatically to database
                   </p>
                 </div>
@@ -659,16 +675,16 @@ export default function AIAgentPage() {
             </Card>
           </div>
 
-          {/* Suggestions */}
-          <div className="h-full overflow-y-auto">
-            <Card className="bg-white border-blue-100 shadow-sm">
-              <CardHeader className="border-b border-blue-50 py-3">
-                <CardTitle className="text-base text-slate-800 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-yellow-500" />
+          {/* Quick Start - 2/5 width */}
+          <div className="col-span-2 flex flex-col min-h-0">
+            <Card className="bg-white border-blue-100 shadow-sm flex flex-col flex-1 min-h-0">
+              <CardHeader className="border-b border-blue-50 py-3.5 px-5 flex-shrink-0">
+                <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-yellow-500" />
                   Quick Start
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-3 space-y-2">
+              <CardContent className="pt-4 pb-4 px-4 space-y-3 overflow-y-auto">
                 {suggestions.map((suggestion, index) => (
                   <motion.button
                     key={suggestion.title}
@@ -676,19 +692,19 @@ export default function AIAgentPage() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
                     onClick={() => setInput(suggestion.prompt)}
-                    className="w-full text-left p-2.5 rounded-lg border border-blue-100 hover:bg-blue-50 hover:border-blue-300 transition-all group"
+                    className="w-full text-left p-3 rounded-lg border-2 border-blue-100 hover:bg-blue-50 hover:border-blue-300 transition-all group"
                   >
-                    <div className="flex items-start gap-2.5">
+                    <div className="flex items-start gap-3">
                       <div
-                        className={`p-1.5 rounded-lg bg-gradient-to-br ${suggestion.color} shrink-0`}
+                        className={`p-2 rounded-lg bg-gradient-to-br ${suggestion.color} shrink-0 shadow-sm`}
                       >
-                        <suggestion.icon className="h-3.5 w-3.5 text-white" />
+                        <suggestion.icon className="h-4 w-4 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 group-hover:text-blue-600">
+                        <p className="text-sm font-semibold text-slate-800 group-hover:text-blue-600 mb-1">
                           {suggestion.title}
                         </p>
-                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                        <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                           {suggestion.prompt}
                         </p>
                       </div>
