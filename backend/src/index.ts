@@ -19,6 +19,7 @@ import projectRoutes from "./routes/projects";
 import payloadRoutes from "./routes/payloads";
 import simulationRoutes from "./routes/simulations";
 import logRoutes from "./routes/logs";
+import aiAgentRoutes from "./routes/aiAgent";
 
 // Load environment variables
 dotenv.config();
@@ -57,6 +58,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/payloads", payloadRoutes);
 app.use("/api/simulations", simulationRoutes);
 app.use("/api/logs", logRoutes);
+app.use("/api/ai-agent", aiAgentRoutes);
 
 // Error handler
 app.use(errorHandler);

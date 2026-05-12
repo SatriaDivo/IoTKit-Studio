@@ -57,7 +57,7 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-border bg-blue-50/30">
         <div className="text-xs text-slate-500 font-medium">Version 1.0.0</div>
-        <div className="text-xs text-slate-400 mt-0.5">© 2024 IoTKit</div>
+        <div className="text-xs text-slate-400 mt-0.5">© 2026 IoTKit</div>
       </div>
     </div>
   );

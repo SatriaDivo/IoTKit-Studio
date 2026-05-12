@@ -33,6 +33,18 @@ export default function ProjectDetailPage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importJson, setImportJson] = useState("");
+  const [editingProject, setEditingProject] = useState(false);
+  const [projectData, setProjectData] = useState({
+    name: "",
+    description: "",
+    protocol: "",
+    host: "",
+    port: "",
+    endpoint: "",
+    topic: "",
+    username: "",
+    password: "",
+  });
 
   const [payloadFields, setPayloadFields] = useState<PayloadField[]>([
     {
@@ -93,6 +105,23 @@ export default function ProjectDetailPage() {
 
     projectIdRef.current = id;
     fetchProject(id).finally(() => setLoading(false));
+
+    // Load project data for editing
+    fetchProject(id).then(() => {
+      if (currentProject) {
+        setProjectData({
+          name: currentProject.name || "",
+          description: currentProject.description || "",
+          protocol: currentProject.protocol || "",
+          host: currentProject.host || "",
+          port: currentProject.port?.toString() || "",
+          endpoint: currentProject.endpoint || "",
+          topic: currentProject.topic || "",
+          username: currentProject.username || "",
+          password: currentProject.password || "",
+        });
+      }
+    });
 
     // Load saved payload configuration
     api
@@ -160,6 +189,28 @@ export default function ProjectDetailPage() {
   };
 
   // ─── Save ────────────────────────────────────────────────────────────────────
+
+  const saveProject = async () => {
+    try {
+      await api.put(`/projects/${params.id}`, {
+        name: projectData.name,
+        description: projectData.description,
+        protocol: projectData.protocol,
+        host: projectData.host,
+        port: projectData.port ? parseInt(projectData.port) : null,
+        endpoint: projectData.endpoint,
+        topic: projectData.topic || null,
+        username: projectData.username || null,
+        password: projectData.password || null,
+      });
+      await fetchProject(params.id as string);
+      setEditingProject(false);
+      toast.success("Project updated successfully!");
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to update project");
+      throw err;
+    }
+  };
 
   const savePayload = async () => {
     // Check if payload already exists for this project → update, else create
@@ -360,11 +411,22 @@ export default function ProjectDetailPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            onClick={handleSave}
-            disabled={saving || isSimulationRunning}
+            onClick={async () => {
+              if (editingProject) {
+                setSaving(true);
+                try {
+                  await saveProject();
+                } catch (err) {
+                  // Error already handled in saveProject
+                } finally {
+                  setSaving(false);
+                }
+              }
+            }}
+            disabled={saving || isSimulationRunning || !editingProject}
           >
             <Save className="h-4 w-4 mr-2" />
-            {saving ? "Saving..." : "Save"}
+            Update
           </Button>
           <Button
             variant="outline"
@@ -372,7 +434,7 @@ export default function ProjectDetailPage() {
             disabled={saving || isSimulationRunning || !hasUnsavedChanges}
           >
             <Save className="h-4 w-4 mr-2" />
-            {saving ? "Updating..." : "Update"}
+            Save
           </Button>
           <Button
             onClick={handleStartSimulation}
@@ -381,7 +443,7 @@ export default function ProjectDetailPage() {
             }
           >
             <Play className="h-4 w-4 mr-2" />
-            {starting ? "Starting..." : "Start Simulation"}
+            Start
           </Button>
           <Button
             variant="destructive"
@@ -389,7 +451,7 @@ export default function ProjectDetailPage() {
             disabled={stopping || !isSimulationRunning}
           >
             <Square className="h-4 w-4 mr-2" />
-            {stopping ? "Stopping..." : "Stop Simulation"}
+            Stop
           </Button>
         </div>
       </div>
@@ -401,53 +463,224 @@ export default function ProjectDetailPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="glass h-[500px]">
+          <Card className="glass h-[500px] flex flex-col">
             <CardHeader>
-              <CardTitle>Project Information</CardTitle>
-              <CardDescription>Basic project configuration</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Project Information</CardTitle>
+                  <CardDescription>Basic project configuration</CardDescription>
+                </div>
+                {!editingProject ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setProjectData({
+                        name: currentProject.name || "",
+                        description: currentProject.description || "",
+                        protocol: currentProject.protocol || "",
+                        host: currentProject.host || "",
+                        port: currentProject.port?.toString() || "",
+                        endpoint: currentProject.endpoint || "",
+                        topic: currentProject.topic || "",
+                        username: currentProject.username || "",
+                        password: currentProject.password || "",
+                      });
+                      setEditingProject(true);
+                    }}
+                    disabled={isSimulationRunning}
+                  >
+                    Edit
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingProject(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={saveProject} disabled={saving}>
+                      {saving ? "Saving..." : "Save"}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Protocol</Label>
-                <div className="text-lg font-semibold text-primary">
-                  {currentProject.protocol}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Host</Label>
-                <div className="font-mono text-sm">{currentProject.host}</div>
-              </div>
-              {currentProject.port && (
-                <div className="space-y-2">
-                  <Label>Port</Label>
-                  <div className="font-mono text-sm">{currentProject.port}</div>
-                </div>
-              )}
-              {currentProject.endpoint && (
-                <div className="space-y-2">
-                  <Label>Endpoint</Label>
-                  <div className="font-mono text-sm">
-                    {currentProject.endpoint}
+            <CardContent className="flex-1 overflow-y-auto space-y-4">
+              {!editingProject ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Protocol</Label>
+                    <div className="text-lg font-semibold text-primary">
+                      {currentProject.protocol}
+                    </div>
                   </div>
-                </div>
-              )}
-              {currentProject.topic && (
-                <div className="space-y-2">
-                  <Label>Topic</Label>
-                  <div className="font-mono text-sm">
-                    {currentProject.topic}
+                  <div className="space-y-2">
+                    <Label>Host</Label>
+                    <div className="font-mono text-sm">
+                      {currentProject.host}
+                    </div>
                   </div>
-                </div>
+                  {currentProject.port && (
+                    <div className="space-y-2">
+                      <Label>Port</Label>
+                      <div className="font-mono text-sm">
+                        {currentProject.port}
+                      </div>
+                    </div>
+                  )}
+                  {currentProject.endpoint && (
+                    <div className="space-y-2">
+                      <Label>Endpoint</Label>
+                      <div className="font-mono text-sm">
+                        {currentProject.endpoint}
+                      </div>
+                    </div>
+                  )}
+                  {currentProject.topic && (
+                    <div className="space-y-2">
+                      <Label>Topic</Label>
+                      <div className="font-mono text-sm">
+                        {currentProject.topic}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Project Name</Label>
+                    <Input
+                      id="name"
+                      value={projectData.name}
+                      onChange={(e) =>
+                        setProjectData({ ...projectData, name: e.target.value })
+                      }
+                      placeholder="My IoT Project"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Input
+                      id="description"
+                      value={projectData.description}
+                      onChange={(e) =>
+                        setProjectData({
+                          ...projectData,
+                          description: e.target.value,
+                        })
+                      }
+                      placeholder="Project description"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="protocol">Protocol</Label>
+                    <select
+                      id="protocol"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={projectData.protocol}
+                      onChange={(e) =>
+                        setProjectData({
+                          ...projectData,
+                          protocol: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="HTTP">HTTP</option>
+                      <option value="HTTPS">HTTPS</option>
+                      <option value="MQTT">MQTT</option>
+                      <option value="MQTTS">MQTTS</option>
+                      <option value="WS">WebSocket</option>
+                      <option value="WSS">WebSocket Secure</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="host">Host</Label>
+                    <Input
+                      id="host"
+                      value={projectData.host}
+                      onChange={(e) =>
+                        setProjectData({ ...projectData, host: e.target.value })
+                      }
+                      placeholder="broker.example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="port">Port</Label>
+                    <Input
+                      id="port"
+                      type="number"
+                      value={projectData.port}
+                      onChange={(e) =>
+                        setProjectData({ ...projectData, port: e.target.value })
+                      }
+                      placeholder="1883"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endpoint">Endpoint</Label>
+                    <Input
+                      id="endpoint"
+                      value={projectData.endpoint}
+                      onChange={(e) =>
+                        setProjectData({
+                          ...projectData,
+                          endpoint: e.target.value,
+                        })
+                      }
+                      placeholder="/api/data"
+                    />
+                  </div>
+                  {(projectData.protocol === "MQTT" ||
+                    projectData.protocol === "MQTTS") && (
+                    <div className="space-y-2">
+                      <Label htmlFor="topic">Topic</Label>
+                      <Input
+                        id="topic"
+                        value={projectData.topic}
+                        onChange={(e) =>
+                          setProjectData({
+                            ...projectData,
+                            topic: e.target.value,
+                          })
+                        }
+                        placeholder="sensors/temperature"
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username (Optional)</Label>
+                    <Input
+                      id="username"
+                      value={projectData.username}
+                      onChange={(e) =>
+                        setProjectData({
+                          ...projectData,
+                          username: e.target.value,
+                        })
+                      }
+                      placeholder="username"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password (Optional)</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={projectData.password}
+                      onChange={(e) =>
+                        setProjectData({
+                          ...projectData,
+                          password: e.target.value,
+                        })
+                      }
+                      placeholder="password"
+                    />
+                  </div>
+                </>
               )}
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`h-2 w-2 rounded-full ${currentProject.status === "active" ? "bg-green-500" : currentProject.status === "error" ? "bg-red-500" : "bg-gray-500"}`}
-                  />
-                  <span className="capitalize">{currentProject.status}</span>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </motion.div>

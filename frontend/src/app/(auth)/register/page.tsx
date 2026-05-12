@@ -147,7 +147,7 @@ export default function RegisterPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-slate-500 mt-6">
-          © 2024 IoTKit-Studio. All rights reserved.
+          © 2026 IoTKit-Studio. All rights reserved.
         </p>
       </motion.div>
     </div>

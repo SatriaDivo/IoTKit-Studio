@@ -4,6 +4,14 @@ Dokumentasi lengkap untuk development IoTKit-Studio.
 
 ## 🎯 Quick Navigation
 
+### 🤖 AI Agent (NEW!)
+
+**[ai/](ai/)** - Dokumentasi AI Agent
+
+- **[ai/SETUP.md](ai/SETUP.md)** - Setup OpenRouter API key
+- **[ai/USAGE_GUIDE.md](ai/USAGE_GUIDE.md)** - Panduan penggunaan lengkap
+- **[ai/STATUS.md](ai/STATUS.md)** - Status implementasi
+
 ### 🚀 Getting Started
 
 1. **[GET_STARTED.md](GET_STARTED.md)** - Mulai di sini! (5 menit)
@@ -103,6 +111,18 @@ Dokumentasi lengkap untuk development IoTKit-Studio.
 ```
 docs/
 ├── README.md              # This file (navigation)
+│
+├── ai/                    # AI Agent documentation
+│   ├── README.md          # AI Agent overview
+│   ├── SETUP.md           # Setup guide
+│   ├── USAGE_GUIDE.md     # Usage guide
+│   └── STATUS.md          # Implementation status
+│
+├── features/              # Feature documentation
+│   └── (coming soon)
+│
+├── projects/              # Project documentation
+│   └── (coming soon)
 │
 ├── GET_STARTED.md         # Getting started (5 min)
 ├── START_DEV.md           # Quick start

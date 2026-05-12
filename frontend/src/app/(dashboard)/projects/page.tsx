@@ -286,28 +286,28 @@ export default function ProjectsPage() {
                 transition={{ delay: index * 0.05 }}
               >
                 <Card
-                  className={`bg-white border shadow-md hover:shadow-lg transition-all duration-200 ${cfg.border}`}
+                  className={`bg-white border shadow-md hover:shadow-lg transition-all duration-200 ${cfg.border} h-[280px] flex flex-col`}
                 >
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg text-slate-800">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-lg text-slate-800 truncate">
                           {project.name}
                         </CardTitle>
-                        <CardDescription className="mt-1 text-slate-600">
+                        <CardDescription className="mt-1 text-slate-600 line-clamp-2 text-sm">
                           {project.description || "No description"}
                         </CardDescription>
                       </div>
                       {/* Status badge top-right */}
                       <div
-                        className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.text} border ${cfg.border}`}
+                        className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.text} border ${cfg.border} shrink-0`}
                       >
                         <div className={`h-2 w-2 rounded-full ${cfg.dot}`} />
                         {cfg.label}
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="flex-1 flex flex-col justify-between pt-0">
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Protocol</span>
@@ -319,7 +319,7 @@ export default function ProjectsPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-slate-500">Host</span>
-                        <span className="font-medium text-slate-700 truncate ml-2">
+                        <span className="font-medium text-slate-700 truncate ml-2 max-w-[180px]">
                           {project.host}
                         </span>
                       </div>
