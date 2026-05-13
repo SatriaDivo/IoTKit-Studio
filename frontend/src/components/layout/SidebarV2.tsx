@@ -52,7 +52,7 @@ const navigation: NavGroup[] = [
     title: "AI & Analytics",
     collapsible: true,
     items: [
-      { name: "AI Agent", href: "/ai-agent", icon: Bot, badge: "New" },
+      { name: "AI Agent", href: "/ai-agent", icon: Bot },
       { name: "Analytics", href: "/analytics", icon: BarChart3 },
     ],
   },
