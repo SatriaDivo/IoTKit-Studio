@@ -161,8 +161,8 @@ export default function DashboardPage() {
       trend:
         projects.length > 0 ? `${projects.length} active` : "No projects yet",
       trendUp: true,
-      iconBg: "bg-blue-50",
-      iconColor: "text-blue-600",
+      iconBg: "bg-[#BDDDFC]",
+      iconColor: "text-[#384959]",
     },
     {
       title: "Active Simulations",
@@ -173,8 +173,8 @@ export default function DashboardPage() {
           ? `${runningCount} of ${projects.length} running`
           : "No simulations",
       trendUp: runningCount > 0,
-      iconBg: "bg-cyan-50",
-      iconColor: "text-cyan-600",
+      iconBg: "bg-[#88BDF2]/30",
+      iconColor: "text-[#384959]",
     },
     {
       title: "Payloads Sent",
@@ -187,8 +187,8 @@ export default function DashboardPage() {
       icon: Send,
       trend: totalPayloadsSent > 0 ? "Total sent" : "No payloads yet",
       trendUp: true,
-      iconBg: "bg-sky-50",
-      iconColor: "text-sky-600",
+      iconBg: "bg-[#6A89A7]/20",
+      iconColor: "text-[#6A89A7]",
     },
     {
       title: "Success Rate",
@@ -196,8 +196,8 @@ export default function DashboardPage() {
       icon: CheckCircle2,
       trend: totalPayloadsSent > 0 ? "Overall success" : "No data",
       trendUp: successRate >= 95,
-      iconBg: "bg-green-50",
-      iconColor: "text-green-600",
+      iconBg: "bg-[#4CAF50]/20",
+      iconColor: "text-[#4CAF50]",
     },
   ];
 
@@ -213,16 +213,16 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">
+          <h1 className="text-3xl font-bold text-[#2C3E50]">
             Dashboard Overview
           </h1>
-          <p className="text-slate-600 mt-1">
+          <p className="text-[#5A6C7D] mt-1">
             Real-time telemetry and simulation status.
           </p>
         </div>
         <Button
           onClick={() => router.push("/projects/new")}
-          className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-md"
+          className="btn-primary"
         >
           <Plus className="h-4 w-4 mr-2" />
           New Simulation
@@ -237,12 +237,12 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <Card className="bg-white border-blue-100 shadow-md hover:shadow-lg transition-all duration-200">
+            <Card className="card-industrial hover:shadow-industrial-lg transition-all duration-200">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <p className="text-sm text-slate-500 mb-1">{stat.title}</p>
-                    <p className="text-4xl font-bold text-slate-800">
+                    <p className="text-sm text-[#8B9AA8] mb-1">{stat.title}</p>
+                    <p className="text-4xl font-bold text-[#2C3E50]">
                       {stat.value}
                     </p>
                   </div>
@@ -253,13 +253,13 @@ export default function DashboardPage() {
                 {stat.trend && (
                   <div className="flex items-center gap-1 text-xs">
                     {stat.trendUp ? (
-                      <TrendingUp className="h-3 w-3 text-green-600" />
+                      <TrendingUp className="h-3 w-3 text-[#4CAF50]" />
                     ) : (
-                      <TrendingDown className="h-3 w-3 text-red-600" />
+                      <TrendingDown className="h-3 w-3 text-[#F44336]" />
                     )}
                     <span
                       className={
-                        stat.trendUp ? "text-green-600" : "text-red-600"
+                        stat.trendUp ? "text-[#4CAF50]" : "text-[#F44336]"
                       }
                     >
                       {stat.trend}
@@ -278,11 +278,11 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Card className="bg-white border-blue-100 shadow-md h-full">
-            <CardHeader className="border-b border-blue-50">
+          <Card className="card-industrial h-full">
+            <CardHeader className="border-b border-[#E8EDF2]">
               <div className="flex items-center gap-2">
-                <Circle className="h-4 w-4 text-blue-500" />
-                <CardTitle className="text-lg text-slate-800">
+                <Circle className="h-4 w-4 text-[#6A89A7]" />
+                <CardTitle className="text-lg text-[#2C3E50]">
                   Protocol Usage
                 </CardTitle>
               </div>
@@ -296,7 +296,7 @@ export default function DashboardPage() {
                       cy="80"
                       r="70"
                       fill="none"
-                      stroke="#E0F2FE"
+                      stroke="#E8EDF2"
                       strokeWidth="20"
                     />
                     {totalProtocols > 0 && (
@@ -306,7 +306,7 @@ export default function DashboardPage() {
                           cy="80"
                           r="70"
                           fill="none"
-                          stroke="#0EA5E9"
+                          stroke="#6A89A7"
                           strokeWidth="20"
                           strokeDasharray={`${(protocolUsage.MQTT / totalProtocols) * 440} 440`}
                           strokeDashoffset="0"
@@ -316,7 +316,7 @@ export default function DashboardPage() {
                           cy="80"
                           r="70"
                           fill="none"
-                          stroke="#38BDF8"
+                          stroke="#88BDF2"
                           strokeWidth="20"
                           strokeDasharray={`${(protocolUsage.HTTP / totalProtocols) * 440} 440`}
                           strokeDashoffset={`-${(protocolUsage.MQTT / totalProtocols) * 440}`}
@@ -325,8 +325,8 @@ export default function DashboardPage() {
                     )}
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-xs text-slate-500">Total</p>
-                    <p className="text-2xl font-bold text-slate-800">
+                    <p className="text-xs text-[#8B9AA8]">Total</p>
+                    <p className="text-2xl font-bold text-[#2C3E50]">
                       {totalPayloadsSent >= 1000000
                         ? `${(totalPayloadsSent / 1000000).toFixed(1)}M`
                         : totalPayloadsSent >= 1000
@@ -339,10 +339,10 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-cyan-500"></div>
-                    <span className="text-sm text-slate-700">MQTT</span>
+                    <div className="h-3 w-3 rounded-full bg-[#6A89A7]"></div>
+                    <span className="text-sm text-[#5A6C7D]">MQTT</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-800">
+                  <span className="text-sm font-semibold text-[#2C3E50]">
                     (
                     {Math.round((protocolUsage.MQTT / totalProtocols) * 100) ||
                       0}
@@ -351,10 +351,10 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-blue-500"></div>
-                    <span className="text-sm text-slate-700">HTTP</span>
+                    <div className="h-3 w-3 rounded-full bg-[#88BDF2]"></div>
+                    <span className="text-sm text-[#5A6C7D]">HTTP</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-800">
+                  <span className="text-sm font-semibold text-[#2C3E50]">
                     (
                     {Math.round((protocolUsage.HTTP / totalProtocols) * 100) ||
                       0}
@@ -363,10 +363,10 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-sky-500"></div>
-                    <span className="text-sm text-slate-700">WS</span>
+                    <div className="h-3 w-3 rounded-full bg-[#BDDDFC]"></div>
+                    <span className="text-sm text-[#5A6C7D]">WS</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-800">
+                  <span className="text-sm font-semibold text-[#2C3E50]">
                     (
                     {Math.round((protocolUsage.WS / totalProtocols) * 100) || 0}
                     %)
@@ -383,18 +383,18 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <Card className="bg-white border-blue-100 shadow-md h-full">
-            <CardHeader className="border-b border-blue-50">
+          <Card className="card-industrial h-full">
+            <CardHeader className="border-b border-[#E8EDF2]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Radio className="h-4 w-4 text-blue-500" />
-                  <CardTitle className="text-lg text-slate-800">
+                  <Radio className="h-4 w-4 text-[#6A89A7]" />
+                  <CardTitle className="text-lg text-[#2C3E50]">
                     Real-time Activity Feed
                   </CardTitle>
                 </div>
-                <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-green-50 border border-green-200">
-                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                  <span className="text-xs font-medium text-green-700">
+                <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-[#4CAF50]/10 border border-[#4CAF50]/30">
+                  <div className="h-2 w-2 rounded-full bg-[#4CAF50] animate-pulse"></div>
+                  <span className="text-xs font-medium text-[#4CAF50]">
                     Live
                   </span>
                 </div>
@@ -404,11 +404,11 @@ export default function DashboardPage() {
               <div className="space-y-3 max-h-[400px] overflow-y-auto">
                 {recentActivity.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Radio className="h-12 w-12 text-slate-300 mb-3" />
-                    <p className="text-sm text-slate-600 font-medium">
+                    <Radio className="h-12 w-12 text-[#D1DBE5] mb-3" />
+                    <p className="text-sm text-[#5A6C7D] font-medium">
                       No activity yet
                     </p>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-[#8B9AA8] mt-1">
                       Start a simulation to see real-time activity
                     </p>
                   </div>
@@ -419,26 +419,26 @@ export default function DashboardPage() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.6 + index * 0.1 }}
-                      className={`p-3 rounded-lg border-l-4 ${activity.status === "success" ? "bg-green-50/50 border-l-green-500" : "bg-red-50/50 border-l-red-500"}`}
+                      className={`p-3 rounded-lg border-l-4 ${activity.status === "success" ? "bg-[#4CAF50]/5 border-l-[#4CAF50]" : "bg-[#F44336]/5 border-l-[#F44336]"}`}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-[#8B9AA8]">
                             {new Date(activity.timestamp).toLocaleTimeString()}
                           </span>
                           <span
-                            className={`text-xs font-mono px-2 py-0.5 rounded ${activity.protocol === "MQTT" ? "bg-cyan-100 text-cyan-700" : activity.protocol === "HTTP" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}
+                            className={`text-xs font-mono px-2 py-0.5 rounded ${activity.protocol === "MQTT" ? "bg-[#6A89A7]/20 text-[#384959]" : activity.protocol === "HTTP" ? "bg-[#88BDF2]/20 text-[#384959]" : "bg-[#BDDDFC]/20 text-[#384959]"}`}
                           >
                             [{activity.protocol}]
                           </span>
                         </div>
                         {activity.status === "success" ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <CheckCircle2 className="h-4 w-4 text-[#4CAF50]" />
                         ) : (
-                          <Circle className="h-4 w-4 text-red-600" />
+                          <Circle className="h-4 w-4 text-[#F44336]" />
                         )}
                       </div>
-                      <p className="text-sm text-slate-700">
+                      <p className="text-sm text-[#5A6C7D]">
                         {activity.message}
                       </p>
                     </motion.div>
@@ -455,16 +455,16 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.7 }}
       >
-        <Card className="bg-white border-blue-100 shadow-md">
-          <CardHeader className="border-b border-blue-50">
+        <Card className="card-industrial">
+          <CardHeader className="border-b border-[#E8EDF2]">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg text-slate-800">
+              <CardTitle className="text-lg text-[#2C3E50]">
                 Recent Activity
               </CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                className="text-[#6A89A7] hover:text-[#5a7997] hover:bg-[#E8EDF2]"
                 onClick={() => router.push("/logs")}
               >
                 View All Logs →
@@ -474,11 +474,11 @@ export default function DashboardPage() {
           <CardContent className="pt-4">
             {recentActivity.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Database className="h-12 w-12 text-slate-300 mb-3" />
-                <p className="text-sm text-slate-600 font-medium">
+                <Database className="h-12 w-12 text-[#D1DBE5] mb-3" />
+                <p className="text-sm text-[#5A6C7D] font-medium">
                   No recent activity
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-[#8B9AA8] mt-1">
                   Activity will appear here when simulations are running
                 </p>
               </div>
@@ -487,20 +487,20 @@ export default function DashboardPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-blue-50">
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600">
+                      <tr className="border-b border-[#E8EDF2]">
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
                           Timestamp
                         </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600">
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
                           Project
                         </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600">
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
                           Protocol
                         </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600">
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
                           Payload Size
                         </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-600">
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
                           Status
                         </th>
                       </tr>
@@ -509,35 +509,35 @@ export default function DashboardPage() {
                       {currentItems.map((activity) => (
                         <tr
                           key={activity.id}
-                          className="border-b border-blue-50 hover:bg-blue-50/30 transition-colors"
+                          className="border-b border-[#E8EDF2] hover:bg-[#F5F7FA] transition-colors"
                         >
-                          <td className="py-3 px-4 text-sm text-slate-600">
+                          <td className="py-3 px-4 text-sm text-[#5A6C7D]">
                             {new Date(activity.timestamp).toLocaleString()}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
-                              <FolderKanban className="h-4 w-4 text-blue-500" />
-                              <span className="text-sm text-slate-700">
+                              <FolderKanban className="h-4 w-4 text-[#6A89A7]" />
+                              <span className="text-sm text-[#2C3E50]">
                                 {activity.project}
                               </span>
                             </div>
                           </td>
                           <td className="py-3 px-4">
                             <span
-                              className={`text-xs font-mono px-2 py-1 rounded ${activity.protocol === "MQTT" ? "bg-cyan-100 text-cyan-700" : activity.protocol === "HTTP" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}
+                              className={`text-xs font-mono px-2 py-1 rounded ${activity.protocol === "MQTT" ? "bg-[#6A89A7]/20 text-[#384959]" : activity.protocol === "HTTP" ? "bg-[#88BDF2]/20 text-[#384959]" : "bg-[#BDDDFC]/20 text-[#384959]"}`}
                             >
                               {activity.protocol}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-sm text-slate-600">
+                          <td className="py-3 px-4 text-sm text-[#5A6C7D]">
                             {activity.payloadSize}
                           </td>
                           <td className="py-3 px-4">
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${activity.status === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${activity.status === "success" ? "bg-[#4CAF50]/10 text-[#4CAF50] border border-[#4CAF50]/30" : "bg-[#F44336]/10 text-[#F44336] border border-[#F44336]/30"}`}
                             >
                               <div
-                                className={`h-1.5 w-1.5 rounded-full ${activity.status === "success" ? "bg-green-500" : "bg-red-500"}`}
+                                className={`h-1.5 w-1.5 rounded-full ${activity.status === "success" ? "bg-[#4CAF50]" : "bg-[#F44336]"}`}
                               ></div>
                               {activity.status === "success"
                                 ? "Success"
@@ -549,26 +549,26 @@ export default function DashboardPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-blue-50">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#E8EDF2]">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-600">Show:</span>
+                    <span className="text-sm text-[#5A6C7D]">Show:</span>
                     <select
                       value={itemsPerPage}
                       onChange={(e) =>
                         handleItemsPerPageChange(Number(e.target.value))
                       }
-                      className="px-3 py-1.5 text-sm border border-blue-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400"
+                      className="px-3 py-1.5 text-sm border border-[#D1DBE5] rounded-lg bg-white text-[#2C3E50] focus:outline-none focus:ring-2 focus:ring-[#6A89A7]/20 focus:border-[#6A89A7]"
                     >
                       <option value={10}>10</option>
                       <option value={15}>15</option>
                       <option value={20}>20</option>
                     </select>
-                    <span className="text-sm text-slate-600">
+                    <span className="text-sm text-[#5A6C7D]">
                       entries per page
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-600">
+                    <span className="text-sm text-[#5A6C7D]">
                       Showing {indexOfFirstItem + 1} to{" "}
                       {Math.min(indexOfLastItem, recentActivity.length)} of{" "}
                       {recentActivity.length} entries
@@ -579,7 +579,7 @@ export default function DashboardPage() {
                         size="sm"
                         onClick={() => setCurrentPage(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="h-8 w-8 p-0 border-blue-200 text-slate-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="h-8 w-8 p-0 border-[#D1DBE5] text-[#5A6C7D] hover:bg-[#E8EDF2] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         ‹
                       </Button>
@@ -598,7 +598,7 @@ export default function DashboardPage() {
                                 }
                                 size="sm"
                                 onClick={() => setCurrentPage(page)}
-                                className={`h-8 w-8 p-0 ${currentPage === page ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white" : "border-blue-200 text-slate-700 hover:bg-blue-50"}`}
+                                className={`h-8 w-8 p-0 ${currentPage === page ? "bg-[#6A89A7] hover:bg-[#5a7997] text-white" : "border-[#D1DBE5] text-[#5A6C7D] hover:bg-[#E8EDF2]"}`}
                               >
                                 {page}
                               </Button>
@@ -608,7 +608,7 @@ export default function DashboardPage() {
                             page === currentPage + 2
                           ) {
                             return (
-                              <span key={page} className="px-1 text-slate-400">
+                              <span key={page} className="px-1 text-[#8B9AA8]">
                                 ...
                               </span>
                             );
@@ -621,7 +621,7 @@ export default function DashboardPage() {
                         size="sm"
                         onClick={() => setCurrentPage(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className="h-8 w-8 p-0 border-blue-200 text-slate-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="h-8 w-8 p-0 border-[#D1DBE5] text-[#5A6C7D] hover:bg-[#E8EDF2] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         ›
                       </Button>
