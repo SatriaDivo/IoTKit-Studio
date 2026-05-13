@@ -134,67 +134,149 @@ export default function AnalyticsPage() {
   };
 
   const generateChartData = async () => {
-    // Generate time series data (simulated for now)
-    const now = Date.now();
-    const interval =
-      timeRange === "1h"
-        ? 5 * 60 * 1000
-        : timeRange === "24h"
-          ? 60 * 60 * 1000
-          : timeRange === "7d"
-            ? 6 * 60 * 60 * 1000
-            : 24 * 60 * 60 * 1000;
-
-    const points =
-      timeRange === "1h"
-        ? 12
-        : timeRange === "24h"
-          ? 24
-          : timeRange === "7d"
-            ? 28
-            : 30;
-
-    const timeSeries: AnalyticsData[] = [];
-    for (let i = points - 1; i >= 0; i--) {
-      const timestamp = new Date(now - i * interval);
-      timeSeries.push({
-        timestamp: timestamp.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        payloadsSent: Math.floor(Math.random() * 100) + 50,
-        successRate: Math.floor(Math.random() * 10) + 90,
-        avgLatency: Math.floor(Math.random() * 50) + 20,
+    try {
+      // Fetch real logs data
+      const logsResponse = await api.get("/logs", {
+        params: { limit: 1000, sort: "desc" },
       });
+
+      if (!logsResponse.data || !Array.isArray(logsResponse.data)) {
+        setTimeSeriesData([]);
+        setProtocolData([]);
+        return;
+      }
+
+      const logs = logsResponse.data;
+
+      // Calculate time range in milliseconds
+      const now = Date.now();
+      const rangeMs =
+        timeRange === "1h"
+          ? 60 * 60 * 1000
+          : timeRange === "24h"
+            ? 24 * 60 * 60 * 1000
+            : timeRange === "7d"
+              ? 7 * 24 * 60 * 60 * 1000
+              : 30 * 24 * 60 * 60 * 1000;
+
+      // Filter logs by time range
+      const filteredLogs = logs.filter((log: any) => {
+        const logTime = new Date(log.timestamp || log.createdAt).getTime();
+        return now - logTime <= rangeMs;
+      });
+
+      // Group logs by time intervals
+      const interval =
+        timeRange === "1h"
+          ? 5 * 60 * 1000
+          : timeRange === "24h"
+            ? 60 * 60 * 1000
+            : timeRange === "7d"
+              ? 6 * 60 * 60 * 1000
+              : 24 * 60 * 60 * 1000;
+
+      const points =
+        timeRange === "1h"
+          ? 12
+          : timeRange === "24h"
+            ? 24
+            : timeRange === "7d"
+              ? 28
+              : 30;
+
+      // Create time buckets
+      const buckets: { [key: string]: any[] } = {};
+      for (let i = 0; i < points; i++) {
+        const bucketTime = now - (points - 1 - i) * interval;
+        const bucketKey = new Date(bucketTime).toISOString();
+        buckets[bucketKey] = [];
+      }
+
+      // Distribute logs into buckets
+      filteredLogs.forEach((log: any) => {
+        const logTime = new Date(log.timestamp || log.createdAt).getTime();
+        const bucketIndex = Math.floor((now - logTime) / interval);
+        const bucketTime = now - bucketIndex * interval;
+        const bucketKey = new Date(bucketTime).toISOString();
+
+        if (buckets[bucketKey]) {
+          buckets[bucketKey].push(log);
+        }
+      });
+
+      // Generate time series data from real logs
+      const timeSeries: AnalyticsData[] = Object.keys(buckets)
+        .sort()
+        .map((bucketKey) => {
+          const bucketLogs = buckets[bucketKey];
+          const timestamp = new Date(bucketKey);
+
+          const payloadsSent = bucketLogs.length;
+          const successCount = bucketLogs.filter(
+            (log: any) => log.type === "response" || log.statusCode === 200,
+          ).length;
+          const successRate =
+            payloadsSent > 0 ? (successCount / payloadsSent) * 100 : 0;
+
+          const latencies = bucketLogs
+            .filter((log: any) => log.latency)
+            .map((log: any) => log.latency);
+          const avgLatency =
+            latencies.length > 0
+              ? latencies.reduce((a: number, b: number) => a + b, 0) /
+                latencies.length
+              : 0;
+
+          return {
+            timestamp:
+              timeRange === "1h" || timeRange === "24h"
+                ? timestamp.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : timestamp.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  }),
+            payloadsSent,
+            successRate: parseFloat(successRate.toFixed(1)),
+            avgLatency: Math.round(avgLatency),
+          };
+        });
+
+      setTimeSeriesData(timeSeries);
+
+      // Protocol distribution from real projects
+      const protocolStats: ProtocolStats[] = [
+        {
+          name: "MQTT",
+          value: projects.filter((p) => p.protocol.includes("MQTT")).length,
+          color: "#6A89A7",
+        },
+        {
+          name: "HTTP",
+          value: projects.filter((p) => p.protocol.includes("HTTP")).length,
+          color: "#88BDF2",
+        },
+        {
+          name: "WebSocket",
+          value: projects.filter((p) => p.protocol.includes("WS")).length,
+          color: "#BDDDFC",
+        },
+      ];
+      setProtocolData(protocolStats.filter((p) => p.value > 0));
+
+      // Performance data
+      const performance = [
+        { name: "Success", value: successRate, color: "#4CAF50" },
+        { name: "Failed", value: 100 - successRate, color: "#F44336" },
+      ];
+      setPerformanceData(performance);
+    } catch (error) {
+      console.error("Error generating chart data:", error);
+      setTimeSeriesData([]);
+      setProtocolData([]);
     }
-    setTimeSeriesData(timeSeries);
-
-    // Protocol distribution
-    const protocolStats: ProtocolStats[] = [
-      {
-        name: "MQTT",
-        value: projects.filter((p) => p.protocol.includes("MQTT")).length,
-        color: "#6A89A7",
-      },
-      {
-        name: "HTTP",
-        value: projects.filter((p) => p.protocol.includes("HTTP")).length,
-        color: "#88BDF2",
-      },
-      {
-        name: "WebSocket",
-        value: projects.filter((p) => p.protocol.includes("WS")).length,
-        color: "#BDDDFC",
-      },
-    ];
-    setProtocolData(protocolStats.filter((p) => p.value > 0));
-
-    // Performance data
-    const performance = [
-      { name: "Success", value: successRate, color: "#4CAF50" },
-      { name: "Failed", value: 100 - successRate, color: "#F44336" },
-    ];
-    setPerformanceData(performance);
   };
 
   const metricCards = [
@@ -207,26 +289,20 @@ export default function AnalyticsPage() {
             ? `${(totalPayloads / 1000).toFixed(1)}K`
             : totalPayloads,
       icon: Zap,
-      trend: "+12.5%",
-      trendUp: true,
       iconBg: "bg-[#6A89A7]/20",
       iconColor: "text-[#6A89A7]",
     },
     {
       title: "Success Rate",
-      value: `${successRate}%`,
+      value: totalPayloads > 0 ? `${successRate}%` : "--",
       icon: CheckCircle2,
-      trend: "+2.3%",
-      trendUp: true,
       iconBg: "bg-[#4CAF50]/20",
       iconColor: "text-[#4CAF50]",
     },
     {
       title: "Avg Latency",
-      value: `${avgLatency}ms`,
+      value: avgLatency > 0 ? `${avgLatency}ms` : "--",
       icon: Clock,
-      trend: "-5.1%",
-      trendUp: true,
       iconBg: "bg-[#88BDF2]/20",
       iconColor: "text-[#88BDF2]",
     },
@@ -234,8 +310,6 @@ export default function AnalyticsPage() {
       title: "Active Simulations",
       value: activeSimulations,
       icon: Activity,
-      trend: `${activeSimulations} running`,
-      trendUp: activeSimulations > 0,
       iconBg: "bg-[#BDDDFC]/30",
       iconColor: "text-[#384959]",
     },
@@ -297,7 +371,7 @@ export default function AnalyticsPage() {
           >
             <Card className="card-industrial hover:shadow-industrial-lg transition-all duration-200">
               <CardContent className="pt-6">
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="text-sm text-[#8B9AA8] mb-1">
                       {metric.title}
@@ -309,18 +383,6 @@ export default function AnalyticsPage() {
                   <div className={`p-3 rounded-xl ${metric.iconBg}`}>
                     <metric.icon className={`h-6 w-6 ${metric.iconColor}`} />
                   </div>
-                </div>
-                <div className="flex items-center gap-1 text-xs">
-                  <TrendingUp
-                    className={`h-3 w-3 ${metric.trendUp ? "text-[#4CAF50]" : "text-[#F44336]"}`}
-                  />
-                  <span
-                    className={
-                      metric.trendUp ? "text-[#4CAF50]" : "text-[#F44336]"
-                    }
-                  >
-                    {metric.trend}
-                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -344,44 +406,64 @@ export default function AnalyticsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={timeSeriesData}>
-                  <defs>
-                    <linearGradient
-                      id="colorPayloads"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="5%" stopColor="#6A89A7" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6A89A7" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E8EDF2" />
-                  <XAxis
-                    dataKey="timestamp"
-                    stroke="#8B9AA8"
-                    style={{ fontSize: "12px" }}
-                  />
-                  <YAxis stroke="#8B9AA8" style={{ fontSize: "12px" }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#fff",
-                      border: "1px solid #D1DBE5",
-                      borderRadius: "8px",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="payloadsSent"
-                    stroke="#6A89A7"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorPayloads)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {timeSeriesData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                  <BarChart3 className="h-12 w-12 text-[#D1DBE5] mb-3" />
+                  <p className="text-sm text-[#5A6C7D] font-medium">
+                    No data available
+                  </p>
+                  <p className="text-xs text-[#8B9AA8] mt-1">
+                    Start a simulation to see payload trends
+                  </p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={timeSeriesData}>
+                    <defs>
+                      <linearGradient
+                        id="colorPayloads"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#6A89A7"
+                          stopOpacity={0.3}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#6A89A7"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E8EDF2" />
+                    <XAxis
+                      dataKey="timestamp"
+                      stroke="#8B9AA8"
+                      style={{ fontSize: "12px" }}
+                    />
+                    <YAxis stroke="#8B9AA8" style={{ fontSize: "12px" }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#fff",
+                        border: "1px solid #D1DBE5",
+                        borderRadius: "8px",
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="payloadsSent"
+                      stroke="#6A89A7"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorPayloads)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -400,36 +482,48 @@ export default function AnalyticsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={timeSeriesData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E8EDF2" />
-                  <XAxis
-                    dataKey="timestamp"
-                    stroke="#8B9AA8"
-                    style={{ fontSize: "12px" }}
-                  />
-                  <YAxis
-                    stroke="#8B9AA8"
-                    style={{ fontSize: "12px" }}
-                    domain={[0, 100]}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#fff",
-                      border: "1px solid #D1DBE5",
-                      borderRadius: "8px",
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="successRate"
-                    stroke="#4CAF50"
-                    strokeWidth={3}
-                    dot={{ fill: "#4CAF50", r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {timeSeriesData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                  <TrendingUp className="h-12 w-12 text-[#D1DBE5] mb-3" />
+                  <p className="text-sm text-[#5A6C7D] font-medium">
+                    No data available
+                  </p>
+                  <p className="text-xs text-[#8B9AA8] mt-1">
+                    Start a simulation to see success rate trends
+                  </p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={timeSeriesData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E8EDF2" />
+                    <XAxis
+                      dataKey="timestamp"
+                      stroke="#8B9AA8"
+                      style={{ fontSize: "12px" }}
+                    />
+                    <YAxis
+                      stroke="#8B9AA8"
+                      style={{ fontSize: "12px" }}
+                      domain={[0, 100]}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#fff",
+                        border: "1px solid #D1DBE5",
+                        borderRadius: "8px",
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="successRate"
+                      stroke="#4CAF50"
+                      strokeWidth={3}
+                      dot={{ fill: "#4CAF50", r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -450,27 +544,39 @@ export default function AnalyticsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={protocolData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
-                    }
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {protocolData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {protocolData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-[250px] text-center">
+                  <Activity className="h-12 w-12 text-[#D1DBE5] mb-3" />
+                  <p className="text-sm text-[#5A6C7D] font-medium">
+                    No projects yet
+                  </p>
+                  <p className="text-xs text-[#8B9AA8] mt-1">
+                    Create projects to see protocol distribution
+                  </p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={protocolData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name} ${(percent * 100).toFixed(0)}%`
+                      }
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {protocolData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -489,29 +595,41 @@ export default function AnalyticsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={timeSeriesData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E8EDF2" />
-                  <XAxis
-                    dataKey="timestamp"
-                    stroke="#8B9AA8"
-                    style={{ fontSize: "10px" }}
-                  />
-                  <YAxis stroke="#8B9AA8" style={{ fontSize: "12px" }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#fff",
-                      border: "1px solid #D1DBE5",
-                      borderRadius: "8px",
-                    }}
-                  />
-                  <Bar
-                    dataKey="avgLatency"
-                    fill="#88BDF2"
-                    radius={[8, 8, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              {timeSeriesData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-[250px] text-center">
+                  <Clock className="h-12 w-12 text-[#D1DBE5] mb-3" />
+                  <p className="text-sm text-[#5A6C7D] font-medium">
+                    No data available
+                  </p>
+                  <p className="text-xs text-[#8B9AA8] mt-1">
+                    Start a simulation to see latency trends
+                  </p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={timeSeriesData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E8EDF2" />
+                    <XAxis
+                      dataKey="timestamp"
+                      stroke="#8B9AA8"
+                      style={{ fontSize: "10px" }}
+                    />
+                    <YAxis stroke="#8B9AA8" style={{ fontSize: "12px" }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#fff",
+                        border: "1px solid #D1DBE5",
+                        borderRadius: "8px",
+                      }}
+                    />
+                    <Bar
+                      dataKey="avgLatency"
+                      fill="#88BDF2"
+                      radius={[8, 8, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </motion.div>
