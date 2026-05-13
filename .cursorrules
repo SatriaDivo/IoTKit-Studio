@@ -1,4 +1,53 @@
+# IoTKit Studio - Cursor AI Rules
+
+You are working on **IoTKit Studio**, an industrial IoT simulation platform.
+
+## Project Context
+
+- **Type**: Full-stack IoT simulation platform
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
+- **Backend**: Node.js, Express, TypeScript, Prisma
+- **Database**: PostgreSQL
+- **Design**: Stormy Morning (industrial IoT theme)
+
+## Design System
+
+- Primary Color: `#6A89A7` (Slate Blue)
+- Use `.card-industrial`, `.btn-primary`, `.table-industrial` classes
+- NO chat bubbles or conversational UI
+- Industrial control panel aesthetic
+
+## Key Directories
+
+- `backend/src/` - Backend code
+- `frontend/src/app/(dashboard)/` - Dashboard pages
+- `backend/prisma/schema.prisma` - Database schema
+- `DESIGN.md` - Complete design system
+
+## Development Commands
+
+```bash
+# Backend
+cd backend && npm run dev
+
+# Frontend
+cd frontend && npm run dev
+
+# Database
+cd backend && npm run prisma:studio
+```
+
+## Code Style
+
+- Use TypeScript strict mode
+- Follow Stormy Morning design system
+- Use Prisma for database operations
+- Real data, no dummy/mock data
+
+---
+
 <!-- code-review-graph MCP tools -->
+
 ## MCP Tools: code-review-graph
 
 **IMPORTANT: This project has a knowledge graph. ALWAYS use the
@@ -19,16 +68,16 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 
 ### Key Tools
 
-| Tool | Use when |
-| ------ | ---------- |
-| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context` | Need source snippets for review — token-efficient |
-| `get_impact_radius` | Understanding blast radius of a change |
-| `get_affected_flows` | Finding which execution paths are impacted |
-| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes` | Finding functions/classes by name or keyword |
-| `get_architecture_overview` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
+| Tool                        | Use when                                               |
+| --------------------------- | ------------------------------------------------------ |
+| `detect_changes`            | Reviewing code changes — gives risk-scored analysis    |
+| `get_review_context`        | Need source snippets for review — token-efficient      |
+| `get_impact_radius`         | Understanding blast radius of a change                 |
+| `get_affected_flows`        | Finding which execution paths are impacted             |
+| `query_graph`               | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes`     | Finding functions/classes by name or keyword           |
+| `get_architecture_overview` | Understanding high-level codebase structure            |
+| `refactor_tool`             | Planning renames, finding dead code                    |
 
 ### Workflow
 
