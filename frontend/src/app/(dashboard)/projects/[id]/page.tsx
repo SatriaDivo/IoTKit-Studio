@@ -805,7 +805,23 @@ export default function ProjectDetailPage() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2 items-center">
-                  <div className="flex items-center gap-2 mr-2 bg-slate-100 p-1 rounded-lg">
+                  {!useDataset && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowImportDialog(true)}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import JSON
+                      </Button>
+                      <Button size="sm" onClick={addPayloadField}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Field
+                      </Button>
+                    </>
+                  )}
+                  <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg ml-2">
                     <Button 
                       size="sm" 
                       variant={!useDataset ? "default" : "ghost"}
@@ -823,22 +839,6 @@ export default function ProjectDetailPage() {
                       Dataset Replay
                     </Button>
                   </div>
-                  {!useDataset && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowImportDialog(true)}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Import JSON
-                      </Button>
-                      <Button size="sm" onClick={addPayloadField}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Field
-                      </Button>
-                    </>
-                  )}
                 </div>
               </div>
             </CardHeader>

@@ -143,7 +143,7 @@ export default function DatasetsPage() {
                 type="file"
                 accept=".csv"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="cursor-pointer"
+                className="cursor-pointer h-auto py-2 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-slate-500"
               />
               <p className="text-xs text-slate-500 mt-1">Max recommended size: 50MB</p>
             </div>
