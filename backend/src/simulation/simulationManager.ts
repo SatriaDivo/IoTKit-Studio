@@ -50,6 +50,12 @@ export class SimulationManager extends EventEmitter {
       startTime: Date.now(),
     });
 
+    // Update Project lastActivity
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { lastActivity: new Date() },
+    }).catch(() => {});
+
     // Start simulation loop
     const timer = setInterval(async () => {
       await this.sendBatch(
@@ -188,6 +194,12 @@ export class SimulationManager extends EventEmitter {
 
     Logger.info(`Simulation stopped for project ${projectId}`);
     this.emit("simulationStopped", { projectId });
+
+    // Update Project lastActivity on stop
+    prisma.project.update({
+      where: { id: projectId },
+      data: { lastActivity: new Date() },
+    }).catch(() => {});
   }
 
   getStats(projectId: string): SimulationStats | undefined {
