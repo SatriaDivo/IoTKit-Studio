@@ -46,7 +46,7 @@ const navigation: NavGroup[] = [
     items: [
       { name: "Projects", href: "/projects", icon: FolderKanban },
       { name: "Datasets", href: "/datasets", icon: Database },
-      { name: "Payload Builder", href: "/payload-builder", icon: Code },
+
       { name: "Logs", href: "/logs", icon: ScrollText },
     ],
   },
