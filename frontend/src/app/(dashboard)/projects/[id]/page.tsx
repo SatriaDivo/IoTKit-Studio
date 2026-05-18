@@ -392,13 +392,16 @@ export default function ProjectDetailPage() {
       await api.post("/simulations/start", {
         projectId: params.id,
         payloadStructure: structure,
-        interval: simulationSettings.interval,
-        batchSize: simulationSettings.batchSize,
+        interval: parseInt(simulationSettings.interval as any) || 1000,
+        batchSize: parseInt(simulationSettings.batchSize as any) || 1,
         swarmMode: simulationSettings.swarmMode,
         swarmCount: simulationSettings.swarmCount,
-        stages: simulationSettings.stages,
+        stages: simulationSettings.stages.map((stage) => ({
+          duration: parseInt(stage.duration as any) || 0,
+          target: parseInt(stage.target as any) || 0,
+        })),
         chaosMode: simulationSettings.chaosMode,
-        chaosProbability: simulationSettings.chaosProbability,
+        chaosProbability: parseInt(simulationSettings.chaosProbability as any) || 5,
         chaosFields: simulationSettings.chaosFields,
       });
       setIsSimulationRunning(true);
@@ -1176,9 +1179,17 @@ export default function ProjectDetailPage() {
                   onChange={(e) =>
                     setSimulationSettings({
                       ...simulationSettings,
-                      interval: parseInt(e.target.value) || 1000,
+                      interval: e.target.value === "" ? "" : (parseInt(e.target.value) || 0),
                     })
                   }
+                  onBlur={() => {
+                    if (simulationSettings.interval === "" || parseInt(simulationSettings.interval as any) < 100) {
+                      setSimulationSettings({
+                        ...simulationSettings,
+                        interval: 1000,
+                      });
+                    }
+                  }}
                   min={100}
                   disabled={isSimulationRunning}
                 />
@@ -1195,9 +1206,17 @@ export default function ProjectDetailPage() {
                   onChange={(e) =>
                     setSimulationSettings({
                       ...simulationSettings,
-                      batchSize: parseInt(e.target.value) || 1,
+                      batchSize: e.target.value === "" ? "" : (parseInt(e.target.value) || 0),
                     })
                   }
+                  onBlur={() => {
+                    if (simulationSettings.batchSize === "" || parseInt(simulationSettings.batchSize as any) < 1) {
+                      setSimulationSettings({
+                        ...simulationSettings,
+                        batchSize: 1,
+                      });
+                    }
+                  }}
                   min={1}
                   disabled={isSimulationRunning}
                 />
@@ -1214,9 +1233,17 @@ export default function ProjectDetailPage() {
                   onChange={(e) =>
                     setSimulationSettings({
                       ...simulationSettings,
-                      duration: parseInt(e.target.value) || 0,
+                      duration: e.target.value === "" ? "" : (parseInt(e.target.value) || 0),
                     })
                   }
+                  onBlur={() => {
+                    if (simulationSettings.duration === "" || parseInt(simulationSettings.duration as any) < 0) {
+                      setSimulationSettings({
+                        ...simulationSettings,
+                        duration: 0,
+                      });
+                    }
+                  }}
                   min={0}
                   disabled={isSimulationRunning}
                 />
@@ -1285,7 +1312,8 @@ export default function ProjectDetailPage() {
                             disabled={isSimulationRunning}
                             onChange={(e) => {
                               const newStages = [...simulationSettings.stages];
-                              newStages[index].duration = parseInt(e.target.value) || 0;
+                              const val = e.target.value;
+                              newStages[index].duration = val === "" ? "" : (parseInt(val) || 0) as any;
                               setSimulationSettings({...simulationSettings, stages: newStages});
                             }}
                             className="h-8 text-xs"
@@ -1301,9 +1329,10 @@ export default function ProjectDetailPage() {
                             disabled={isSimulationRunning}
                             onChange={(e) => {
                               const newStages = [...simulationSettings.stages];
-                              let val = parseInt(e.target.value) || 0;
-                              if (val > 1000) val = 1000;
-                              newStages[index].target = val;
+                              const val = e.target.value;
+                              let numVal = val === "" ? "" : (parseInt(val) || 0);
+                              if (typeof numVal === "number" && numVal > 1000) numVal = 1000;
+                              newStages[index].target = numVal as any;
                               setSimulationSettings({...simulationSettings, stages: newStages});
                             }}
                             className="h-8 text-xs"
@@ -1382,8 +1411,11 @@ export default function ProjectDetailPage() {
                         value={simulationSettings.chaosProbability}
                         disabled={isSimulationRunning}
                         onChange={(e) => {
-                          const val = Math.min(100, Math.max(1, parseInt(e.target.value) || 1));
-                          setSimulationSettings({...simulationSettings, chaosProbability: val});
+                          const val = e.target.value;
+                          setSimulationSettings({
+                            ...simulationSettings,
+                            chaosProbability: val === "" ? "" : Math.min(100, Math.max(1, parseInt(val) || 1)) as any
+                          });
                         }}
                         className="w-14 h-7 text-center text-sm font-mono font-bold text-red-500 bg-red-500/10 border border-red-500/30 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
@@ -1394,7 +1426,7 @@ export default function ProjectDetailPage() {
                     type="range" 
                     min="1" 
                     max="100" 
-                    value={simulationSettings.chaosProbability}
+                    value={parseInt(simulationSettings.chaosProbability as any) || 1}
                     disabled={isSimulationRunning}
                     onChange={(e) => setSimulationSettings({...simulationSettings, chaosProbability: parseInt(e.target.value)})}
                     className="w-full accent-red-500"
