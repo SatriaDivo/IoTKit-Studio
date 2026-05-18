@@ -33,6 +33,7 @@ export default function ProjectDetailPage() {
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
   const [simulationStats, setSimulationStats] = useState<any>(null);
   const [lastResponse, setLastResponse] = useState<any>(null);
+  const [lastSentPayload, setLastSentPayload] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importJson, setImportJson] = useState("");
@@ -183,6 +184,7 @@ export default function ProjectDetailPage() {
             : data.result.error || "Request failed (no response data)";
         }
 
+        setLastSentPayload(data.payload);
         setLastResponse({
           type: isSuccess ? "success" : "error",
           data: responseData,
@@ -1055,6 +1057,31 @@ export default function ProjectDetailPage() {
         </Card>
       </motion.div>
 
+      {/* Sent Payload (New) */}
+      {lastSentPayload && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="glass border-primary/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                Sent Payload
+              </CardTitle>
+              <CardDescription>
+                The exact JSON data that was sent to the endpoint
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <pre className="bg-muted p-4 rounded-md text-sm overflow-x-auto max-h-[200px] overflow-y-auto font-mono border">
+                {JSON.stringify(lastSentPayload, null, 2)}
+              </pre>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Server Response (New) */}
       {lastResponse && (
         <motion.div
@@ -1093,7 +1120,11 @@ export default function ProjectDetailPage() {
             <CardContent>
               <pre className="bg-muted p-4 rounded-md text-sm overflow-x-auto max-h-[200px] overflow-y-auto font-mono border">
                 {lastResponse.type === "error" ? (
-                  <span className="text-red-400">{lastResponse.error}</span>
+                  <span className="text-red-400">
+                    {typeof (lastResponse.error || lastResponse.data) === "object"
+                      ? JSON.stringify(lastResponse.error || lastResponse.data, null, 2)
+                      : String(lastResponse.error || lastResponse.data)}
+                  </span>
                 ) : (
                   typeof lastResponse.data === "object" 
                     ? JSON.stringify(lastResponse.data, null, 2)

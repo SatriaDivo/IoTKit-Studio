@@ -7,7 +7,21 @@ export class PayloadGenerator {
     const payload: any = {};
 
     for (const field of fields) {
-      payload[field.name] = this.generateFieldValue(field);
+      const value = this.generateFieldValue(field);
+      
+      // Un-flatten dot notation for nested objects (e.g., "location.latitude")
+      const keys = field.name.split('.');
+      let current = payload;
+      
+      for (let i = 0; i < keys.length - 1; i++) {
+        const key = keys[i];
+        if (!current[key] || typeof current[key] !== 'object') {
+          current[key] = {};
+        }
+        current = current[key];
+      }
+      
+      current[keys[keys.length - 1]] = value;
     }
 
     return payload;
