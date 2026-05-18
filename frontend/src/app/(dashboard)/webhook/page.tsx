@@ -141,8 +141,33 @@ export default function WebhookListenerPage() {
   };
 
   const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => toast.success("Copied to clipboard!"))
+        .catch(() => fallbackCopy(text));
+    } else {
+      fallbackCopy(text);
+    }
+  };
+
+  const fallbackCopy = (text: string) => {
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand("copy");
+      document.body.removeChild(textArea);
+      if (successful) {
+        toast.success("Copied to clipboard!");
+      } else {
+        toast.error("Failed to copy");
+      }
+    } catch (err) {
+      toast.error("Failed to copy");
+    }
   };
 
   const formatPayload = (payload: string | null, parsedPayload?: any) => {
@@ -226,26 +251,44 @@ export default function WebhookListenerPage() {
                       <p className="font-semibold text-[#384959]">📡 How to use:</p>
                       <p className="text-muted-foreground">Send any HTTP request to the URL above. Body and headers will be captured.</p>
 
-                      {/* Shell Tab Selector */}
-                      <div className="flex gap-1 pt-1">
-                        {(['powershell', 'curl', 'python'] as const).map(tab => (
-                          <button
-                            key={tab}
-                            onClick={() => setShellTab(tab)}
-                            className={`px-2.5 py-1 text-[10px] font-mono rounded transition-colors ${
-                              shellTab === tab
-                                ? 'bg-[#6A89A7] text-white'
-                                : 'bg-black/10 text-[#384959] hover:bg-black/20'
-                            }`}
-                          >
-                            {tab === 'powershell' ? 'PowerShell' : tab === 'curl' ? 'cURL (bash)' : 'Python'}
-                          </button>
-                        ))}
+                      {/* Shell Tab Selector & Copy Button */}
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex gap-1">
+                          {(['powershell', 'curl', 'python'] as const).map(tab => (
+                            <button
+                              key={tab}
+                              onClick={() => setShellTab(tab)}
+                              className={`px-2.5 py-1 text-[10px] font-mono rounded transition-colors ${
+                                shellTab === tab
+                                  ? 'bg-[#6A89A7] text-white'
+                                  : 'bg-black/10 text-[#384959] hover:bg-black/20'
+                              }`}
+                            >
+                              {tab === 'powershell' ? 'PowerShell' : tab === 'curl' ? 'cURL (bash)' : 'Python'}
+                            </button>
+                          ))}
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 text-[#384959] hover:bg-black/10"
+                          onClick={() => {
+                            const cmd = shellTab === 'powershell' 
+                              ? `Invoke-WebRequest -Uri "${webhookInfo.webhookUrl}" \`\n  -Method POST \`\n  -ContentType "application/json" \`\n  -Body '{"sensor":"temp","value":25}'`
+                              : shellTab === 'curl'
+                              ? `curl -X POST "${webhookInfo.webhookUrl}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"sensor":"temp","value":25}'`
+                              : `import requests\nrequests.post(\n  "${webhookInfo.webhookUrl}",\n  json={"sensor": "temp", "value": 25}\n)`;
+                            handleCopy(cmd);
+                          }}
+                          title="Copy command"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
                       </div>
 
-                      <pre className="font-mono text-[10px] bg-black/5 rounded p-2 text-[#384959] whitespace-pre-wrap break-all">
+                      <pre className="font-mono text-[10px] bg-black/5 rounded p-2 text-[#384959] whitespace-pre-wrap break-all relative">
                         {shellTab === 'powershell' &&
-                          `Invoke-WebRequest -Uri "${webhookInfo.webhookUrl}" \\\n  -Method POST \\\n  -ContentType "application/json" \\\n  -Body '{"sensor":"temp","value":25}'`}
+                          `Invoke-WebRequest -Uri "${webhookInfo.webhookUrl}" \`\n  -Method POST \`\n  -ContentType "application/json" \`\n  -Body '{"sensor":"temp","value":25}'`}
                         {shellTab === 'curl' &&
                           `curl -X POST "${webhookInfo.webhookUrl}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"sensor":"temp","value":25}'`}
                         {shellTab === 'python' &&
