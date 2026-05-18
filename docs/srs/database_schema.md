@@ -19,6 +19,8 @@ Tabel master simulasi *Node* IoT.
 - **endpoint** (String, Nullable) / **topic** (String, Nullable)
 - **authToken** / **username** / **password** (Kredensial Autentikasi)
 - **status** (String) — active, inactive, error
+- **webhookToken** (String, Nullable, Unique) — Token UUID untuk endpoint penerimaan webhook publik.
+- **webhookEnabled** (Boolean) — Status aktif/tidak aktif listener webhook eksternal (default: false).
 - **userId** (UUID, FK) -> User
 - *Relasi:* 1 Project -> Many Payloads, Many Logs, Many Simulations
 
@@ -39,9 +41,9 @@ Mencatat status mesin *engine* simulasi dari suatu proyek, termasuk statistik tr
 - **projectId** (UUID, FK) -> Project
 
 ## 5. Log
-Mencatat seluruh rekam jejak (*history*) dari data yang telah dikirim oleh sistem ke *endpoint*.
+Mencatat seluruh rekam jejak (*history*) dari data yang telah dikirim oleh sistem ke *endpoint* atau diterima dari luar.
 - **id** (UUID, PK)
-- **type** (String) — request, response, error, event
+- **type** (String) — request, response, error, event, webhook
 - **protocol** (String)
 - **message** (String)
 - **payload** (String, Nullable)

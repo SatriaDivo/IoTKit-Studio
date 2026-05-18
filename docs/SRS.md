@@ -12,4 +12,6 @@
 - [FR Telemetry](srs/fr-telemetry.md)
 - [FR AI Agent](srs/fr-ai-agent.md)
 - [FR Dataset Modules](srs/fr-dataset.md)
+- [FR Webhook Ingestion](srs/fr-webhook.md)
+- [FR Chaos Engineering](srs/fr-chaos.md)
 - [Non-Functional Requirements (NFR)](srs/nfr.md)

@@ -1,23 +1,21 @@
 # IoTKit-Studio
 
-Platform simulasi IoT berbasis dashboard untuk membuat, mengelola, dan mengirim payload sensor IoT tanpa coding.
+Platform simulasi IoT berbasis dashboard untuk membuat, mengelola, dan mengirim payload sensor IoT tanpa coding, kini dilengkapi dengan kemampuan penangkap data luar (*Ingestion*) dan suntikan anomali (*Chaos Engineering*).
 
 ## 🚀 Fitur Utama
 
-- **Project Management**: Buat dan kelola multiple project IoT
-- **Multi-Protocol Support**: HTTP/HTTPS, MQTT/MQTTS, WebSocket/WSS
-- **Visual Payload Builder**: Buat struktur payload JSON secara visual tanpa coding
-- **Real-time Simulation**: Jalankan simulasi data sensor secara realtime
-- **Swarm Mode (Load Testing)**: Mesin uji beban ala *k6* dengan *Virtual Users* & *Stages* terintegrasi
-- **Monitoring & Logs**: Pantau semua aktivitas dan log secara realtime
-- **Modern UI**: Dark mode, responsive, dan user-friendly
-- **Authentication**: JWT-based authentication system
-- **Database**: PostgreSQL with Prisma ORM
+- **Project Management**: Buat dan kelola multiple project IoT secara modular.
+- **Multi-Protocol Support**: HTTP/HTTPS, MQTT/MQTTS, WebSocket/WSS.
+- **Visual Payload Builder**: Buat struktur payload JSON secara visual tanpa perlu menyentuh baris kode.
+- **Real-time Simulation**: Jalankan simulasi data sensor secara real-time dengan interval kustom.
+- **Chaos Engineering (Anomaly Injector)**: Mensimulasikan kegagalan data atau sensor dengan menyuntikkan lonjakan angka ekstrim (10x lipat) dan membalikkan status boolean acak guna menguji ketahanan backend/alert target.
+- **Webhook Ingestion Engine**: Menyediakan URL endpoint publik unik per-proyek untuk menangkap request data dari luar (ESP32/ESP8266, cURL, Postman) lengkap dengan log interaktif dan salin instruksi multi-shell (PowerShell, cURL, Python).
+- **Interactive Notification Tray**: Lonceng notifikasi header interaktif terintegrasi Socket.IO secara real-time, mendukung klik-navigasi instan ke halaman target sekaligus membersihkan log notifikasi otomatis.
+- **AI Agent Chat**: Buat dan konfigurasi proyek secara otomatis menggunakan percakapan bahasa alami (didukung model LLM cerdas).
 
 ## 📋 Tech Stack
 
 ### Frontend
-
 - Next.js 14 (App Router)
 - TypeScript
 - Tailwind CSS
@@ -26,26 +24,45 @@ Platform simulasi IoT berbasis dashboard untuk membuat, mengelola, dan mengirim 
 - Socket.IO Client
 
 ### Backend
-
 - Node.js + Express
 - TypeScript
 - Prisma ORM
 - PostgreSQL Database
-- Socket.IO
-- MQTT.js, WebSocket
+- Socket.IO Engine
+- MQTT.js, WebSocket Client
 - JWT Authentication
+
+---
+
+## 📖 Dokumentasi Teknis (Docs Index)
+
+Seluruh dokumentasi arsitektur sistem disimpan rapi dalam direktori `docs/`:
+
+### 📌 Business Requirements
+*   **[docs/BRD.md](docs/BRD.md)** - Daftar isi Business Requirements Document
+*   [Executive Summary](docs/brd/executive-summary.md) - Ringkasan Eksekutif IoTKit-Studio
+*   [Objectives](docs/brd/objectives.md) - Tujuan bisnis dan target pasar
+*   [Scope](docs/brd/scope.md) - Ruang lingkup fitur simulator
+*   [Future Features](docs/brd/future-features.md) - Rencana pengembangan fitur masa depan (Roadmap)
+
+### ⚙️ Software Requirements Specification (SRS)
+*   **[docs/SRS.md](docs/SRS.md)** - Daftar isi Software Requirements Specification
+*   [Database Schema](docs/srs/database_schema.md) - Konseptual skema PostgreSQL & Prisma ORM
+*   [API & Backend Router](docs/srs/fr-api.md) - Daftar lengkap REST API & event Socket.IO
+*   [FR Webhook Ingestion](docs/srs/fr-webhook.md) - Spesifikasi fungsionalitas penangkap data luar (Webhook)
+*   [FR Chaos Engineering](docs/srs/fr-chaos.md) - Logika dan mekanisme suntikan anomali
+*   [FR AI Agent](docs/srs/fr-ai-agent.md) - Spesifikasi agen asisten kecerdasan buatan
+
+---
 
 ## 🚀 Quick Start
 
-> **🛠️ Development**: Lihat [docs/GET_STARTED.md](docs/GET_STARTED.md) untuk panduan lengkap!
-
 ### Prerequisites
-
 - Node.js 18+
 - Docker Desktop
 - npm atau yarn
 
-### Installation
+### Installation & Run
 
 ```bash
 # 1. Clone repository
@@ -60,55 +77,33 @@ cd ../frontend && npm install
 cd backend && cp .env.example .env
 cd ../frontend && cp .env.local.example .env.local
 
-# 4. Start PostgreSQL
+# 4. Start PostgreSQL (Docker)
 cd ..
 docker-compose up -d postgres
 
 # 5. Setup database
 cd backend
 npm run prisma:generate
-npm run prisma:migrate
+npm run prisma:migrate dev
 
 # 6. Start development
-# Terminal 1
+# Terminal 1 (Backend)
 cd backend && npm run dev
 
-# Terminal 2
+# Terminal 2 (Frontend)
 cd frontend && npm run dev
 ```
 
-### Access
+### Access URL
+- **Frontend App**: http://localhost:3000
+- **Backend API**: http://localhost:4000
 
-- Frontend: http://localhost:3000
-- Backend: http://localhost:4000
+---
 
-## 📖 Documentation
+## 🗄️ PostgreSQL Database Configuration
 
-### Getting Started
-
-- **[docs/GET_STARTED.md](docs/GET_STARTED.md)** - Getting started guide
-- **[docs/START_DEV.md](docs/START_DEV.md)** - Quick start (5 menit)
-- **[docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)** - Quick reference
-
-### User Manual
-- **[docs/user-manual/LOAD_TESTING.md](docs/user-manual/LOAD_TESTING.md)** - Panduan Uji Beban (Swarm Mode)
-
-### Development
-
-- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Full development guide
-- **[docs/DEV_SUMMARY.md](docs/DEV_SUMMARY.md)** - Development summary
-- **[docs/POSTGRES_SETUP.md](docs/POSTGRES_SETUP.md)** - PostgreSQL setup
-
-### API & Contributing
-
-- **[docs/API.md](docs/API.md)** - API documentation
-- **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Contribution guidelines
-
-## 🗄️ Database
-
-PostgreSQL configuration (development):
-
-```
+Konfigurasi database bawaan untuk lingkungan pengembangan lokal:
+```ini
 Host: localhost
 Port: 5432
 Database: iotkit_studio
@@ -116,81 +111,23 @@ Username: iotkit
 Password: iotkit123
 ```
 
-### Database Commands
-
+### Prisma Commands
 ```bash
 cd backend
 
-# View database (GUI)
+# View database (GUI Studio)
 npm run prisma:studio
 
 # Run migrations
-npm run prisma:migrate
+npm run prisma:migrate dev
 
 # Generate Prisma client
 npm run prisma:generate
 ```
 
-## 🔌 Protocol Support
-
-- **HTTP/HTTPS**: REST API calls, custom headers, authentication
-- **MQTT/MQTTS**: Publish/Subscribe, QoS levels, SSL/TLS
-- **WebSocket/WSS**: Real-time bidirectional communication
-
-## 🛠️ Development
-
-### Backend
-
-```bash
-cd backend
-npm run dev              # Start dev server
-npm run build            # Build
-npm run prisma:studio    # Database GUI
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm run dev              # Start dev server
-npm run build            # Build
-npm run lint             # Lint code
-```
-
-## 🐳 Docker
-
-```bash
-# Start all services
-docker-compose up -d
-
-# Stop all services
-docker-compose down
-
-# View logs
-docker-compose logs -f
-```
-
-## 📁 Project Structure
-
-```
-iotkit-studio/
-├── backend/              # Express API
-├── frontend/             # Next.js App
-├── docs/                 # Documentation
-├── docker-compose.yml    # Docker config
-└── README.md            # This file
-```
-
-## 📝 License
-
-MIT
-
-## 👥 Contributing
-
-Contributions welcome! See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
-
 ---
 
-**Happy Coding! 🚀**
+## 📝 License
+Distribusi ini berada di bawah lisensi **MIT**.
 
-Made with ❤️ for IoT developers
+**Happy Coding! 🚀**

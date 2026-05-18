@@ -1,46 +1,62 @@
-# Future Features (Advanced Simulation Capabilities)
+# Future Features (Advanced Simulation & Monitoring Capabilities)
 
-Mengingat **IoTKit-Studio** dirancang sebagai platform simulasi IoT sekelas industri (*Industrial IoT Simulation Platform*), fondasi utamanya saat ini sudah sangat solid (meliputi *Payload Builder*, multi-protokol, analitik, dan *AI Agent*). 
+Mengingat **IoTKit-Studio** dirancang sebagai platform simulasi IoT sekelas industri (*Industrial IoT Simulation Platform*), fondasi utamanya saat ini sudah sangat solid (meliputi *Payload Builder*, multi-protokol, analitik, agen AI, dan penangkap data luar). 
 
-Untuk meningkatkan skalabilitas dan nilai komersial platform ini, berikut adalah daftar fitur tingkat lanjut (*advanced features*) yang direkomendasikan untuk pengembangan di masa depan:
-
-## Tabel Analisis Prioritas & Rekomendasi
-
-Berikut adalah rasio nilai kegunaan industri, tingkat kesulitan pengembangan (*effort*), dan keselarasan dengan visi IoTKit-Studio sebagai platform simulator:
-
-| Prioritas | Nama Fitur | Kompleksitas (*Effort*) | Nilai Jual (*Impact*) | Persentase Rekomendasi | Alasan Utama Mengapa Ini Penting |
-| :---: | :--- | :---: | :---: | :---: | :--- |
-| **1** | 🚀 **Dataset Replay (Data Historis)** | Sedang | Sangat Tinggi | **95%** | Sangat selaras dengan kebutuhan *Data Science* & Pemodelan (misal: modul *Drone/Carbon Flux*). Memungkinkan riset algoritma *machine learning* yang valid tanpa menunggu perangkat fisik. |
-| **2** | 🐝 **Swarm Mode (Load Testing)** | Mudah - Sedang | Sangat Tinggi | **90%** | Memecahkan masalah utama IoT Engineer: *"Apakah server saya mati jika diakses 1.000 sensor bersamaan?"*. Fitur ini akan membuat IoTKit setara dengan platform *enterprise* berbayar. |
-| **3** | 🔐 **Dynamic Auth & Headers** | Mudah | Tinggi | **85%** | Server industri modern (AWS IoT, Azure, API korporat) 99% butuh token JWT atau API Key khusus. Tanpa fitur ini, simulator hanya bisa menembak *endpoint* publik yang tidak aman. |
-| **4** | 🌪️ **Chaos / Anomaly Injector** | Sedang | Tinggi | **80%** | Sangat bagus untuk mempresentasikan kehebatan *platform* saat demo klien (menunjukkan grafis anomali). Sangat berguna untuk menguji sistem deteksi peringatan (*Alert System*). |
-| **5** | 🪝 **Webhook Listener** | Tinggi | Sedang | **70%** | Mengubah IoTKit dari sekadar "Simulator" menjadi "Platform Utuh". Cukup sulit dibangun karena membutuhkan manajemen *port/routing* dinamis di Node.js, namun sangat disukai oleh *developer hardware*. |
+Berikut adalah daftar fitur tingkat lanjut (*advanced features*) yang direkomendasikan untuk pengembangan di masa depan guna meningkatkan skalabilitas, nilai komersial, dan kegunaan platform ini:
 
 ---
 
-## Penjelasan Detil Rekomendasi Fitur
+## 📊 Tabel Analisis Prioritas & Rekomendasi Roadmap
 
-### 1. Dataset Replay (Playback Data Historis riil)
-Selain menggunakan *Payload Builder* (*random/incremental*), pengguna bisa mengunggah file `CSV` atau `JSON` yang berisi data historis sensor mereka yang asli dari lapangan.
-- IoTKit-Studio akan membaca file tersebut dan **"memutarnya kembali" (Replay)** ke *endpoint* tujuan.
-- Pengguna bisa mengatur kecepatan putarnya, misal *1x speed* (waktu nyata), atau *10x speed* untuk mempercepat simulasi data sebulan penuh menjadi hitungan menit.
+Berikut adalah rasio nilai kegunaan industri, tingkat kesulitan pengembangan (*effort*), keselarasan visi, dan status penyelesaian fitur di IoTKit-Studio:
 
-### 2. Swarm Mode (Load Testing untuk Backend IoT)
-Saat ini simulasi berjalan untuk satu perangkat (*device*). Bagaimana jika pengguna ingin menguji apakah server mereka (misal: *broker* MQTT mereka) kuat menerima ribuan pesan sekaligus?
-- Tambahkan fitur **Swarm Mode**: Pengguna bisa mengetikkan angka `100` atau `1000`, lalu IoTKit-Studio akan menciptakan ribuan *device_id* unik dan mengirimkan *payload* secara paralel untuk melakukan *Stress/Load Testing* ke server tujuan.
+| Prioritas | Nama Fitur | Kompleksitas (*Effort*) | Nilai Jual (*Impact*) | Persentase Rekomendasi | Alasan Utama Mengapa Ini Penting | Status |
+| :---: | :--- | :---: | :---: | :---: | :--- | :---: |
+| **1** | 🚨 **Alert & Rule Engine** | Sedang | Sangat Tinggi | **95%** | Mendeteksi anomali/threshold secara mandiri dan memicu notifikasi real-time tanpa bergantung pada server luar. | 📅 *Roadmap* |
+| **2** | 🚀 **Dataset Replay (Data Historis)** | Sedang | Sangat Tinggi | **95%** | Memutar kembali data historis riil (CSV/JSON) dengan kecepatan yang dapat disesuaikan untuk riset algoritma ML. | 📅 *Roadmap* |
+| **3** | 🐝 **Swarm Mode (Load Testing)** | Mudah - Sedang | Sangat Tinggi | **90%** | Mensimulasikan ribuan perangkat paralel untuk melakukan Stress/Load Testing kekuatan backend / broker pelanggan. | 📅 *Roadmap* |
+| **4** | 🎛️ **Embedded MQTT Inspector** | Sedang | Tinggi | **88%** | Bertindak sebagai MQTT Explorer internal untuk berlangganan dan memantau lalu lintas topik broker dari dasbor. | 📅 *Roadmap* |
+| **5** | 🔐 **Dynamic Auth & Headers** | Mudah | Tinggi | **85%** | Injeksi token otentikasi JWT/API Key dinamis dengan auto-refresh untuk simulasi non-stop 24/7 di server aman. | 📅 *Roadmap* |
+| **6** | 🗺️ **Webhook Schema Mapper** | Sedang | Tinggi | **82%** | Memetakan field payload webhook luar ke variabel internal IoTKit untuk divisualisasikan langsung pada chart. | 📅 *Roadmap* |
+| **7** | 📊 **Exportable PDF Reports** | Mudah | Tinggi | **80%** | Ekspor seluruh visualisasi chart, latensi, dan statistik simulasi ke PDF laporan profesional berstempel industri. | 📅 *Roadmap* |
+| **8** | 🌙 **Gorgeous Dark Mode** | Mudah | Tinggi | **78%** | Transisi UI estetika Stormy Morning ke nuansa stasiun ruang kontrol neon gelap malam hari. | 📅 *Roadmap* |
+| **-** | 🌪️ **Chaos / Anomaly Injector** | Sedang | Tinggi | **100%** | Memanipulasi payload angka ekstrim (10x lipat) & membalik boolean acak untuk edge-case testing. | **✓ SELESAI** |
+| **-** | 🪝 **Webhook Listener** | Tinggi | Sedang | **100%** | Endpoint publik unik per-proyek dengan penangkap data luar, multi-shell tab (PS, curl, py) & log real-time. | **✓ SELESAI** |
 
-### 3. Dynamic Auth & Header Injection
-Banyak API IoT tingkat lanjut membutuhkan sistem keamanan (*Token Bearer, JWT, HMAC Signature*).
-- Menambahkan kapabilitas injeksi *Header* khusus.
-- Pengguna bisa meminta sistem untuk melakukan *auto-refresh token* ke *endpoint* otentikasi setiap 1 jam sekali agar simulasi bisa berjalan non-stop tanpa takut ditolak karena *token expired*.
+---
 
-### 4. Chaos Engineering & Simulasi Anomali (Edge-Case Simulation)
-Di dunia nyata, sensor sering kali rusak atau koneksi internet terputus. Menambahkan mode **"Anomaly Injector"** di dalam pengaturan simulasi:
-- **Packet Loss Simulation:** Sengaja memutus pengiriman (misal: 10% *payload* gagal dikirim).
-- **Data Spike/Outlier:** Menyisipkan nilai ekstrem secara acak (misal: suhu tiba-tiba melonjak ke 999°C) untuk mengetes apakah *backend* atau sistem *alerting* milik pengguna bisa mendeteksi anomali tersebut tanpa *crash*.
-- **Malformed Payload:** Sengaja merusak struktur JSON sesekali (misal: menghilangkan penutup `}`) untuk mengetes *error handling* dari API server pelanggan.
+## 🔍 Penjelasan Detail Rekomendasi Fitur Baru
 
-### 5. Webhook Listener (Mode Penangkap)
-IoTKit-Studio saat ini fokus pada **mengirim** (*Publisher/Client*). Akan sangat berguna jika platform ini juga bisa **menerima** (*Subscriber/Server*).
-- Berikan pengguna sebuah URL sementara (contoh: `https://iotkit-studio.com/webhook/uuid-1234`).
-- Pengguna bisa memasukkan URL ini ke perangkat fisik mikrokontroler (ESP32/Arduino) mereka. Setiap data yang dikirim oleh ESP32 akan langsung divisualisasikan menjadi grafik di *dashboard* IoTKit secara *real-time*. Ini membuat IoTKit menjadi alat *debugging* 2-arah.
+### 1. Alert & Rule Engine (Sistem Peringatan Mandiri)
+Memungkinkan pengguna mendefinisikan aturan ambang batas sensor langsung di IoTKit-Studio.
+*   **Logika Aturan:** Contoh: `Jika variabel "temperature" > 85` atau `Jika "valve_status" === false`.
+*   **Pemicu:** Sistem akan memantau payload simulasi dan data masuk dari webhook. Begitu aturan terlanggar, platform langsung membunyikan sirine halus dan menyuntikkan *Alert Notification* ke header bell.
+
+### 2. Dataset Replay (Playback Data Historis)
+Selain menggunakan generator dinamis, pengguna dapat mengunggah berkas `CSV` atau `JSON` data lapangan nyata.
+*   **Replay:** IoTKit-Studio memutar ulang baris-baris data tersebut ke endpoint target.
+*   **Speed Control:** Kontrol kecepatan putar ulang (misalnya *10x speed* atau *100x speed*) untuk merampungkan simulasi log data bulanan dalam beberapa menit.
+
+### 3. Swarm Mode (Stress Testing Pararel)
+Membantu IoT Engineer menguji kapasitas tampung server mereka di bawah beban stres tinggi.
+*   **Load Simulation:** Mensimulasikan `N` perangkat (misal: 500 node sensor) mengirimkan data secara simultan ke broker MQTT atau HTTP REST server dengan UUID acak.
+
+### 4. Embedded MQTT Inspector (Broker Explorer)
+Menyediakan modul dasbor mirip *MQTT Explorer* untuk mempermudah debugging antrean topik broker luar.
+*   **Topic Subscription:** Berlangganan ke topik wildcard (`device/+/status`) eksternal dan menampilkan visualisasi paket data masuk yang mengalir di broker target.
+
+### 5. Dynamic Auth & Header Injection
+Mendukung otentikasi REST API modern berkeamanan tinggi.
+*   **Auto-Refresh Token:** Melakukan refresh token OAuth / Bearer JWT secara berkala ke API auth pelanggan agar simulator dapat terus berjalan non-stop tanpa terputus masalah token kedaluwarsa.
+
+### 6. Webhook Schema Mapper
+Membuat data masuk dari webhook eksternal menjadi dinamis dan bermakna.
+*   **Mapping:** Memetakan field kustom seperti `temp_celcius` dari webhook pihak ketiga ke variabel internal proyek (`temperature`) agar bisa disalurkan ke mesin visualisasi chart dasbor utama.
+
+### 7. Exportable PDF Reports
+Membantu audit performa server dan presentasi laporan sensor fisik.
+*   **PDF Compiler:** Mengunduh ringkasan statis statistik simulasi, persentase keandalan koneksi, rata-rata latensi, dan gambar grafik Recharts menjadi file PDF berstempel kontrol panel resmi yang menawan.
+
+### 8. Gorgeous Dark Mode
+Membawa estetika kontrol stasiun ruang kemudi malam hari.
+*   **UI Transition:** Beralih ke skema warna abu-abu arang pekat industrial dengan pendar lampu neon biru es (`#BDDDFC`) dan merah alarm yang tajam agar tidak melelahkan mata saat pengujian simulator dalam durasi lama.
