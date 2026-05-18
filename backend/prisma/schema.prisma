@@ -28,6 +28,7 @@ model Project {
   endpoint        String?  // For HTTP or WS path
   topic           String?  // For MQTT
   authToken       String?
+  headers         String?  // JSON string array of {key, value}
   username        String?
   password        String?
   sslEnabled      Boolean  @default(false)

@@ -16,6 +16,7 @@ export interface Project {
   endpoint?: string;
   topic?: string;
   authToken?: string;
+  headers?: string;
   username?: string;
   password?: string;
   sslEnabled: boolean;
@@ -130,4 +131,9 @@ export interface ConnectionStatus {
   connected: boolean;
   latency?: number;
   error?: string;
+}
+
+export interface Header {
+  key: string;
+  value: string;
 }

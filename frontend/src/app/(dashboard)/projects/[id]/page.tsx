@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, Play, Plus, X, Upload, Square } from "lucide-react";
+import { ArrowLeft, Save, Play, Plus, X, Upload, Square, Trash2 } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,9 +49,12 @@ export default function ProjectDetailPage() {
     port: "",
     endpoint: "",
     topic: "",
+    authToken: "",
     username: "",
     password: "",
   });
+
+  const [headerItems, setHeaderItems] = useState<{key: string, value: string}[]>([]);
 
   const [payloadFields, setPayloadFields] = useState<PayloadField[]>([
     {
@@ -129,7 +132,19 @@ export default function ProjectDetailPage() {
           topic: currentProject.topic || "",
           username: currentProject.username || "",
           password: currentProject.password || "",
+          authToken: currentProject.authToken || "",
         });
+        
+        if (currentProject.headers) {
+          try {
+            const parsed = JSON.parse(currentProject.headers);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setHeaderItems(parsed);
+            }
+          } catch(e) {
+            // ignore
+          }
+        }
       }
     });
 
@@ -266,6 +281,8 @@ export default function ProjectDetailPage() {
         port: projectData.port ? parseInt(projectData.port) : null,
         endpoint: projectData.endpoint,
         topic: projectData.topic || null,
+        authToken: projectData.authToken || null,
+        headers: headerItems.length > 0 ? JSON.stringify(headerItems.filter(h => h.key.trim() !== "")) : null,
         username: projectData.username || null,
         password: projectData.password || null,
       });
@@ -787,6 +804,72 @@ export default function ProjectDetailPage() {
                       }
                       placeholder="password"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="authToken">Authentication Token (Bearer)</Label>
+                    <Input
+                      id="authToken"
+                      type="password"
+                      value={projectData.authToken}
+                      onChange={(e) =>
+                        setProjectData({
+                          ...projectData,
+                          authToken: e.target.value,
+                        })
+                      }
+                      placeholder="Optional"
+                    />
+                  </div>
+                  
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Custom Headers</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setHeaderItems([...headerItems, { key: "", value: "" }])}
+                      >
+                        <Plus className="h-4 w-4 mr-2" /> Add Header
+                      </Button>
+                    </div>
+                    {headerItems.map((header, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          placeholder="Key (e.g. X-API-Key)"
+                          value={header.key}
+                          onChange={(e) => {
+                            const newHeaders = [...headerItems];
+                            newHeaders[index].key = e.target.value;
+                            setHeaderItems(newHeaders);
+                          }}
+                          className="flex-1"
+                        />
+                        <Input
+                          placeholder="Value"
+                          value={header.value}
+                          onChange={(e) => {
+                            const newHeaders = [...headerItems];
+                            newHeaders[index].value = e.target.value;
+                            setHeaderItems(newHeaders);
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            const newHeaders = [...headerItems];
+                            newHeaders.splice(index, 1);
+                            setHeaderItems(newHeaders);
+                          }}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}

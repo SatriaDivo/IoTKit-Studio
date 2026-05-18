@@ -21,12 +21,25 @@ export class WsClient extends EventEmitter {
         this.project.endpoint || ""
       }`;
 
-      const options: any = {};
+      const options: any = { headers: {} };
 
       if (this.project.authToken) {
-        options.headers = {
-          Authorization: `Bearer ${this.project.authToken}`,
-        };
+        options.headers.Authorization = `Bearer ${this.project.authToken}`;
+      }
+
+      if (this.project.headers) {
+        try {
+          const parsedHeaders = JSON.parse(this.project.headers);
+          if (Array.isArray(parsedHeaders)) {
+            parsedHeaders.forEach((h: { key: string; value: string }) => {
+              if (h.key && h.value) {
+                options.headers[h.key] = h.value;
+              }
+            });
+          }
+        } catch (e) {
+          Logger.error("Failed to parse project headers", e);
+        }
       }
 
       this.client = new WebSocket(url, options);

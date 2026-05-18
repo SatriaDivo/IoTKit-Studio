@@ -13,6 +13,23 @@ export class HttpClient {
       project.port ? `:${project.port}` : ""
     }`;
 
+    // Parse dynamic headers
+    const customHeaders: Record<string, string> = {};
+    if (project.headers) {
+      try {
+        const parsedHeaders = JSON.parse(project.headers);
+        if (Array.isArray(parsedHeaders)) {
+          parsedHeaders.forEach((h: { key: string; value: string }) => {
+            if (h.key && h.value) {
+              customHeaders[h.key] = h.value;
+            }
+          });
+        }
+      } catch (e) {
+        Logger.error("Failed to parse project headers", e);
+      }
+    }
+
     this.client = axios.create({
       baseURL,
       timeout: 10000,
@@ -21,6 +38,7 @@ export class HttpClient {
         ...(project.authToken && {
           Authorization: `Bearer ${project.authToken}`,
         }),
+        ...customHeaders,
       },
     });
   }

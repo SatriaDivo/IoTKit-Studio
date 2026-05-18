@@ -26,6 +26,34 @@ export class MqttClient extends EventEmitter {
         ...(this.project.password && { password: this.project.password }),
       };
 
+      if (protocol === "ws" || protocol === "wss") {
+        const customHeaders: Record<string, string> = {};
+        if (this.project.authToken) {
+          customHeaders["Authorization"] = `Bearer ${this.project.authToken}`;
+        }
+        
+        if (this.project.headers) {
+          try {
+            const parsedHeaders = JSON.parse(this.project.headers);
+            if (Array.isArray(parsedHeaders)) {
+              parsedHeaders.forEach((h: { key: string; value: string }) => {
+                if (h.key && h.value) {
+                  customHeaders[h.key] = h.value;
+                }
+              });
+            }
+          } catch (e) {
+            Logger.error("Failed to parse project headers", e);
+          }
+        }
+        
+        if (Object.keys(customHeaders).length > 0) {
+          options.wsOptions = {
+            headers: customHeaders
+          };
+        }
+      }
+
       this.client = mqtt.connect(url, options);
 
       this.client.on("connect", () => {
