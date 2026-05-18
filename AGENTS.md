@@ -10,6 +10,9 @@
 - **Multi-Protocol Support**: HTTP/HTTPS, MQTT/MQTTS, WebSocket/WSS
 - **Visual Payload Builder**: Build JSON payload structures visually
 - **Real-time Simulation**: Run sensor data simulations in real-time
+- **Chaos Engineering (Anomaly Injector)**: Inject data spikes and invert booleans to test client alerting systems
+- **Webhook Ingestion Engine**: Dynamically capture external device requests (cURL, ESP32) with live logging
+- **Interactive Notification Bell**: Real-time Socket.IO header alerts with redirect & auto-dismiss
 - **Analytics Dashboard**: Real-time charts, metrics, and performance insights
 - **AI Agent**: Autonomous project creation with natural language
 - **Monitoring & Logs**: Real-time activity monitoring and logging
@@ -54,7 +57,7 @@ This project uses an **industrial IoT design system**, NOT a chatbot interface.
 iotkit-studio/
 ├── backend/
 │   ├── src/
-│   │   ├── controllers/      # API controllers
+│   │   ├── controllers/      # API controllers (webhook, project, ai)
 │   │   ├── routes/           # Express routes
 │   │   ├── middleware/       # Auth, error handling
 │   │   ├── modules/          # IoT modules (hera, drone, carbon)
@@ -68,7 +71,13 @@ iotkit-studio/
 ├── frontend/
 │   ├── src/
 │   │   ├── app/              # Next.js app router
-│   │   │   ├── (dashboard)/  # Dashboard pages
+│   │   │   ├── (dashboard)/  # Dashboard pages (webhook, analytics, etc)
+│   │   │   │   ├── dashboard/
+│   │   │   │   ├── projects/
+│   │   │   │   ├── analytics/
+│   │   │   │   ├── ai-agent/
+│   │   │   │   ├── webhook/
+│   │   │   │   └── logs/
 │   │   │   └── (auth)/       # Auth pages
 │   │   ├── components/       # React components
 │   │   ├── lib/              # Utilities
@@ -90,7 +99,7 @@ iotkit-studio/
 **Frontend:**
 
 - `frontend/src/app/(dashboard)/` - Main app pages
-- `frontend/src/components/layout/` - Layout components
+- `frontend/src/components/layout/` - Layout components (Header, Sidebar)
 - `frontend/src/store/` - State management
 - `frontend/src/app/globals.css` - Global styles with Stormy Morning theme
 
@@ -99,10 +108,10 @@ iotkit-studio/
 **Main Models:**
 
 - `User` - User accounts
-- `Project` - IoT projects (protocol, host, port, etc.)
+- `Project` - IoT projects (webhookToken, webhookEnabled added)
 - `Payload` - Payload structures
 - `Simulation` - Simulation configurations and stats
-- `Log` - Activity logs
+- `Log` - Activity logs (supports type: 'webhook')
 - `Dataset` - Module datasets (HERA, Drone, Carbon)
 - `ChatSession` & `ChatMessage` - AI Agent chat history
 
@@ -117,9 +126,11 @@ iotkit-studio/
 - `/payloads/*` - Payload management
 - `/simulations/*` - Start/stop simulations
 - `/logs/*` - Activity logs
+- `/webhook-manage/*` - Webhook endpoints lifecycle configuration
+- `/webhook/*` - Public webhook ingestion receiver
 - `/ai-agent/*` - AI Agent chat
 
-**WebSocket**: Real-time updates via Socket.IO
+**WebSocket**: Real-time updates via Socket.IO (channels: `project:id`, `webhook:token`)
 
 ---
 
