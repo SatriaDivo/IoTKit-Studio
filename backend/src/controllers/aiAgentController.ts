@@ -139,6 +139,29 @@ export class AIAgentController {
         return res.status(400).json({ error: "Message is required" });
       }
 
+      // Check daily limit (max 5 prompts per day per user)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const dailyMessageCount = await prisma.chatMessage.count({
+        where: {
+          role: "user",
+          createdAt: {
+            gte: today,
+          },
+          session: {
+            userId: userId,
+          },
+        },
+      });
+
+      if (dailyMessageCount >= 5) {
+        return res.status(429).json({
+          error: "Daily limit reached",
+          message: "You have reached your daily limit of 5 AI Agent prompts. Please try again tomorrow.",
+        });
+      }
+
       const apiKey = process.env.OPENROUTER_API_KEY;
       const model =
         process.env.OPENROUTER_MODEL || "anthropic/claude-3.5-sonnet";
@@ -542,8 +565,28 @@ IMPORTANT:
         });
       }
 
+      const userId = req.user!.userId;
+      const limit = 5;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const dailyMessageCount = await prisma.chatMessage.count({
+        where: {
+          role: "user",
+          createdAt: {
+            gte: today,
+          },
+          session: {
+            userId: userId,
+          },
+        },
+      });
+
       res.json({
-        message: "Usage tracking coming soon",
+        limit,
+        used: dailyMessageCount,
+        remaining: Math.max(0, limit - dailyMessageCount),
         currentModel:
           process.env.OPENROUTER_MODEL || "anthropic/claude-3.5-sonnet",
       });

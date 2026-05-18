@@ -70,7 +70,9 @@ export default function AIAgentPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [usage, setUsage] = useState<{ limit: number; used: number; remaining: number } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isExhausted = usage !== null && usage.remaining <= 0;
 
   // Save and load loading state
   useEffect(() => {
@@ -118,7 +120,17 @@ export default function AIAgentPage() {
 
   useEffect(() => {
     loadSessions();
+    loadUsage();
   }, []);
+
+  const loadUsage = async () => {
+    try {
+      const response = await api.get("/ai-agent/usage");
+      setUsage(response.data);
+    } catch (error) {
+      console.error("Failed to load usage:", error);
+    }
+  };
 
   useEffect(() => {
     if (currentSessionId) {
@@ -250,6 +262,8 @@ export default function AIAgentPage() {
           response.data.actionPlan,
         );
       }
+
+      await loadUsage();
 
       // Clear pending state
       localStorage.removeItem("ai-agent-pending");
@@ -500,6 +514,25 @@ export default function AIAgentPage() {
               automatically!
             </p>
           </div>
+          {usage && (
+            <div className="text-right flex flex-col items-end pr-2">
+              <span className="text-xs font-medium text-slate-500 mb-1.5">
+                Daily Limit ({usage.remaining} left)
+              </span>
+              <div className="flex space-x-1.5">
+                {Array.from({ length: usage.limit }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-2 w-8 rounded-sm transition-all duration-300 ${
+                      i < usage.used
+                        ? "bg-slate-200"
+                        : "bg-gradient-to-r from-green-500 to-emerald-500 shadow-sm"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Chat and Quick Start Grid */}
@@ -649,16 +682,28 @@ export default function AIAgentPage() {
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyPress={(e) =>
-                        e.key === "Enter" && !loading && handleSend()
+                        e.key === "Enter" && !loading && !isExhausted && handleSend()
                       }
-                      placeholder="Tell me what project you want to create..."
-                      className="flex-1 border-blue-200 focus:border-blue-400 h-11"
-                      disabled={loading}
+                      placeholder={
+                        isExhausted
+                          ? "Daily limit reached. Please try again tomorrow."
+                          : "Tell me what project you want to create..."
+                      }
+                      className={`flex-1 h-11 ${
+                        isExhausted
+                          ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                          : "border-blue-200 focus:border-blue-400"
+                      }`}
+                      disabled={loading || isExhausted}
                     />
                     <Button
                       onClick={handleSend}
-                      disabled={loading || !input.trim()}
-                      className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white h-11 px-6"
+                      disabled={loading || !input.trim() || isExhausted}
+                      className={`h-11 px-6 transition-all ${
+                        isExhausted
+                          ? "bg-slate-200 text-slate-400 cursor-not-allowed hover:bg-slate-200"
+                          : "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white"
+                      }`}
                     >
                       {loading ? (
                         <Loader2 className="h-5 w-5 animate-spin" />

@@ -72,6 +72,7 @@ export default function ProjectsPage() {
     // After 10 seconds, change status from 'stopped' to 'idle'
     idleTimersRef.current[projectId] = setTimeout(() => {
       setProjectStatus((prev) => ({ ...prev, [projectId]: "idle" }));
+      fetchProjects(); // Refresh the list so lastActivity is updated
       delete idleTimersRef.current[projectId];
     }, 10000);
   };
