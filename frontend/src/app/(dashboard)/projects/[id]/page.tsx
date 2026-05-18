@@ -19,6 +19,7 @@ import { PayloadField } from "@/types";
 import toast from "react-hot-toast";
 import { api } from "@/lib/api";
 import { io } from "socket.io-client";
+import { parseHostInput } from "@/lib/utils";
 
 export default function ProjectDetailPage() {
   const router = useRouter();
@@ -630,12 +631,21 @@ export default function ProjectDetailPage() {
                       id="protocol"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={projectData.protocol}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const protocol = e.target.value;
+                        let defaultPort = projectData.port;
+                        
+                        if (protocol === "HTTP" || protocol === "WS") defaultPort = "80";
+                        else if (protocol === "HTTPS" || protocol === "WSS") defaultPort = "443";
+                        else if (protocol === "MQTT") defaultPort = "1883";
+                        else if (protocol === "MQTTS") defaultPort = "8883";
+
                         setProjectData({
                           ...projectData,
-                          protocol: e.target.value,
-                        })
-                      }
+                          protocol,
+                          port: defaultPort,
+                        });
+                      }}
                     >
                       <option value="HTTP">HTTP</option>
                       <option value="HTTPS">HTTPS</option>
@@ -650,9 +660,22 @@ export default function ProjectDetailPage() {
                     <Input
                       id="host"
                       value={projectData.host}
-                      onChange={(e) =>
-                        setProjectData({ ...projectData, host: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        const parsed = parseHostInput(value);
+                        if (parsed) {
+                          setProjectData({
+                            ...projectData,
+                            host: parsed.host,
+                            protocol: parsed.protocol,
+                            port: parsed.port,
+                            endpoint: parsed.protocol.includes("HTTP") || parsed.protocol.includes("WS") ? parsed.path : projectData.endpoint,
+                            topic: parsed.protocol.includes("MQTT") ? (parsed.path.startsWith("/") ? parsed.path.slice(1) : parsed.path) : projectData.topic,
+                          });
+                        } else {
+                          setProjectData({ ...projectData, host: value });
+                        }
+                      }}
                       placeholder="broker.example.com"
                     />
                   </div>

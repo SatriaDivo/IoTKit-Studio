@@ -25,3 +25,29 @@ export function formatNumber(num: number): string {
   }
   return num.toString();
 }
+
+export function parseHostInput(input: string) {
+  const match = input.match(/^(https?|wss?|mqtts?):\/\/([^:\/\s]+)(:\d+)?(\/.*)?$/i);
+  if (match) {
+    const protocol = match[1].toUpperCase();
+    const host = match[2];
+    const port = match[3] ? match[3].replace(":", "") : "";
+    let path = match[4] || "";
+
+    let defaultPort = port;
+    if (!defaultPort) {
+      if (protocol === "HTTP" || protocol === "WS") defaultPort = "80";
+      else if (protocol === "HTTPS" || protocol === "WSS") defaultPort = "443";
+      else if (protocol === "MQTT") defaultPort = "1883";
+      else if (protocol === "MQTTS") defaultPort = "8883";
+    }
+
+    return {
+      protocol,
+      host,
+      port: defaultPort,
+      path
+    };
+  }
+  return null;
+}

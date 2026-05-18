@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ProtocolType } from "@/types";
-
+import { parseHostInput } from "@/lib/utils";
 export default function NewProjectPage() {
   const router = useRouter();
   const { createProject } = useProjectStore();
@@ -115,12 +115,21 @@ export default function NewProjectPage() {
                   id="protocol"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={formData.protocol}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const protocol = e.target.value as ProtocolType;
+                    let defaultPort = formData.port;
+                    
+                    if (protocol === "HTTP" || protocol === "WS") defaultPort = "80";
+                    else if (protocol === "HTTPS" || protocol === "WSS") defaultPort = "443";
+                    else if (protocol === "MQTT") defaultPort = "1883";
+                    else if (protocol === "MQTTS") defaultPort = "8883";
+
                     setFormData({
                       ...formData,
-                      protocol: e.target.value as ProtocolType,
-                    })
-                  }
+                      protocol,
+                      port: defaultPort,
+                    });
+                  }}
                   required
                 >
                   {protocols.map((protocol) => (
@@ -138,9 +147,22 @@ export default function NewProjectPage() {
                     id="host"
                     placeholder="localhost or example.com"
                     value={formData.host}
-                    onChange={(e) =>
-                      setFormData({ ...formData, host: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const parsed = parseHostInput(value);
+                      if (parsed) {
+                        setFormData({
+                          ...formData,
+                          host: parsed.host,
+                          protocol: parsed.protocol as ProtocolType,
+                          port: parsed.port,
+                          endpoint: parsed.protocol.includes("HTTP") || parsed.protocol.includes("WS") ? parsed.path : formData.endpoint,
+                          topic: parsed.protocol.includes("MQTT") ? (parsed.path.startsWith("/") ? parsed.path.slice(1) : parsed.path) : formData.topic,
+                        });
+                      } else {
+                        setFormData({ ...formData, host: value });
+                      }
+                    }}
                     required
                   />
                 </div>
