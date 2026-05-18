@@ -22,6 +22,8 @@ import simulationRoutes from "./routes/simulations";
 import logRoutes from "./routes/logs";
 import aiAgentRoutes from "./routes/aiAgent";
 import datasetRoutes from "./routes/datasets";
+import webhookRoutes from "./routes/webhook";
+import webhookManagementRoutes from "./routes/webhookManagement";
 
 // Load environment variables
 dotenv.config();
@@ -62,6 +64,8 @@ app.use("/api/simulations", simulationRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/ai-agent", aiAgentRoutes);
 app.use("/api/datasets", datasetRoutes);
+app.use("/api/webhook-manage", webhookManagementRoutes);
+app.use("/api/webhook", webhookRoutes); // public — must be AFTER management routes
 
 // Error handler
 app.use(errorHandler);
@@ -77,6 +81,15 @@ io.on("connection", (socket) => {
   socket.on("subscribe", (projectId: string) => {
     socket.join(`project:${projectId}`);
     Logger.info(`Client ${socket.id} subscribed to project ${projectId}`);
+  });
+
+  socket.on("subscribeWebhook", (token: string) => {
+    socket.join(`webhook:${token}`);
+    Logger.info(`Client ${socket.id} subscribed to webhook ${token}`);
+  });
+
+  socket.on("unsubscribeWebhook", (token: string) => {
+    socket.leave(`webhook:${token}`);
   });
 
   socket.on("unsubscribe", (projectId: string) => {

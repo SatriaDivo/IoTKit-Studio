@@ -15,6 +15,7 @@ import {
   BarChart3,
   Zap,
   Database,
+  Webhook,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -46,7 +47,7 @@ const navigation: NavGroup[] = [
     items: [
       { name: "Projects", href: "/projects", icon: FolderKanban },
       { name: "Datasets", href: "/datasets", icon: Database },
-
+      { name: "Webhook", href: "/webhook", icon: Webhook },
       { name: "Logs", href: "/logs", icon: ScrollText },
     ],
   },

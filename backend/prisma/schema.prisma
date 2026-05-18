@@ -33,6 +33,8 @@ model Project {
   password        String?
   sslEnabled      Boolean  @default(false)
   autoReconnect   Boolean  @default(true)
+  webhookToken    String?  @unique  // Public webhook listener token
+  webhookEnabled  Boolean  @default(false)
   status          String   @default("inactive") // active, inactive, error
   lastActivity    DateTime?
   createdAt       DateTime @default(now())
