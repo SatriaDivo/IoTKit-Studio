@@ -75,6 +75,9 @@ export default function ProjectDetailPage() {
     swarmMode: false,
     swarmCount: 100,
     stages: [{ duration: 30, target: 100 }], // default k6-like stage
+    chaosMode: false,
+    chaosProbability: 5,
+    chaosFields: [] as string[],
   });
 
   // Ref-based interval — immune to stale closures
@@ -394,6 +397,9 @@ export default function ProjectDetailPage() {
         swarmMode: simulationSettings.swarmMode,
         swarmCount: simulationSettings.swarmCount,
         stages: simulationSettings.stages,
+        chaosMode: simulationSettings.chaosMode,
+        chaosProbability: simulationSettings.chaosProbability,
+        chaosFields: simulationSettings.chaosFields,
       });
       setIsSimulationRunning(true);
       toast.success("Simulation started!");
@@ -1325,6 +1331,113 @@ export default function ProjectDetailPage() {
                 </motion.div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Chaos & Anomaly Engine */}
+        <Card className="glass mt-6 border-red-500/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2 text-red-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12h5l3-9 5 18 3-9h4"/></svg>
+                  Chaos / Anomaly Injector
+                </CardTitle>
+                <CardDescription>
+                  Inject random spikes and anomalies to test system alerts
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="chaosMode" className="text-sm cursor-pointer">
+                  {simulationSettings.chaosMode ? "Enabled" : "Disabled"}
+                </Label>
+                <div 
+                  className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${simulationSettings.chaosMode ? 'bg-red-500' : 'bg-muted-foreground/30'}`}
+                  onClick={() => !isSimulationRunning && setSimulationSettings({...simulationSettings, chaosMode: !simulationSettings.chaosMode})}
+                >
+                  <motion.div 
+                    className="bg-white w-3 h-3 rounded-full"
+                    animate={{ x: simulationSettings.chaosMode ? 20 : 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {simulationSettings.chaosMode && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="space-y-4 pt-2"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Anomaly Probability</Label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={simulationSettings.chaosProbability}
+                        disabled={isSimulationRunning}
+                        onChange={(e) => {
+                          const val = Math.min(100, Math.max(1, parseInt(e.target.value) || 1));
+                          setSimulationSettings({...simulationSettings, chaosProbability: val});
+                        }}
+                        className="w-14 h-7 text-center text-sm font-mono font-bold text-red-500 bg-red-500/10 border border-red-500/30 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <span className="text-sm font-mono font-bold text-red-500">%</span>
+                    </div>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="100" 
+                    value={simulationSettings.chaosProbability}
+                    disabled={isSimulationRunning}
+                    onChange={(e) => setSimulationSettings({...simulationSettings, chaosProbability: parseInt(e.target.value)})}
+                    className="w-full accent-red-500"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Chance of injecting a massive spike (10x) or inverted boolean into the generated payload.
+                  </p>
+                </div>
+                
+                <div className="pt-2 border-t border-red-500/10">
+                  <Label className="text-xs mb-3 block text-muted-foreground uppercase tracking-wider">Target Fields</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {payloadFields.filter(f => f.mode === 'random' && (f.type === 'number' || f.type === 'boolean')).map(field => {
+                      const isSelected = simulationSettings.chaosFields.includes(field.name);
+                      return (
+                        <div 
+                          key={field.name}
+                          onClick={() => {
+                            if (isSimulationRunning) return;
+                            const newFields = isSelected 
+                              ? simulationSettings.chaosFields.filter(f => f !== field.name)
+                              : [...simulationSettings.chaosFields, field.name];
+                            setSimulationSettings({...simulationSettings, chaosFields: newFields});
+                          }}
+                          className={`flex items-center gap-2 p-2 rounded-md border text-sm cursor-pointer transition-colors ${isSelected ? 'border-red-500 bg-red-500/10 text-red-500' : 'border-border hover:bg-muted'}`}
+                        >
+                          <div className={`w-3 h-3 rounded-full border ${isSelected ? 'bg-red-500 border-red-500' : 'border-muted-foreground'}`} />
+                          <span className="truncate">{field.name}</span>
+                        </div>
+                      )
+                    })}
+                    {payloadFields.filter(f => f.mode === 'random' && (f.type === 'number' || f.type === 'boolean')).length === 0 && (
+                      <p className="text-sm text-muted-foreground italic col-span-full">No random numeric or boolean fields available.</p>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2 italic">
+                    {simulationSettings.chaosFields.length === 0 
+                      ? "* If none selected, all numeric & boolean fields will be affected." 
+                      : "* Only selected fields will be affected by anomalies."}
+                  </p>
+                </div>
+              </motion.div>
+            )}
           </CardContent>
         </Card>
       </motion.div>

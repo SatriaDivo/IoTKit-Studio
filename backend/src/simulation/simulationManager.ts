@@ -75,7 +75,7 @@ export class SimulationManager extends EventEmitter {
       throw new Error("Simulation already running for this project");
     }
 
-    const generator = new PayloadGenerator();
+    const generator = new PayloadGenerator(config.chaosMode, config.chaosProbability, config.chaosFields);
     let client: any;
     const protocol = project.protocol.toUpperCase();
 

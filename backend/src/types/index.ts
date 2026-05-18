@@ -100,6 +100,9 @@ export interface SimulationConfig {
   swarmMode?: boolean;
   swarmCount?: number;
   stages?: LoadTestStage[];
+  chaosMode?: boolean;
+  chaosProbability?: number;
+  chaosFields?: string[];
 }
 
 export interface LoadTestStage {

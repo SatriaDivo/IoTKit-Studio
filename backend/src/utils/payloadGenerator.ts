@@ -2,6 +2,15 @@ import { PayloadField } from "../types";
 
 export class PayloadGenerator {
   private incrementalCounters: Map<string, number> = new Map();
+  private chaosMode: boolean;
+  private chaosProbability: number;
+  private chaosFields: string[];
+
+  constructor(chaosMode = false, chaosProbability = 5, chaosFields: string[] = []) {
+    this.chaosMode = chaosMode;
+    this.chaosProbability = chaosProbability;
+    this.chaosFields = chaosFields;
+  }
 
   generatePayload(fields: PayloadField[]): any {
     const payload: any = {};
@@ -65,34 +74,59 @@ export class PayloadGenerator {
   private generateNumber(field: PayloadField): number {
     const min = field.min ?? 0;
     const max = field.max ?? 100;
+    let result = 0;
 
     switch (field.mode) {
       case "static":
-        return field.value ?? 0;
+        result = field.value ?? 0;
+        break;
       case "random":
-        return Math.random() * (max - min) + min;
+        result = Math.random() * (max - min) + min;
+        break;
       case "incremental":
         const key = field.name;
         const current = this.incrementalCounters.get(key) || min;
         const next = current >= max ? min : current + 1;
         this.incrementalCounters.set(key, next);
-        return current;
+        result = current;
+        break;
       case "timestamp":
-        return Date.now();
+        result = Date.now();
+        break;
       default:
-        return 0;
+        result = 0;
     }
+
+    // Chaos Injector: Anomaly Spike (only for random mode fields)
+    const isChaosField = this.chaosFields.length === 0 || this.chaosFields.includes(field.name);
+    if (this.chaosMode && isChaosField && field.mode === "random" && Math.random() * 100 < this.chaosProbability) {
+      const spikeFactor = Math.random() > 0.5 ? 10 : -10; 
+      result = (max > 0 ? max : 100) * spikeFactor;
+    }
+
+    return result;
   }
 
   private generateBoolean(field: PayloadField): boolean {
+    let result = false;
     switch (field.mode) {
       case "static":
-        return field.value ?? false;
+        result = field.value ?? false;
+        break;
       case "random":
-        return Math.random() > 0.5;
+        result = Math.random() > 0.5;
+        break;
       default:
-        return false;
+        result = false;
     }
+
+    // Chaos Injector: Boolean Inversion (only for random mode fields)
+    const isChaosField = this.chaosFields.length === 0 || this.chaosFields.includes(field.name);
+    if (this.chaosMode && isChaosField && field.mode === "random" && Math.random() * 100 < this.chaosProbability) {
+      result = !result;
+    }
+
+    return result;
   }
 
   private generateObject(field: PayloadField): any {
