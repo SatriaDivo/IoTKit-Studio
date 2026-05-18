@@ -11,8 +11,24 @@ import {
   X,
   PanelLeftClose,
   PanelLeft,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Info,
+  Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { io } from "socket.io-client";
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  timestamp: Date;
+  read: boolean;
+  link?: string;
+}
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -30,10 +46,92 @@ export default function Header({
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Initialize with premium demo/system alerts
+  const [notifications, setNotifications] = useState<NotificationItem[]>([
+    {
+      id: "1",
+      title: "System Online",
+      message: "IoTKit-Studio cluster services running smoothly.",
+      type: "success",
+      timestamp: new Date(Date.now() - 1000 * 60 * 12), // 12m ago
+      read: false,
+      link: "/dashboard",
+    },
+    {
+      id: "2",
+      title: "AI Agent Loaded",
+      message: "Natural language assistant initialized & ready.",
+      type: "info",
+      timestamp: new Date(Date.now() - 1000 * 60 * 45), // 45m ago
+      read: false,
+      link: "/ai-agent",
+    },
+  ]);
+
+  // Subscribe to real-time events for live header alerts
+  useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const socket = io(API_URL);
+
+    socket.on("webhookReceived", (data) => {
+      const payloadBrief = data.log.message || "Incoming payload received";
+      const newNotif: NotificationItem = {
+        id: Math.random().toString(),
+        title: "Webhook Payload Received",
+        message: payloadBrief,
+        type: "success",
+        timestamp: new Date(),
+        read: false,
+        link: "/webhook",
+      };
+      // Limit to 5 notifications maximum
+      setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleNotifClick = (n: NotificationItem) => {
+    // Remove the notification completely when clicked
+    setNotifications((prev) => prev.filter((notif) => notif.id !== n.id));
+    // Navigate to page
+    if (n.link) {
+      router.push(n.link);
+    }
+    // Close dropdown
+    setShowNotifications(false);
+  };
+
+  const markAllAsRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+  };
+
+  const getNotifIcon = (type: NotificationItem["type"]) => {
+    switch (type) {
+      case "success":
+        return <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />;
+      case "warning":
+        return <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />;
+      case "error":
+        return <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />;
+      default:
+        return <Info className="h-4 w-4 text-[#6A89A7] shrink-0" />;
+    }
   };
 
   return (
@@ -69,16 +167,103 @@ export default function Header({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-3">
-          {/* Notifications */}
-          <button className="relative p-2 rounded-lg text-[#5A6C7D] hover:bg-[#E8EDF2] transition-colors">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-[#F44336] rounded-full border-2 border-white"></span>
-          </button>
+          {/* Notifications Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowNotifications(!showNotifications);
+                setShowUserMenu(false);
+                if (!showNotifications) markAllAsRead();
+              }}
+              className={`relative p-2 rounded-lg transition-colors ${
+                showNotifications ? "bg-[#E8EDF2]" : "text-[#5A6C7D] hover:bg-[#E8EDF2]"
+              }`}
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 bg-[#F44336] rounded-full border-2 border-white animate-pulse"></span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowNotifications(false)}
+                />
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-[#D1DBE5] rounded-lg shadow-industrial-lg z-50 overflow-hidden">
+                  <div className="p-3 border-b border-[#E8EDF2] flex items-center justify-between bg-muted/30">
+                    <p className="text-sm font-semibold text-[#2C3E50] flex items-center gap-2">
+                      Notifications
+                      {unreadCount > 0 && (
+                        <span className="text-[10px] bg-[#F44336] text-white px-1.5 py-0.5 rounded-full font-bold">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </p>
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={clearAllNotifications}
+                        className="text-xs text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-1 font-medium"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto divide-y divide-[#E8EDF2]">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-muted-foreground text-xs space-y-1">
+                        <Bell className="h-8 w-8 mx-auto opacity-20 mb-2" />
+                        <p>All caught up!</p>
+                        <p className="text-[10px]">No new notifications.</p>
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotifClick(n)}
+                          className={`p-3 text-xs space-y-1 transition-colors hover:bg-[#E8EDF2] cursor-pointer border-l-2 ${
+                            !n.read 
+                              ? "bg-[#6A89A7]/5 border-[#6A89A7]" 
+                              : "border-transparent"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {getNotifIcon(n.type)}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-[#2C3E50] truncate">
+                                {n.title}
+                              </p>
+                              <p className="text-muted-foreground leading-relaxed line-clamp-2">
+                                {n.message}
+                              </p>
+                              <p className="text-[9px] text-[#8B9AA8] mt-1 flex items-center gap-1 font-mono">
+                                <Clock className="h-2.5 w-2.5" />
+                                {new Date(n.timestamp).toLocaleTimeString("id-ID", {
+                                  hour12: false,
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* User Menu */}
           <div className="relative">
             <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
+              onClick={() => {
+                setShowUserMenu(!showUserMenu);
+                setShowNotifications(false);
+              }}
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#E8EDF2] border border-[#D1DBE5] hover:bg-[#D1DBE5] transition-colors"
             >
               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#6A89A7] to-[#5a7997] flex items-center justify-center">
