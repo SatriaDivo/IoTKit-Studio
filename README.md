@@ -8,6 +8,7 @@ Platform simulasi IoT berbasis dashboard untuk membuat, mengelola, dan mengirim 
 - **Multi-Protocol Support**: HTTP/HTTPS, MQTT/MQTTS, WebSocket/WSS
 - **Visual Payload Builder**: Buat struktur payload JSON secara visual tanpa coding
 - **Real-time Simulation**: Jalankan simulasi data sensor secara realtime
+- **Swarm Mode (Load Testing)**: Mesin uji beban ala *k6* dengan *Virtual Users* & *Stages* terintegrasi
 - **Monitoring & Logs**: Pantau semua aktivitas dan log secara realtime
 - **Modern UI**: Dark mode, responsive, dan user-friendly
 - **Authentication**: JWT-based authentication system
@@ -88,6 +89,9 @@ cd frontend && npm run dev
 - **[docs/GET_STARTED.md](docs/GET_STARTED.md)** - Getting started guide
 - **[docs/START_DEV.md](docs/START_DEV.md)** - Quick start (5 menit)
 - **[docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)** - Quick reference
+
+### User Manual
+- **[USER_MANUAL.md](USER_MANUAL.md)** - Panduan Uji Beban (Swarm Mode)
 
 ### Development
 

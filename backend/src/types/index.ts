@@ -98,6 +98,31 @@ export interface SimulationConfig {
   batchSize: number;
   swarmMode?: boolean;
   swarmCount?: number;
+  stages?: LoadTestStage[];
+}
+
+export interface LoadTestStage {
+  duration: number; // in seconds
+  target: number; // target VUs
+}
+
+export interface SimulationStats {
+  totalSent: number;
+  successCount: number;
+  errorCount: number;
+  startTime: number;
+  vus: number;
+  iterations: number;
+  http_req_duration: {
+    avg: number;
+    min: number;
+    med: number;
+    max: number;
+    p90: number;
+    p95: number;
+  };
+  http_reqs: number; // Total requests completed
+  rps: number; // Requests per second
 }
 
 export interface ConnectionStatus {

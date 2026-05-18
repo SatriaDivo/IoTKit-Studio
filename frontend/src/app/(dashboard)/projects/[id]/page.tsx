@@ -71,6 +71,7 @@ export default function ProjectDetailPage() {
     duration: 0,
     swarmMode: false,
     swarmCount: 100,
+    stages: [{ duration: 30, target: 100 }], // default k6-like stage
   });
 
   // Ref-based interval — immune to stale closures
@@ -375,6 +376,7 @@ export default function ProjectDetailPage() {
         batchSize: simulationSettings.batchSize,
         swarmMode: simulationSettings.swarmMode,
         swarmCount: simulationSettings.swarmCount,
+        stages: simulationSettings.stages,
       });
       setIsSimulationRunning(true);
       toast.success("Simulation started!");
@@ -1165,31 +1167,78 @@ export default function ProjectDetailPage() {
                 <motion.div 
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
-                  className="grid gap-4 md:grid-cols-3"
+                  className="space-y-4"
                 >
-                  <div className="space-y-2">
-                    <Label htmlFor="swarmCount">Device Count</Label>
-                    <Input
-                      id="swarmCount"
-                      type="number"
-                      value={simulationSettings.swarmCount}
-                      onChange={(e) => {
-                        let val = parseInt(e.target.value) || 1;
-                        if (val > 1000) val = 1000;
-                        setSimulationSettings({
-                          ...simulationSettings,
-                          swarmCount: val,
-                        });
-                      }}
-                      min={2}
-                      max={1000}
-                      disabled={isSimulationRunning}
-                      className="border-primary/50 focus-visible:ring-primary/50"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Max 1000 devices per simulation
-                    </p>
+                  <div className="flex items-center justify-between">
+                    <Label>Virtual Users (VUs) Stages</Label>
+                    <button
+                      type="button"
+                      onClick={() => setSimulationSettings({
+                        ...simulationSettings,
+                        stages: [...simulationSettings.stages, { duration: 30, target: 100 }]
+                      })}
+                      disabled={isSimulationRunning || simulationSettings.stages.length >= 10}
+                      className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-md font-medium hover:bg-primary/20 transition-colors"
+                    >
+                      + Add Stage
+                    </button>
                   </div>
+                  
+                  <div className="space-y-3">
+                    {simulationSettings.stages.map((stage, index) => (
+                      <div key={index} className="flex items-center gap-3 bg-muted/50 p-3 rounded-md">
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Duration (sec)</Label>
+                          <Input 
+                            type="number" 
+                            value={stage.duration}
+                            min={0}
+                            disabled={isSimulationRunning}
+                            onChange={(e) => {
+                              const newStages = [...simulationSettings.stages];
+                              newStages[index].duration = parseInt(e.target.value) || 0;
+                              setSimulationSettings({...simulationSettings, stages: newStages});
+                            }}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Target VUs</Label>
+                          <Input 
+                            type="number" 
+                            value={stage.target}
+                            min={0}
+                            max={1000}
+                            disabled={isSimulationRunning}
+                            onChange={(e) => {
+                              const newStages = [...simulationSettings.stages];
+                              let val = parseInt(e.target.value) || 0;
+                              if (val > 1000) val = 1000;
+                              newStages[index].target = val;
+                              setSimulationSettings({...simulationSettings, stages: newStages});
+                            }}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        {simulationSettings.stages.length > 1 && (
+                          <button
+                            type="button"
+                            disabled={isSimulationRunning}
+                            onClick={() => {
+                              const newStages = simulationSettings.stages.filter((_, i) => i !== index);
+                              setSimulationSettings({...simulationSettings, stages: newStages});
+                            }}
+                            className="mt-5 text-red-500 hover:text-red-700 hover:bg-red-500/10 p-1.5 rounded-md transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    * k6-like stages. Example: ramp-up to 100 VUs in 30s, hold for 60s, then ramp-down to 0 in 10s. Max 1000 VUs.
+                  </p>
                 </motion.div>
               )}
             </div>
@@ -1299,39 +1348,79 @@ export default function ProjectDetailPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Total Sent</p>
-                  <p className="text-2xl font-bold">
-                    {simulationStats.totalSent || 0}
+              <div className="grid gap-4 md:grid-cols-4 mb-4">
+                <div className="space-y-1 bg-muted p-3 rounded-lg border">
+                  <p className="text-xs text-muted-foreground flex items-center justify-between">
+                    <span>Total Requests</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                  </p>
+                  <p className="text-2xl font-bold font-mono">
+                    {simulationStats.http_reqs || simulationStats.totalSent || 0}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Success</p>
-                  <p className="text-2xl font-bold text-green-500">
-                    {simulationStats.successCount || 0}
+                <div className="space-y-1 bg-muted p-3 rounded-lg border border-green-500/20">
+                  <p className="text-xs text-muted-foreground flex items-center justify-between">
+                    <span>Active VUs</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  </p>
+                  <p className="text-2xl font-bold text-green-500 font-mono">
+                    {simulationStats.vus || 0}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Errors</p>
-                  <p className="text-2xl font-bold text-red-500">
+                <div className="space-y-1 bg-muted p-3 rounded-lg border border-blue-500/20">
+                  <p className="text-xs text-muted-foreground flex items-center justify-between">
+                    <span>Req / Second</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                  </p>
+                  <p className="text-2xl font-bold text-blue-500 font-mono">
+                    {simulationStats.rps || 0} <span className="text-xs font-normal">req/s</span>
+                  </p>
+                </div>
+                <div className="space-y-1 bg-muted p-3 rounded-lg border border-red-500/20">
+                  <p className="text-xs text-muted-foreground flex items-center justify-between">
+                    <span>Errors</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  </p>
+                  <p className="text-2xl font-bold text-red-500 font-mono">
                     {simulationStats.errorCount || 0}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Success Rate</p>
-                  <p className="text-2xl font-bold">
-                    {simulationStats.totalSent > 0
-                      ? (
-                          (simulationStats.successCount /
-                            simulationStats.totalSent) *
-                          100
-                        ).toFixed(1)
-                      : 0}
-                    %
-                  </p>
-                </div>
               </div>
+              
+              {simulationStats.http_req_duration && (
+                <div className="bg-background rounded-lg border p-4 space-y-4">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    Latency Metrics (k6-style)
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Average</p>
+                      <p className="text-sm font-mono">{Math.round(simulationStats.http_req_duration.avg || 0)}ms</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Min</p>
+                      <p className="text-sm font-mono">{Math.round(simulationStats.http_req_duration.min || 0)}ms</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Med</p>
+                      <p className="text-sm font-mono">{Math.round(simulationStats.http_req_duration.med || 0)}ms</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Max</p>
+                      <p className="text-sm font-mono">{Math.round(simulationStats.http_req_duration.max || 0)}ms</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase text-orange-500">P(90)</p>
+                      <p className="text-sm font-mono text-orange-500 font-medium">{Math.round(simulationStats.http_req_duration.p90 || 0)}ms</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase text-red-500">P(95)</p>
+                      <p className="text-sm font-mono text-red-500 font-bold">{Math.round(simulationStats.http_req_duration.p95 || 0)}ms</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>

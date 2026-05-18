@@ -64,6 +64,7 @@ model Simulation {
   batchSize       Int      @default(1)
   swarmMode       Boolean  @default(false)
   swarmCount      Int      @default(1)
+  stages          String?  // JSON string [{duration, target}]
   targetCount     Int?     // Auto-stop after N sends
   payloadKind     String?  // For modules with multiple kinds
   payloadOptions  String?  // JSON string
