@@ -15,6 +15,7 @@ const prisma = new PrismaClient();
 
 export interface DatasetMetadata {
   id: string;
+  name: string;
   moduleName: string;
   fileName: string;
   filePath: string;
@@ -201,6 +202,7 @@ export class DatasetStore {
         // Create new
         dataset = await prisma.dataset.create({
           data: {
+            name: fileName,
             moduleName,
             fileName,
             filePath: inspection.filePath,

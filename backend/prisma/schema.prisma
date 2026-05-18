@@ -103,6 +103,7 @@ model Log {
 
 model Dataset {
   id                String   @id @default(uuid())
+  name              String
   moduleName        String   // hera, drone, carbon
   fileName          String
   filePath          String

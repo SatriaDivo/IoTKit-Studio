@@ -38,6 +38,9 @@ export default function ProjectDetailPage() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importJson, setImportJson] = useState("");
   const [editingProject, setEditingProject] = useState(false);
+  const [datasets, setDatasets] = useState<any[]>([]);
+  const [useDataset, setUseDataset] = useState(false);
+  const [selectedDatasetId, setSelectedDatasetId] = useState("");
   const [projectData, setProjectData] = useState({
     name: "",
     description: "",
@@ -142,6 +145,14 @@ export default function ProjectDetailPage() {
         }
       })
       .catch(() => {}); // No payload yet, use default
+
+    // Load available datasets
+    api
+      .get("/datasets")
+      .then(({ data }) => {
+        setDatasets(data.datasets || []);
+      })
+      .catch(() => {});
 
     // Check if simulation is already running when entering the page
     api
@@ -318,12 +329,17 @@ export default function ProjectDetailPage() {
   // ─── Simulation ──────────────────────────────────────────────────────────────
 
   const handleStartSimulation = async () => {
-    if (payloadFields.length === 0) {
+    if (useDataset && !selectedDatasetId) {
+      toast.error("Please select a dataset to replay");
+      return;
+    }
+
+    if (!useDataset && payloadFields.length === 0) {
       toast.error("Add at least one payload field");
       return;
     }
 
-    if (hasUnsavedChanges) {
+    if (!useDataset && hasUnsavedChanges) {
       toast("Saving payload first...", { icon: "💾" });
       setSaving(true);
       try {
@@ -338,9 +354,21 @@ export default function ProjectDetailPage() {
 
     setStarting(true);
     try {
+      const structure = useDataset
+        ? [
+            {
+              name: "__dataset_mode__",
+              type: "string",
+              mode: "static",
+              value: selectedDatasetId,
+              required: true,
+            },
+          ]
+        : payloadFields;
+
       await api.post("/simulations/start", {
         projectId: params.id,
-        payloadStructure: payloadFields,
+        payloadStructure: structure,
         interval: simulationSettings.interval,
         batchSize: simulationSettings.batchSize,
       });
@@ -509,11 +537,12 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Project Info + Payload Config */}
-      <div className="grid gap-6 md:grid-cols-2 items-start">
+      <div className="grid gap-6 lg:grid-cols-3 items-start">
         {/* Left: Project Info */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
+          className="lg:col-span-1"
         >
           <Card className="glass h-[500px] flex flex-col">
             <CardHeader>
@@ -764,6 +793,7 @@ export default function ProjectDetailPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
+          className="lg:col-span-2"
         >
           <Card className="glass h-[500px] flex flex-col">
             <CardHeader>
@@ -771,27 +801,74 @@ export default function ProjectDetailPage() {
                 <div>
                   <CardTitle>Payload Configuration</CardTitle>
                   <CardDescription>
-                    Configure your IoT payload structure
+                    Configure your IoT payload structure or replay a dataset
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowImportDialog(true)}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Import JSON
-                  </Button>
-                  <Button size="sm" onClick={addPayloadField}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Field
-                  </Button>
+                <div className="flex gap-2 items-center">
+                  <div className="flex items-center gap-2 mr-2 bg-slate-100 p-1 rounded-lg">
+                    <Button 
+                      size="sm" 
+                      variant={!useDataset ? "default" : "ghost"}
+                      className={!useDataset ? "bg-blue-600 shadow-sm" : ""}
+                      onClick={() => setUseDataset(false)}
+                    >
+                      Builder
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant={useDataset ? "default" : "ghost"}
+                      className={useDataset ? "bg-blue-600 shadow-sm" : ""}
+                      onClick={() => setUseDataset(true)}
+                    >
+                      Dataset Replay
+                    </Button>
+                  </div>
+                  {!useDataset && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowImportDialog(true)}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import JSON
+                      </Button>
+                      <Button size="sm" onClick={addPayloadField}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Field
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden">
-              {payloadFields.length === 0 ? (
+              {useDataset ? (
+                <div className="flex flex-col h-full space-y-4">
+                  <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
+                    <h3 className="font-medium text-blue-900 mb-1">Dataset Playback Mode</h3>
+                    <p className="text-sm text-blue-700">
+                      In this mode, the simulation will ignore the payload builder and instead read your selected CSV dataset row by row, sending each row as a JSON object.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Select Dataset</Label>
+                    <select
+                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm outline-none focus:ring-1 focus:ring-blue-500"
+                      value={selectedDatasetId}
+                      onChange={(e) => setSelectedDatasetId(e.target.value)}
+                    >
+                      <option value="" disabled>-- Select a dataset --</option>
+                      {datasets.map(d => (
+                        <option key={d.id} value={d.id}>{d.name} ({d.loadedRows} rows) - Category: {d.moduleName}</option>
+                      ))}
+                    </select>
+                    {datasets.length === 0 && (
+                      <p className="text-xs text-red-500">No datasets found. Please upload one in the Datasets menu.</p>
+                    )}
+                  </div>
+                </div>
+              ) : payloadFields.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <p className="text-sm mb-4">No fields added yet</p>
                   <Button variant="outline" onClick={addPayloadField}>

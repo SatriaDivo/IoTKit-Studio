@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
-import SidebarV2 from "@/components/layout/SidebarV2";
-import HeaderV2 from "@/components/layout/HeaderV2";
+import Sidebar from "@/components/layout/Sidebar";
+import Header from "@/components/layout/Header";
 
 export default function DashboardLayout({
   children,
@@ -52,7 +52,7 @@ export default function DashboardLayout({
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out`}
       >
-        <SidebarV2 collapsed={sidebarCollapsed} />
+        <Sidebar collapsed={sidebarCollapsed} />
       </div>
 
       {/* Mobile Overlay */}
@@ -65,7 +65,7 @@ export default function DashboardLayout({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <HeaderV2
+        <Header
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           sidebarOpen={sidebarOpen}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}

@@ -222,6 +222,21 @@
   border-left: 3px solid #88bdf2;
 }
 
+/* Custom Scrollbar for Dark Sidebar */
+.sidebar-industrial nav::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-industrial nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-industrial nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+.sidebar-industrial nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 /* Code preview - Industrial */
 .code-preview {
   background: hsl(var(--muted));

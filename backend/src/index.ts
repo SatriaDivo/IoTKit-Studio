@@ -21,6 +21,7 @@ import payloadRoutes from "./routes/payloads";
 import simulationRoutes from "./routes/simulations";
 import logRoutes from "./routes/logs";
 import aiAgentRoutes from "./routes/aiAgent";
+import datasetRoutes from "./routes/datasets";
 
 // Load environment variables
 dotenv.config();
@@ -43,8 +44,8 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(morgan("dev"));
 app.use(rateLimiter);
 
@@ -60,6 +61,7 @@ app.use("/api/payloads", payloadRoutes);
 app.use("/api/simulations", simulationRoutes);
 app.use("/api/logs", logRoutes);
 app.use("/api/ai-agent", aiAgentRoutes);
+app.use("/api/datasets", datasetRoutes);
 
 // Error handler
 app.use(errorHandler);

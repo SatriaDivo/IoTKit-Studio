@@ -6,6 +6,8 @@ import { MqttClient } from "../protocols/mqtt/mqttClient";
 import { WsClient } from "../protocols/websocket/wsClient";
 import { Logger } from "../utils/logger";
 import { PrismaClient } from "@prisma/client";
+import * as fs from "fs";
+import csvParser from "csv-parser";
 
 const prisma = new PrismaClient();
 
@@ -14,6 +16,7 @@ export class SimulationManager extends EventEmitter {
   private generators: Map<string, PayloadGenerator> = new Map();
   private clients: Map<string, any> = new Map();
   private stats: Map<string, SimulationStats> = new Map();
+  private datasetStates: Map<string, { rows: any[]; currentIndex: number }> = new Map();
 
   async startSimulation(config: SimulationConfig, project: any): Promise<void> {
     const { projectId, payloadStructure, interval, batchSize } = config;
@@ -41,6 +44,27 @@ export class SimulationManager extends EventEmitter {
     }
 
     this.clients.set(projectId, client);
+
+    // Initialize dataset state if it's a dataset run
+    if (config.payloadStructure && config.payloadStructure.length === 1 && config.payloadStructure[0].name === "__dataset_mode__") {
+      const datasetId = config.payloadStructure[0].value;
+      const dataset = await prisma.dataset.findUnique({ where: { id: datasetId } });
+      
+      if (!dataset || !fs.existsSync(dataset.filePath)) {
+        throw new Error("Dataset not found or file missing");
+      }
+
+      const rows: any[] = [];
+      await new Promise((resolve, reject) => {
+        fs.createReadStream(dataset.filePath)
+          .pipe(csvParser())
+          .on("data", (data) => rows.push(data))
+          .on("end", resolve)
+          .on("error", reject);
+      });
+
+      this.datasetStates.set(projectId, { rows, currentIndex: 0 });
+    }
 
     // Initialize stats
     this.stats.set(projectId, {
@@ -83,9 +107,21 @@ export class SimulationManager extends EventEmitter {
     project: any,
   ): Promise<void> {
     const stats = this.stats.get(projectId)!;
+    const datasetState = this.datasetStates.get(projectId);
 
     for (let i = 0; i < batchSize; i++) {
-      const payload = generator.generatePayload(payloadStructure);
+      let payload: any;
+      
+      if (datasetState) {
+        if (datasetState.rows.length === 0) break;
+        // Loop around if reached the end
+        if (datasetState.currentIndex >= datasetState.rows.length) {
+          datasetState.currentIndex = 0;
+        }
+        payload = datasetState.rows[datasetState.currentIndex++];
+      } else {
+        payload = generator.generatePayload(payloadStructure);
+      }
 
       try {
         let result: any;
@@ -191,6 +227,7 @@ export class SimulationManager extends EventEmitter {
     }
 
     this.generators.delete(projectId);
+    this.datasetStates.delete(projectId);
 
     Logger.info(`Simulation stopped for project ${projectId}`);
     this.emit("simulationStopped", { projectId });
