@@ -35,6 +35,12 @@ export default function DatasetsPage() {
   const handleUpload = async () => {
     if (!file) return toast.error("Please select a file");
     
+    // Enforce 50MB limit
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
+    if (file.size > MAX_FILE_SIZE) {
+      return toast.error(`File is too large. Maximum allowed size is 50MB.`);
+    }
+    
     setUploading(true);
     
     try {
