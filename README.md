@@ -91,7 +91,7 @@ cd frontend && npm run dev
 - **[docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)** - Quick reference
 
 ### User Manual
-- **[USER_MANUAL.md](USER_MANUAL.md)** - Panduan Uji Beban (Swarm Mode)
+- **[docs/user-manual/LOAD_TESTING.md](docs/user-manual/LOAD_TESTING.md)** - Panduan Uji Beban (Swarm Mode)
 
 ### Development
 
