@@ -59,6 +59,7 @@ export class HttpClient {
         success: false,
         statusCode: error.response?.status || 500,
         error: error.message,
+        data: error.response?.data,
         latency,
       };
     }

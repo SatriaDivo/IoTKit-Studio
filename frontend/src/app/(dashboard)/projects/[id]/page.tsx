@@ -18,6 +18,7 @@ import {
 import { PayloadField } from "@/types";
 import toast from "react-hot-toast";
 import { api } from "@/lib/api";
+import { io } from "socket.io-client";
 
 export default function ProjectDetailPage() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function ProjectDetailPage() {
   const [stopping, setStopping] = useState(false);
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
   const [simulationStats, setSimulationStats] = useState<any>(null);
+  const [lastResponse, setLastResponse] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importJson, setImportJson] = useState("");
@@ -155,6 +157,53 @@ export default function ProjectDetailPage() {
     // Cleanup on unmount — guaranteed via ref
     return () => clearPolling();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id]);
+
+  // ─── Socket Connection ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const id = params.id as string;
+    if (!id) return;
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const socket = io(API_URL);
+
+    socket.on("connect", () => {
+      socket.emit("subscribe", id);
+    });
+
+    socket.on("payloadSent", (data) => {
+      if (data.result) {
+        const isSuccess = data.result.success;
+        let responseData = data.result.data;
+
+        if (responseData === undefined) {
+          responseData = isSuccess
+            ? "Payload sent successfully (no response data)"
+            : data.result.error || "Request failed (no response data)";
+        }
+
+        setLastResponse({
+          type: isSuccess ? "success" : "error",
+          data: responseData,
+          statusCode: data.result.statusCode,
+          latency: data.result.latency,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    socket.on("payloadError", (data) => {
+      setLastResponse({
+        type: "error",
+        error: data.error,
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    return () => {
+      socket.emit("unsubscribe", id);
+      socket.disconnect();
+    };
   }, [params.id]);
 
   // ─── Payload helpers ─────────────────────────────────────────────────────────
@@ -982,6 +1031,56 @@ export default function ProjectDetailPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Server Response (New) */}
+      {lastResponse && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <Card className="glass border-primary/30">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    Server Response
+                    {lastResponse.statusCode && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${lastResponse.type === 'success' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                        {lastResponse.statusCode}
+                      </span>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    Last response received from endpoint
+                  </CardDescription>
+                </div>
+                {lastResponse.latency && (
+                  <div className="text-right">
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md border">
+                      {lastResponse.latency}ms latency
+                    </span>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {new Date(lastResponse.timestamp).toLocaleTimeString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <pre className="bg-muted p-4 rounded-md text-sm overflow-x-auto max-h-[200px] overflow-y-auto font-mono border">
+                {lastResponse.type === "error" ? (
+                  <span className="text-red-400">{lastResponse.error}</span>
+                ) : (
+                  typeof lastResponse.data === "object" 
+                    ? JSON.stringify(lastResponse.data, null, 2)
+                    : String(lastResponse.data)
+                )}
+              </pre>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Live Stats */}
       {isSimulationRunning && simulationStats && (
