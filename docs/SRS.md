@@ -1,4 +1,4 @@
-﻿# Software Requirements Specification (SRS)
+# Software Requirements Specification (SRS)
 
 ## Daftar Isi
 
@@ -10,4 +10,6 @@
 - [FR IoT Node](srs/fr-iot-node.md)
 - [FR Reporting](srs/fr-reporting.md)
 - [FR Telemetry](srs/fr-telemetry.md)
+- [FR AI Agent](srs/fr-ai-agent.md)
+- [FR Dataset Modules](srs/fr-dataset.md)
 - [Non-Functional Requirements (NFR)](srs/nfr.md)
