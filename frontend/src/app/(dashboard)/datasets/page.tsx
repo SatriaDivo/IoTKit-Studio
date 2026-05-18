@@ -138,14 +138,27 @@ export default function DatasetsPage() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">CSV File</label>
-              <Input
-                type="file"
-                accept=".csv"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="cursor-pointer h-auto py-2 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-slate-500"
-              />
-              <p className="text-xs text-slate-500 mt-1">Max recommended size: 50MB</p>
+              <label className="block text-sm font-medium text-slate-700 mb-2">CSV File</label>
+              <div className="flex items-center gap-3 overflow-hidden">
+                <input
+                  id="csv-file-upload"
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('csv-file-upload')?.click()}
+                  className="py-1.5 px-3 border border-slate-300 bg-slate-100 rounded text-sm text-slate-800 hover:bg-slate-200 active:bg-slate-300 transition-colors whitespace-nowrap shrink-0"
+                >
+                  Choose File
+                </button>
+                <span className="text-sm text-slate-500 truncate min-w-0">
+                  {file ? file.name : "No file chosen"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">Max recommended size: 50MB</p>
             </div>
 
             <Button 
