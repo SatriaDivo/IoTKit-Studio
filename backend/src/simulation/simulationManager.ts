@@ -89,6 +89,8 @@ export class SimulationManager extends EventEmitter {
         client,
         generator,
         project,
+        config.swarmMode,
+        config.swarmCount,
       );
     }, interval);
 
@@ -105,15 +107,20 @@ export class SimulationManager extends EventEmitter {
     client: any,
     generator: PayloadGenerator,
     project: any,
+    swarmMode?: boolean,
+    swarmCount?: number,
   ): Promise<void> {
     const stats = this.stats.get(projectId)!;
     const datasetState = this.datasetStates.get(projectId);
+    
+    const devicesToSimulate = swarmMode && swarmCount && swarmCount > 0 ? swarmCount : 1;
+    const totalRequests = batchSize * devicesToSimulate;
 
-    for (let i = 0; i < batchSize; i++) {
+    const tasks = Array.from({ length: totalRequests }).map(async (_, index) => {
       let payload: any;
       
       if (datasetState) {
-        if (datasetState.rows.length === 0) break;
+        if (datasetState.rows.length === 0) return;
         // Loop around if reached the end
         if (datasetState.currentIndex >= datasetState.rows.length) {
           datasetState.currentIndex = 0;
@@ -121,6 +128,25 @@ export class SimulationManager extends EventEmitter {
         payload = datasetState.rows[datasetState.currentIndex++];
       } else {
         payload = generator.generatePayload(payloadStructure);
+        
+        // Inject unique device IDs if in swarm mode
+        if (swarmMode && devicesToSimulate > 1) {
+          const deviceIndex = index % devicesToSimulate;
+          const injectSwarmId = (obj: any) => {
+            if (!obj || typeof obj !== 'object') return;
+            for (const key in obj) {
+              if (key.toLowerCase() === 'device_id' || key.toLowerCase() === 'deviceid' || key.toLowerCase() === 'id') {
+                if (typeof obj[key] === 'string') {
+                  obj[key] = `${obj[key]}-SWARM-${deviceIndex + 1}`;
+                }
+              } else if (typeof obj[key] === 'object') {
+                injectSwarmId(obj[key]);
+              }
+            }
+          };
+          payload = JSON.parse(JSON.stringify(payload));
+          injectSwarmId(payload);
+        }
       }
 
       try {
@@ -142,63 +168,62 @@ export class SimulationManager extends EventEmitter {
           stats.errorCount++;
         }
 
-        // Save log to database - request
-        await prisma.log.create({
-          data: {
-            type: "request",
-            protocol: project.protocol,
-            message: `→ POST ${project.endpoint || "/"} | ${result.latency}ms | ${result.statusCode}`,
-            payload: JSON.stringify(payload),
-            statusCode: result.statusCode || null,
-            latency: result.latency || null,
-            projectId,
-          },
-        });
+        // Optimization: For heavy swarms, only log a sample of requests to prevent database crash
+        const shouldLogDetails = !swarmMode || devicesToSimulate <= 5 || (index === 0) || !result.success;
 
-        // For HTTP: also save the server response as a separate log entry
-        if (
-          (project.protocol === "HTTP" || project.protocol === "HTTPS") &&
-          result.data !== undefined
-        ) {
+        if (shouldLogDetails) {
           await prisma.log.create({
             data: {
-              type: result.success ? "response" : "error",
+              type: "request",
               protocol: project.protocol,
-              message: result.success
-                ? `← ${result.statusCode} OK`
-                : `← ${result.statusCode} Error`,
-              payload: JSON.stringify(result.data),
+              message: `→ ${swarmMode ? '[SWARM] ' : ''}POST ${project.endpoint || "/"} | ${result.latency}ms | ${result.statusCode}`,
+              payload: JSON.stringify(payload),
               statusCode: result.statusCode || null,
               latency: result.latency || null,
               projectId,
             },
-          });
+          }).catch(() => {});
+
+          if ((project.protocol === "HTTP" || project.protocol === "HTTPS") && result.data !== undefined) {
+            await prisma.log.create({
+              data: {
+                type: result.success ? "response" : "error",
+                protocol: project.protocol,
+                message: result.success ? `← ${result.statusCode} OK` : `← ${result.statusCode} Error`,
+                payload: JSON.stringify(result.data),
+                statusCode: result.statusCode || null,
+                latency: result.latency || null,
+                projectId,
+              },
+            }).catch(() => {});
+          }
         }
 
-        this.emit("payloadSent", {
-          projectId,
-          payload,
-          result,
-          stats: { ...stats },
-        });
+        // Only emit socket events for a sample to prevent frontend UI freeze
+        if (shouldLogDetails) {
+          this.emit("payloadSent", {
+            projectId,
+            payload,
+            result,
+            stats: { ...stats },
+          });
+        }
       } catch (error: any) {
         stats.totalSent++;
         stats.errorCount++;
 
         Logger.error(`Simulation error for project ${projectId}:`, error);
 
-        // Save error log to database
-        await prisma.log
-          .create({
-            data: {
-              type: "error",
-              protocol: project.protocol,
-              message: error.message || "Unknown error",
-              payload: JSON.stringify(payload),
-              projectId,
-            },
-          })
-          .catch(() => {}); // Don't throw if log save fails
+        // Always log errors
+        await prisma.log.create({
+          data: {
+            type: "error",
+            protocol: project.protocol,
+            message: error.message || "Unknown error",
+            payload: JSON.stringify(payload),
+            projectId,
+          },
+        }).catch(() => {});
 
         this.emit("payloadError", {
           projectId,
@@ -207,7 +232,9 @@ export class SimulationManager extends EventEmitter {
           stats: { ...stats },
         });
       }
-    }
+    });
+
+    await Promise.all(tasks);
   }
 
   stopSimulation(projectId: string): void {

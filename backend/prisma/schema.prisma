@@ -62,6 +62,8 @@ model Simulation {
   status          String   @default("idle") // idle, running, stopped, error
   interval        Int      @default(5000) // milliseconds
   batchSize       Int      @default(1)
+  swarmMode       Boolean  @default(false)
+  swarmCount      Int      @default(1)
   targetCount     Int?     // Auto-stop after N sends
   payloadKind     String?  // For modules with multiple kinds
   payloadOptions  String?  // JSON string

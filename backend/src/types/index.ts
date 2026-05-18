@@ -96,6 +96,8 @@ export interface SimulationConfig {
   payloadStructure: PayloadField[];
   interval: number;
   batchSize: number;
+  swarmMode?: boolean;
+  swarmCount?: number;
 }
 
 export interface ConnectionStatus {

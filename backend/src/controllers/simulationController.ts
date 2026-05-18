@@ -19,7 +19,7 @@ simulationManager.on("payloadError", (data) => {
 export class SimulationController {
   async start(req: AuthRequest, res: Response) {
     try {
-      const { projectId, payloadStructure, interval, batchSize } = req.body;
+      const { projectId, payloadStructure, interval, batchSize, swarmMode, swarmCount } = req.body;
 
       const project = await prisma.project.findFirst({
         where: {
@@ -42,6 +42,8 @@ export class SimulationController {
           payloadStructure,
           interval: interval || 1000,
           batchSize: batchSize || 1,
+          swarmMode: !!swarmMode,
+          swarmCount: Number(swarmCount) || 1,
         },
         project,
       );
@@ -58,6 +60,8 @@ export class SimulationController {
           status: "running",
           interval: interval || 1000,
           batchSize: batchSize || 1,
+          swarmMode: !!swarmMode,
+          swarmCount: Number(swarmCount) || 1,
           startedAt: new Date(),
         },
       });

@@ -69,6 +69,8 @@ export default function ProjectDetailPage() {
     interval: 1000,
     batchSize: 1,
     duration: 0,
+    swarmMode: false,
+    swarmCount: 100,
   });
 
   // Ref-based interval — immune to stale closures
@@ -371,6 +373,8 @@ export default function ProjectDetailPage() {
         payloadStructure: structure,
         interval: simulationSettings.interval,
         batchSize: simulationSettings.batchSize,
+        swarmMode: simulationSettings.swarmMode,
+        swarmCount: simulationSettings.swarmCount,
       });
       setIsSimulationRunning(true);
       toast.success("Simulation started!");
@@ -1129,6 +1133,65 @@ export default function ProjectDetailPage() {
                   0 = run until stopped manually
                 </p>
               </div>
+            </div>
+
+            {/* Swarm Mode Settings */}
+            <div className="mt-6 pt-6 border-t border-border">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <Label className="text-base flex items-center gap-2 font-semibold">
+                    🐝 Swarm Mode <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full ml-2">Load Testing</span>
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Simulate multiple devices concurrently. Ideal for stress testing your broker.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{simulationSettings.swarmMode ? "Enabled" : "Disabled"}</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={simulationSettings.swarmMode}
+                    onClick={() => setSimulationSettings({ ...simulationSettings, swarmMode: !simulationSettings.swarmMode })}
+                    disabled={isSimulationRunning}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${simulationSettings.swarmMode ? 'bg-primary' : 'bg-slate-300'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${simulationSettings.swarmMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+              </div>
+              
+              {simulationSettings.swarmMode && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="grid gap-4 md:grid-cols-3"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="swarmCount">Device Count</Label>
+                    <Input
+                      id="swarmCount"
+                      type="number"
+                      value={simulationSettings.swarmCount}
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value) || 1;
+                        if (val > 1000) val = 1000;
+                        setSimulationSettings({
+                          ...simulationSettings,
+                          swarmCount: val,
+                        });
+                      }}
+                      min={2}
+                      max={1000}
+                      disabled={isSimulationRunning}
+                      className="border-primary/50 focus-visible:ring-primary/50"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Max 1000 devices per simulation
+                    </p>
+                  </div>
+                </motion.div>
+              )}
             </div>
           </CardContent>
         </Card>
