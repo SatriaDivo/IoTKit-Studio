@@ -1,4 +1,4 @@
-﻿# Business Requirements Document (BRD)
+# Business Requirements Document (BRD)
 
 ## Daftar Isi
 
@@ -6,3 +6,4 @@
 - [Objectives](brd/objectives.md)
 - [Scope](brd/scope.md)
 - [Stakeholders](brd/stakeholders.md)
+- [Future Features (Roadmap)](brd/future-features.md)
