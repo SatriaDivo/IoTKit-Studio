@@ -16,7 +16,9 @@ import {
   Copy,
   Check,
   Search,
-  Info,
+  Settings,
+  ChevronRight,
+  MessageSquare,
 } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { Button } from "@/components/ui/button";
@@ -55,6 +57,11 @@ export default function MQTTInspectorPage() {
       2,
     ),
   );
+  const [publishInterval, setPublishInterval] = useState(5);
+  const [publishCount, setPublishCount] = useState<number | "">("");
+  const [isAutoPublishing, setIsAutoPublishing] = useState(false);
+  const [publishedCount, setPublishedCount] = useState(0);
+  const autoPublishIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Global MQTT Store Connection & Stream State
   const {
@@ -75,13 +82,12 @@ export default function MQTTInspectorPage() {
     null,
   );
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
 
   useEffect(() => {
     fetchProjects().finally(() => setProjectsLoading(false));
 
-    // Load config from localStorage if present
     try {
       if (typeof window !== "undefined") {
         const savedBrokerUrl = localStorage.getItem("mqtt_inspector_brokerUrl");
@@ -119,13 +125,24 @@ export default function MQTTInspectorPage() {
         );
         if (savedPublishPayload) setPublishPayload(savedPublishPayload);
 
-        // Check if was previously connected and auto-reconnect
+        const savedPublishInterval = localStorage.getItem(
+          "mqtt_inspector_publishInterval",
+        );
+        if (savedPublishInterval)
+          setPublishInterval(Number(savedPublishInterval));
+
+        const savedPublishCount = localStorage.getItem(
+          "mqtt_inspector_publishCount",
+        );
+        if (savedPublishCount && savedPublishCount !== "") {
+          setPublishCount(Number(savedPublishCount));
+        }
+
         const wasConnected = localStorage.getItem(
           "mqtt_inspector_wasConnected",
         );
         if (wasConnected === "true" && savedBrokerUrl && savedClientId) {
           const topics = savedTopics ? JSON.parse(savedTopics) : [];
-          // Auto-reconnect after a short delay to ensure state is loaded
           setTimeout(() => {
             connectMqtt({
               brokerUrl: savedBrokerUrl,
@@ -150,12 +167,12 @@ export default function MQTTInspectorPage() {
     }
 
     return () => {
-      // Don't disconnect on unmount, keep connection alive
-      // disconnectMqtt();
+      if (autoPublishIntervalRef.current) {
+        clearInterval(autoPublishIntervalRef.current);
+      }
     };
   }, []);
 
-  // Auto-persist inputs to localStorage on change
   useEffect(() => {
     if (!isLoaded) return;
     try {
@@ -170,6 +187,14 @@ export default function MQTTInspectorPage() {
         );
         localStorage.setItem("mqtt_inspector_publishTopic", publishTopic);
         localStorage.setItem("mqtt_inspector_publishPayload", publishPayload);
+        localStorage.setItem(
+          "mqtt_inspector_publishInterval",
+          publishInterval.toString(),
+        );
+        localStorage.setItem(
+          "mqtt_inspector_publishCount",
+          publishCount.toString(),
+        );
       }
     } catch (e) {}
   }, [
@@ -181,9 +206,10 @@ export default function MQTTInspectorPage() {
     subscribedTopics,
     publishTopic,
     publishPayload,
+    publishInterval,
+    publishCount,
   ]);
 
-  // Save connection state
   useEffect(() => {
     if (!isLoaded) return;
     try {
@@ -259,6 +285,54 @@ export default function MQTTInspectorPage() {
     }
   };
 
+  const handleStartAutoPublish = () => {
+    if (!publishTopic.trim()) {
+      toast.error("Please enter a topic to publish to");
+      return;
+    }
+
+    setIsAutoPublishing(true);
+    setPublishedCount(0);
+
+    let count = 0;
+    const maxCount = typeof publishCount === "number" ? publishCount : 0;
+
+    publishMessage(publishTopic.trim(), publishPayload);
+    count++;
+    setPublishedCount(count);
+
+    if (maxCount > 0 && count >= maxCount) {
+      setIsAutoPublishing(false);
+      toast.success(`Auto-publish completed! Sent ${count} message(s)`);
+      return;
+    }
+
+    autoPublishIntervalRef.current = setInterval(async () => {
+      const success = await publishMessage(publishTopic.trim(), publishPayload);
+
+      if (success) {
+        count++;
+        setPublishedCount(count);
+
+        if (maxCount > 0 && count >= maxCount) {
+          handleStopAutoPublish();
+          toast.success(`Auto-publish completed! Sent ${count} message(s)`);
+        }
+      }
+    }, publishInterval * 1000);
+
+    toast.success(`Auto-publish started! Interval: ${publishInterval}s`);
+  };
+
+  const handleStopAutoPublish = () => {
+    if (autoPublishIntervalRef.current) {
+      clearInterval(autoPublishIntervalRef.current);
+      autoPublishIntervalRef.current = null;
+    }
+    setIsAutoPublishing(false);
+    toast.success(`Auto-publish stopped. Sent ${publishedCount} message(s)`);
+  };
+
   const handleFormatJson = () => {
     try {
       const parsed = JSON.parse(publishPayload);
@@ -283,505 +357,416 @@ export default function MQTTInspectorPage() {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-[#2C3E50] flex items-center gap-3">
-            <Radio className="h-8 w-8 text-[#6A89A7] animate-pulse" />
+    <div className="flex flex-col h-screen bg-[#F5F7FA]">
+      {/* Top Bar */}
+      <div className="h-14 bg-white border-b border-[#E8EDF2] flex items-center justify-between px-6">
+        <div className="flex items-center gap-3">
+          <Radio className="h-5 w-5 text-[#6A89A7]" />
+          <h1 className="text-lg font-semibold text-[#2C3E50]">
             MQTT Inspector
           </h1>
-          <p className="text-[#5A6C7D] mt-1">
-            Real-time industrial MQTT topic explorer and payload monitor
-          </p>
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-sm text-[#5A6C7D]">Connection:</span>
+            <span className="text-sm font-mono text-[#2C3E50]">{clientId}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {isConnected ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span className="text-sm font-medium text-green-700">
+                Connected
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#E8EDF2] border border-[#D1DBE5] rounded-lg">
+              <div className="h-2 w-2 rounded-full bg-[#8B9AA8]"></div>
+              <span className="text-sm font-medium text-[#5A6C7D]">
+                Disconnected
+              </span>
+            </div>
+          )}
+          <Button
+            onClick={() => setShowConnectionModal(!showConnectionModal)}
+            className="h-9 px-4 bg-[#6A89A7] hover:bg-[#5a7997] text-white text-sm"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Settings
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Connection & Publish */}
-        <div className="space-y-6 lg:col-span-1">
-          {/* Connection Card */}
-          <Card className="card-industrial shadow-md">
-            <CardHeader className="pb-3 border-b border-[#D1DBE5]">
-              <CardTitle className="text-lg text-[#2C3E50] flex items-center justify-between">
-                <span>Broker Connection</span>
-                {isConnected ? (
-                  <span className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-                    <Wifi className="h-3.5 w-3.5" /> Connected
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-xs text-[#8B9AA8] bg-[#E8EDF2] px-2 py-0.5 rounded-full border border-[#D1DBE5]">
-                    <WifiOff className="h-3.5 w-3.5" /> Disconnected
-                  </span>
-                )}
-              </CardTitle>
-              <CardDescription>
-                Configure broker and wildcard subscription topics
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              {/* Load Configuration from Existing Project */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">
-                  Load Config from Project
-                </Label>
-                <select
-                  onChange={(e) => handleProjectSelect(e.target.value)}
-                  disabled={isConnected || isConnecting || projectsLoading}
-                  className="w-full h-10 px-3 border border-[#D1DBE5] rounded-lg text-sm bg-white text-[#2C3E50] focus:ring-1 focus:ring-[#6A89A7] focus:outline-none"
-                >
-                  <option value="">-- Choose an existing project --</option>
-                  {projects
-                    .filter((p) => {
-                      const proto = (p.protocol || "").toUpperCase();
-                      return proto === "MQTT" || proto === "MQTTS";
-                    })
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.protocol})
-                      </option>
-                    ))}
-                </select>
-              </div>
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - Connections */}
+        <div className="w-64 bg-white border-r border-[#E8EDF2] flex flex-col">
+          <div className="p-4 border-b border-[#E8EDF2]">
+            <h2 className="text-sm font-semibold text-[#2C3E50] mb-3">
+              Connections
+            </h2>
+            <select
+              onChange={(e) => handleProjectSelect(e.target.value)}
+              disabled={isConnected || isConnecting || projectsLoading}
+              className="w-full h-9 px-3 border border-[#D1DBE5] rounded-lg text-xs bg-white text-[#2C3E50] focus:ring-1 focus:ring-[#6A89A7] focus:outline-none"
+            >
+              <option value="">-- Select project --</option>
+              {projects
+                .filter((p) => {
+                  const proto = (p.protocol || "").toUpperCase();
+                  return proto === "MQTT" || proto === "MQTTS";
+                })
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+          </div>
 
-              {/* Broker URL */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">
-                  Broker URL
-                </Label>
-                <Input
-                  placeholder="e.g. tcp://localhost:1883"
-                  value={brokerUrl}
-                  onChange={(e) => setBrokerUrl(e.target.value)}
-                  disabled={isConnected || isConnecting}
-                  className="bg-white border-[#D1DBE5]"
-                />
-              </div>
-
-              {/* Client ID */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">
-                  Client ID
-                </Label>
-                <Input
-                  placeholder="Inspector Client ID"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  disabled={isConnected || isConnecting}
-                  className="bg-white border-[#D1DBE5] font-mono text-xs"
-                />
-              </div>
-
-              {/* Auth Credentials */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">
-                    Username
-                  </Label>
-                  <Input
-                    placeholder="Optional"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    disabled={isConnected || isConnecting}
-                    className="bg-white border-[#D1DBE5] text-xs"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">
-                    Password
-                  </Label>
-                  <Input
-                    type="password"
-                    placeholder="Optional"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isConnected || isConnecting}
-                    className="bg-white border-[#D1DBE5] text-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Subscription Topics */}
-              <div className="space-y-1.5 pt-2 border-t border-[#E8EDF2]">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">
-                  Subscribe to Topics
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="e.g. telemetry/#"
-                    value={topicInput}
-                    onChange={(e) => setTopicInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleAddTopic()}
-                    className="bg-white border-[#D1DBE5] text-xs"
-                  />
-                  <Button
-                    onClick={handleAddTopic}
-                    className="btn-secondary h-10 px-3 bg-[#E8EDF2] border border-[#D1DBE5] hover:bg-[#D1DBE5]"
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-2">
+              {projects
+                .filter((p) => {
+                  const proto = (p.protocol || "").toUpperCase();
+                  return proto === "MQTT" || proto === "MQTTS";
+                })
+                .map((p) => (
+                  <div
+                    key={p.id}
+                    className="p-3 rounded-lg border border-[#E8EDF2] hover:bg-[#F5F7FA] cursor-pointer transition-colors"
+                    onClick={() => handleProjectSelect(p.id)}
                   >
-                    <Plus className="h-4 w-4 text-[#5A6C7D]" />
-                  </Button>
-                </div>
-
-                {/* Subscribed Badges List */}
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {subscribedTopics.map((topic) => (
-                    <span
-                      key={topic}
-                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#E8EDF2] text-[#2C3E50] border border-[#D1DBE5]"
-                    >
-                      {topic}
-                      <button
-                        onClick={() => handleRemoveTopic(topic)}
-                        className="text-[#8B9AA8] hover:text-red-500 font-bold transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-[#2C3E50]">
+                        {p.name}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 bg-[#E8EDF2] text-[#5A6C7D] rounded">
+                        {p.protocol}
+                      </span>
+                    </div>
+                    <span className="text-xs text-[#8B9AA8] font-mono">
+                      {p.host}:{p.port}
                     </span>
-                  ))}
-                  {subscribedTopics.length === 0 && (
-                    <span className="text-xs text-[#8B9AA8] italic">
-                      No active subscriptions.
-                    </span>
-                  )}
-                </div>
-              </div>
+                  </div>
+                ))}
+            </div>
+          </div>
 
-              {/* Toggle Connection Button */}
+          <div className="p-4 border-t border-[#E8EDF2]">
+            {isConnected ? (
               <Button
-                onClick={
-                  isConnected
-                    ? disconnectMqtt
-                    : () =>
-                        connectMqtt({
-                          brokerUrl,
-                          clientId,
-                          username,
-                          password,
-                          subscribedTopics,
-                        })
+                onClick={disconnectMqtt}
+                className="w-full h-9 bg-red-500 hover:bg-red-600 text-white text-sm"
+              >
+                <Square className="h-4 w-4 mr-2" />
+                Disconnect
+              </Button>
+            ) : (
+              <Button
+                onClick={() =>
+                  connectMqtt({
+                    brokerUrl,
+                    clientId,
+                    username,
+                    password,
+                    subscribedTopics,
+                  })
                 }
                 disabled={isConnecting}
-                className={`w-full h-11 mt-4 font-semibold text-sm shadow-md transition-all ${
-                  isConnected
-                    ? "bg-red-500 hover:bg-red-600 text-white"
-                    : "bg-[#6A89A7] hover:bg-[#5a7997] text-white"
-                }`}
+                className="w-full h-9 bg-[#6A89A7] hover:bg-[#5a7997] text-white text-sm"
               >
                 {isConnecting ? (
-                  <div className="flex items-center gap-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
                     Connecting...
-                  </div>
-                ) : isConnected ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <Square className="h-4 w-4" /> Disconnect
-                  </div>
+                  </>
                 ) : (
-                  <div className="flex items-center justify-center gap-2">
-                    <Play className="h-4 w-4" /> Connect Broker
-                  </div>
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Connect
+                  </>
                 )}
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* Publisher Card */}
-          <Card className="card-industrial shadow-md">
-            <CardHeader className="pb-3 border-b border-[#D1DBE5]">
-              <CardTitle className="text-lg text-[#2C3E50] flex items-center gap-2">
-                <Send className="h-5 w-5 text-[#6A89A7]" />
-                Publish Message
-              </CardTitle>
-              <CardDescription>
-                Publish one-off telemetry to any custom topic
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4">
-              {/* Target Topic */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">
-                  Topic
-                </Label>
-                <Input
-                  placeholder="e.g. iotkit/test/data"
-                  value={publishTopic}
-                  onChange={(e) => setPublishTopic(e.target.value)}
-                  disabled={!isConnected}
-                  className="bg-white border-[#D1DBE5] text-xs font-mono"
-                />
-              </div>
-
-              {/* Payload Data */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">
-                    Payload (JSON / Text)
-                  </Label>
-                  <button
-                    onClick={handleFormatJson}
-                    disabled={!isConnected}
-                    className="text-xs text-[#6A89A7] hover:text-[#5a7997] hover:underline font-medium transition-colors"
-                  >
-                    Format JSON
-                  </button>
-                </div>
-                <textarea
-                  value={publishPayload}
-                  onChange={(e) => setPublishPayload(e.target.value)}
-                  disabled={!isConnected}
-                  className="w-full h-32 p-3 font-mono text-xs border border-[#D1DBE5] rounded-lg bg-white text-[#2C3E50] focus:ring-1 focus:ring-[#6A89A7] focus:outline-none"
-                  placeholder="Enter message content..."
-                />
-              </div>
-
-              <Button
-                onClick={handlePublish}
-                disabled={!isConnected}
-                className="w-full h-10 font-semibold bg-[#6A89A7] hover:bg-[#5a7997] text-white disabled:opacity-50"
-              >
-                <Send className="h-4 w-4 mr-2" /> Send Payload
-              </Button>
-            </CardContent>
-          </Card>
+            )}
+          </div>
         </div>
 
-        {/* Right Column: Live Console */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="card-industrial h-full shadow-md flex flex-col min-h-[500px]">
-            <CardHeader className="pb-3 border-b border-[#D1DBE5] flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-lg text-[#2C3E50]">
-                  Live Traffic Console
-                </CardTitle>
-                <CardDescription>
-                  Real-time incoming broker traffic log stream
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Search query */}
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[#8B9AA8]" />
-                  <Input
-                    placeholder="Search query..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9 w-44 md:w-56 text-xs bg-white border-[#D1DBE5]"
-                  />
-                </div>
-
-                {/* Pause Stream */}
+        {/* Middle Section - Topics & Publisher */}
+        <div className="w-80 bg-white border-r border-[#E8EDF2] flex flex-col">
+          {/* Subscriptions */}
+          <div className="flex-1 flex flex-col">
+            <div className="p-4 border-b border-[#E8EDF2]">
+              <h2 className="text-sm font-semibold text-[#2C3E50] mb-3">
+                Subscriptions
+              </h2>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="topic/#"
+                  value={topicInput}
+                  onChange={(e) => setTopicInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddTopic()}
+                  className="flex-1 h-9 text-xs"
+                  disabled={!isConnected}
+                />
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsPaused(!isPaused)}
-                  className={`h-9 text-xs border-[#D1DBE5] ${isPaused ? "bg-amber-50 text-amber-600 hover:bg-amber-100" : "text-[#5A6C7D] hover:bg-[#E8EDF2]"}`}
+                  onClick={handleAddTopic}
+                  disabled={!isConnected}
+                  className="h-9 px-3 bg-[#6A89A7] hover:bg-[#5a7997] text-white"
                 >
-                  <Pause className="h-3.5 w-3.5 mr-1" />
-                  {isPaused ? "Paused" : "Pause"}
-                </Button>
-
-                {/* Clear console */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={clearMessages}
-                  className="h-9 text-xs text-red-500 border-[#D1DBE5] hover:bg-red-50"
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear
+                  <Plus className="h-4 w-4" />
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent className="p-0 flex-1 overflow-hidden flex flex-col">
-              <div className="flex-1 overflow-y-auto max-h-[580px] divide-y divide-[#E8EDF2]">
-                {filteredMessages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-32 text-center text-muted-foreground p-6">
-                    <Radio className="h-12 w-12 text-[#8B9AA8] opacity-25 mb-3" />
-                    <p className="text-sm font-medium text-[#5A6C7D]">
-                      No MQTT traffic monitored
-                    </p>
-                    <p className="text-xs text-[#8B9AA8] mt-1 max-w-sm">
-                      Connect to an MQTT broker and verify your subscription
-                      topics to stream real-time broker traffic logs here.
-                    </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-2">
+                {subscribedTopics.map((topic) => (
+                  <div
+                    key={topic}
+                    className="flex items-center justify-between p-2 rounded-lg border border-[#E8EDF2] hover:bg-[#F5F7FA] group"
+                  >
+                    <div className="flex items-center gap-2 flex-1">
+                      <MessageSquare className="h-4 w-4 text-[#6A89A7]" />
+                      <span className="text-sm text-[#2C3E50] font-mono">
+                        {topic}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveTopic(topic)}
+                      className="opacity-0 group-hover:opacity-100 text-[#8B9AA8] hover:text-red-500 transition-all"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#E8EDF2]/40 text-xs font-semibold text-[#5A6C7D] border-b border-[#D1DBE5]">
-                          <th className="px-4 py-3 font-medium">Timestamp</th>
-                          <th className="px-4 py-3 font-medium">Topic</th>
-                          <th className="px-4 py-3 font-medium">Payload</th>
-                          <th className="px-4 py-3 text-center font-medium">
-                            QoS
-                          </th>
-                          <th className="px-4 py-3 text-center font-medium">
-                            Retained
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredMessages.map((msg) => (
-                          <tr
-                            key={msg.id}
-                            onClick={() => setSelectedMessage(msg)}
-                            className="hover:bg-[#E8EDF2]/30 cursor-pointer transition-colors text-xs border-b border-[#E8EDF2]"
-                          >
-                            <td className="px-4 py-3 text-[#8B9AA8] font-mono whitespace-nowrap">
-                              {new Date(msg.timestamp).toLocaleTimeString(
-                                "id-ID",
-                                {
-                                  hour12: false,
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  second: "2-digit",
-                                },
-                              )}
-                            </td>
-                            <td className="px-4 py-3 font-semibold text-[#2C3E50] max-w-[150px] truncate">
-                              {msg.topic}
-                            </td>
-                            <td className="px-4 py-3 text-[#5A6C7D] max-w-[280px] truncate font-mono text-[11px]">
-                              {msg.payload}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="inline-block px-1.5 py-0.2 bg-[#E8EDF2] border border-[#D1DBE5] rounded font-semibold text-[#5A6C7D]">
-                                {msg.qos}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {msg.retained ? (
-                                <span className="inline-block px-1.5 py-0.2 bg-amber-50 border border-amber-200 rounded font-semibold text-amber-700">
-                                  Yes
-                                </span>
-                              ) : (
-                                <span className="text-[#8B9AA8]">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
+          {/* Publisher */}
+          <div className="border-t border-[#E8EDF2] p-4">
+            <h2 className="text-sm font-semibold text-[#2C3E50] mb-3">
+              Publish
+            </h2>
+            <div className="space-y-3">
+              <Input
+                placeholder="Topic"
+                value={publishTopic}
+                onChange={(e) => setPublishTopic(e.target.value)}
+                disabled={!isConnected}
+                className="h-9 text-xs font-mono"
+              />
+              <textarea
+                value={publishPayload}
+                onChange={(e) => setPublishPayload(e.target.value)}
+                disabled={!isConnected}
+                className="w-full h-24 p-2 text-xs font-mono border border-[#D1DBE5] rounded-lg focus:ring-1 focus:ring-[#6A89A7] focus:outline-none"
+                placeholder="Payload..."
+              />
+              <div className="flex gap-2">
+                <Button
+                  onClick={handlePublish}
+                  disabled={!isConnected}
+                  className="flex-1 h-9 bg-[#6A89A7] hover:bg-[#5a7997] text-white text-sm"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Send
+                </Button>
+                <Button
+                  onClick={handleFormatJson}
+                  disabled={!isConnected}
+                  variant="outline"
+                  className="h-9 px-3 text-sm"
+                >
+                  Format
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Section - Messages */}
+        <div className="flex-1 flex flex-col bg-[#F5F7FA]">
+          <div className="h-12 bg-white border-b border-[#E8EDF2] flex items-center justify-between px-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-semibold text-[#2C3E50]">Messages</h2>
+              <span className="text-xs text-[#8B9AA8]">
+                {filteredMessages.length} message(s)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#8B9AA8]" />
+                <Input
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-9 w-48 text-xs"
+                />
+              </div>
+              <Button
+                onClick={clearMessages}
+                variant="outline"
+                className="h-9 px-3 text-xs"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            {filteredMessages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <Radio className="h-12 w-12 text-[#8B9AA8] opacity-25 mb-3" />
+                <p className="text-sm font-medium text-[#5A6C7D]">
+                  No messages yet
+                </p>
+                <p className="text-xs text-[#8B9AA8] mt-1">
+                  Connect to broker and subscribe to topics
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    onClick={() => setSelectedMessage(msg)}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                      selectedMessage?.id === msg.id
+                        ? "bg-white border-[#6A89A7] shadow-md"
+                        : "bg-white border-[#E8EDF2] hover:border-[#D1DBE5] hover:shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-[#2C3E50] font-mono">
+                          {msg.topic}
+                        </span>
+                        <span className="text-xs px-1.5 py-0.5 bg-[#E8EDF2] text-[#5A6C7D] rounded">
+                          QoS {msg.qos}
+                        </span>
+                      </div>
+                      <span className="text-xs text-[#8B9AA8]">
+                        {new Date(msg.timestamp).toLocaleTimeString("id-ID", {
+                          hour12: false,
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <pre className="text-xs font-mono text-[#2C3E50] bg-[#F5F7FA] p-3 rounded overflow-x-auto">
+                      {(() => {
+                        try {
+                          const parsed = JSON.parse(msg.payload);
+                          return JSON.stringify(parsed, null, 2);
+                        } catch {
+                          return msg.payload;
+                        }
+                      })()}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Message Detail Modal Drawer */}
+      {/* Connection Settings Modal */}
       <AnimatePresence>
-        {selectedMessage && (
-          <div className="fixed inset-0 bg-[#384959]/40 backdrop-blur-[2px] flex items-center justify-end z-[9999]">
+        {showConnectionModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <motion.div
-              initial={{ x: 400, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 400, opacity: 0 }}
-              className="bg-white w-full max-w-lg h-full shadow-2xl p-6 overflow-y-auto flex flex-col border-l border-[#D1DBE5]"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6"
             >
-              {/* Header */}
-              <div className="flex justify-between items-center pb-4 border-b border-[#E8EDF2] mb-6">
-                <div>
-                  <h3 className="text-lg font-bold text-[#2C3E50]">
-                    Message Details
-                  </h3>
-                  <p className="text-xs text-[#8B9AA8] mt-0.5">
-                    Inspecting received MQTT topic packet
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSelectedMessage(null)}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-[#2C3E50]">
+                  Connection Settings
+                </h3>
+                <button
+                  onClick={() => setShowConnectionModal(false)}
                   className="text-[#8B9AA8] hover:text-[#5A6C7D]"
                 >
                   <X className="h-5 w-5" />
-                </Button>
+                </button>
               </div>
 
-              {/* Data Properties */}
-              <div className="space-y-4 flex-1">
-                {/* Topic info */}
-                <div className="space-y-1.5">
+              <div className="space-y-4">
+                <div>
                   <Label className="text-xs font-semibold text-[#5A6C7D]">
-                    Topic
+                    Broker URL
                   </Label>
-                  <div className="p-3 bg-[#E8EDF2]/40 border border-[#D1DBE5] rounded-lg font-mono text-xs text-[#2C3E50] break-all select-all">
-                    {selectedMessage.topic}
-                  </div>
+                  <Input
+                    value={brokerUrl}
+                    onChange={(e) => setBrokerUrl(e.target.value)}
+                    disabled={isConnected}
+                    className="mt-1.5 h-9 text-xs"
+                    placeholder="tcp://broker.hivemq.com:1883"
+                  />
                 </div>
 
-                {/* Packet parameters */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-[#5A6C7D]">
-                      Quality of Service (QoS)
-                    </Label>
-                    <div className="p-2.5 bg-white border border-[#D1DBE5] rounded-lg text-sm text-[#2C3E50] font-semibold text-center">
-                      QoS {selectedMessage.qos}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-[#5A6C7D]">
-                      Retained Flag
-                    </Label>
-                    <div className="p-2.5 bg-white border border-[#D1DBE5] rounded-lg text-sm text-[#2C3E50] font-semibold text-center">
-                      {selectedMessage.retained ? "Yes" : "No"}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Timestamp */}
-                <div className="space-y-1.5">
+                <div>
                   <Label className="text-xs font-semibold text-[#5A6C7D]">
-                    Timestamp
+                    Client ID
                   </Label>
-                  <div className="p-2.5 bg-white border border-[#D1DBE5] rounded-lg text-xs text-[#5A6C7D] font-mono">
-                    {new Date(selectedMessage.timestamp).toLocaleString(
-                      "id-ID",
-                    )}
+                  <Input
+                    value={clientId}
+                    onChange={(e) => setClientId(e.target.value)}
+                    disabled={isConnected}
+                    className="mt-1.5 h-9 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-[#5A6C7D]">
+                      Username
+                    </Label>
+                    <Input
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      disabled={isConnected}
+                      className="mt-1.5 h-9 text-xs"
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-[#5A6C7D]">
+                      Password
+                    </Label>
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isConnected}
+                      className="mt-1.5 h-9 text-xs"
+                      placeholder="Optional"
+                    />
                   </div>
                 </div>
 
-                {/* Payload rendering */}
-                <div className="space-y-1.5 flex-1 flex flex-col">
-                  <div className="flex justify-between items-center">
-                    <Label className="text-xs font-semibold text-[#5A6C7D]">
-                      Payload
-                    </Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        copyToClipboard(
-                          selectedMessage.payload,
-                          selectedMessage.id,
-                        )
-                      }
-                      className="h-8 text-xs text-[#6A89A7] hover:text-[#5a7997]"
-                    >
-                      {copiedId === selectedMessage.id ? (
-                        <>
-                          <Check className="h-3.5 w-3.5 mr-1" /> Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5 mr-1" /> Copy Payload
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <pre className="flex-1 w-full p-4 overflow-auto rounded-lg bg-[#384959] text-[#BDDDFC] font-mono text-[11px] leading-relaxed border border-[#2d3a47] max-h-[320px]">
-                    {(() => {
-                      try {
-                        const parsed = JSON.parse(selectedMessage.payload);
-                        return JSON.stringify(parsed, null, 2);
-                      } catch {
-                        return selectedMessage.payload;
-                      }
-                    })()}
-                  </pre>
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={() => setShowConnectionModal(false)}
+                    variant="outline"
+                    className="flex-1 h-9 text-sm"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowConnectionModal(false);
+                      toast.success("Settings saved!");
+                    }}
+                    className="flex-1 h-9 bg-[#6A89A7] hover:bg-[#5a7997] text-white text-sm"
+                  >
+                    Save
+                  </Button>
                 </div>
               </div>
             </motion.div>
