@@ -16,7 +16,7 @@ import {
   FileSpreadsheet
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import api from "@/lib/api";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -27,7 +27,7 @@ interface AlertRule {
   field: string;
   operator: string;
   value: string;
-  severity: "info" | "warning" | "critical";
+  severity: "info" | "warning" | "critical" | "error";
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -39,7 +39,7 @@ interface AlertLog {
   projectId: string;
   message: string;
   value: string;
-  severity: "info" | "warning" | "critical";
+  severity: "info" | "warning" | "critical" | "error";
   timestamp: string;
   read: boolean;
 }

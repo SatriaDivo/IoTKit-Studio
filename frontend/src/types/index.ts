@@ -20,6 +20,9 @@ export interface Project {
   password?: string;
   sslEnabled: boolean;
   autoReconnect: boolean;
+  webhookToken?: string;
+  webhookEnabled?: boolean;
+  headers?: string;
   status: ProjectStatus;
   lastActivity?: string;
   createdAt: string;

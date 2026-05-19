@@ -337,7 +337,7 @@ export default function ProjectDetailPage() {
           socket.emit("subscribe", id);
         });
 
-        socket.on("payloadSent", (data) => {
+        socket.on("payloadSent", (data: any) => {
           if (!active) return;
           if (data.result) {
             const isSuccess = data.result.success;
@@ -360,7 +360,7 @@ export default function ProjectDetailPage() {
           }
         });
 
-        socket.on("payloadError", (data) => {
+        socket.on("payloadError", (data: any) => {
           if (!active) return;
           setLastResponse({
             type: "error",
@@ -539,7 +539,7 @@ export default function ProjectDetailPage() {
         batchSize: parseInt(simulationSettings.batchSize as any) || 1,
         swarmMode: simulationSettings.swarmMode,
         swarmCount: simulationSettings.swarmCount,
-        stages: simulationSettings.stages.map((stage) => ({
+        stages: simulationSettings.stages.map((stage: any) => ({
           duration: parseInt(stage.duration as any) || 0,
           target: parseInt(stage.target as any) || 0,
         })),
@@ -769,6 +769,7 @@ export default function ProjectDetailPage() {
                         topic: currentProject.topic || "",
                         username: currentProject.username || "",
                         password: currentProject.password || "",
+                        authToken: currentProject.authToken || "",
                       });
                       setEditingProject(true);
                     }}
@@ -1475,7 +1476,7 @@ export default function ProjectDetailPage() {
                   </div>
                   
                   <div className="space-y-3">
-                    {simulationSettings.stages.map((stage, index) => (
+                    {simulationSettings.stages.map((stage: any, index: number) => (
                       <div key={index} className="flex items-center gap-3 bg-muted/50 p-3 rounded-md">
                         <div className="flex-1 space-y-1">
                           <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Duration (sec)</Label>
@@ -1517,7 +1518,7 @@ export default function ProjectDetailPage() {
                             type="button"
                             disabled={isSimulationRunning}
                             onClick={() => {
-                              const newStages = simulationSettings.stages.filter((_, i) => i !== index);
+                              const newStages = simulationSettings.stages.filter((_: any, i: number) => i !== index);
                               setSimulationSettings({...simulationSettings, stages: newStages});
                             }}
                             className="mt-5 text-red-500 hover:text-red-700 hover:bg-red-500/10 p-1.5 rounded-md transition-colors"
@@ -1613,7 +1614,7 @@ export default function ProjectDetailPage() {
                 <div className="pt-2 border-t border-red-500/10">
                   <Label className="text-xs mb-3 block text-muted-foreground uppercase tracking-wider">Target Fields</Label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {payloadFields.filter(f => f.mode === 'random' && (f.type === 'number' || f.type === 'boolean')).map(field => {
+                    {payloadFields.filter((f: any) => f.mode === 'random' && (f.type === 'number' || f.type === 'boolean')).map(field => {
                       const isSelected = simulationSettings.chaosFields.includes(field.name);
                       return (
                         <div 
@@ -1621,7 +1622,7 @@ export default function ProjectDetailPage() {
                           onClick={() => {
                             if (isSimulationRunning) return;
                             const newFields = isSelected 
-                              ? simulationSettings.chaosFields.filter(f => f !== field.name)
+                              ? simulationSettings.chaosFields.filter((f: any) => f !== field.name)
                               : [...simulationSettings.chaosFields, field.name];
                             setSimulationSettings({...simulationSettings, chaosFields: newFields});
                           }}
