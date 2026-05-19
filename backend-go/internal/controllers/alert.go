@@ -13,7 +13,7 @@ func GetAlertRulesByProject(c *fiber.Ctx) error {
 	projectID := c.Params("projectId")
 
 	var rules []database.AlertRule
-	if err := database.DB.Where("\"projectId\" = ?", projectID).Order("createdAt DESC").Find(&rules).Error; err != nil {
+	if err := database.DB.Where("\"projectId\" = ?", projectID).Order("\"createdAt\" DESC").Find(&rules).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch alert rules"})
 	}
 
@@ -127,7 +127,7 @@ func GetAlertHistoryByProject(c *fiber.Ctx) error {
 	projectID := c.Params("projectId")
 
 	var history []database.AlertLog
-	if err := database.DB.Where("\"projectId\" = ?", projectID).Order("timestamp DESC").Find(&history).Error; err != nil {
+	if err := database.DB.Where("\"projectId\" = ?", projectID).Order("\"timestamp\" DESC").Find(&history).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch alert history"})
 	}
 
