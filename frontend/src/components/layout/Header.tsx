@@ -60,71 +60,78 @@ export default function Header({
 
     const initConnection = async () => {
       try {
-        // Go Backend uses native WebSockets. Try opening a connection directly.
-        const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
-        ws = new WebSocket(wsUrl);
+        // Query backend health to identify the running engine
+        const healthRes = await fetch(`${API_URL}/health`)
+          .then((res) => res.json())
+          .catch(() => ({}));
+        
+        const isGo = healthRes.engine === "Go/Fiber";
 
-        ws.onopen = () => {
-          if (!active) return;
-          
-          // Get user's token for project retrieval
-          const token = localStorage.getItem("token") || "";
-          
-          // Retrieve user's projects to subscribe to their specific rooms
-          fetch(`${API_URL}/projects`, {
-            headers: {
-              "Authorization": `Bearer ${token}`
-            }
-          })
-          .then((res) => {
-            if (!res.ok) throw new Error("Unauthorized");
-            return res.json();
-          })
-          .then((projects) => {
-            if (Array.isArray(projects) && ws && ws.readyState === WebSocket.OPEN) {
-              projects.forEach((proj: any) => {
-                ws?.send(JSON.stringify({
+        if (isGo) {
+          // Go Backend uses native WebSockets.
+          const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
+          ws = new WebSocket(wsUrl);
+
+          ws.onopen = () => {
+            if (!active) return;
+            
+            // Get user's token for project retrieval
+            const token = localStorage.getItem("token") || "";
+            
+            // Retrieve user's projects to subscribe to their specific rooms
+            fetch(`${API_URL}/api/projects`, {
+              headers: {
+                "Authorization": `Bearer ${token}`
+              }
+            })
+            .then((res) => {
+              if (!res.ok) throw new Error("Unauthorized");
+              return res.json();
+            })
+            .then((projects) => {
+              if (Array.isArray(projects) && ws && ws.readyState === WebSocket.OPEN) {
+                projects.forEach((proj: any) => {
+                  ws?.send(JSON.stringify({
+                    action: "subscribe",
+                    room: `project:${proj.id}`
+                  }));
+                });
+              }
+            })
+            .catch(() => {
+              // If fetching projects fails, subscribe to default global notification rooms
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
                   action: "subscribe",
-                  room: `project:${proj.id}`
+                  room: "project:all"
                 }));
-              });
-            }
-          })
-          .catch(() => {
-            // If fetching projects fails, subscribe to default global notification rooms
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                action: "subscribe",
-                room: "project:all"
-              }));
-            }
-          });
-        };
+              }
+            });
+          };
 
-        ws.onmessage = (event) => {
-          if (!active) return;
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.event === "webhookReceived" && msg.data) {
-              const payloadBrief = msg.data.log?.message || "Incoming payload received";
-              const newNotif: NotificationItem = {
-                id: Math.random().toString(),
-                title: "Webhook Payload Received",
-                message: payloadBrief,
-                type: "success",
-                timestamp: new Date(),
-                read: false,
-                link: "/webhook",
-              };
-              setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
-            }
-          } catch (e) {}
-        };
-
-        ws.onerror = () => {
-          // If native WebSocket connection fails, fallback to Socket.IO
+          ws.onmessage = (event) => {
+            if (!active) return;
+            try {
+              const msg = JSON.parse(event.data);
+              if (msg.event === "webhookReceived" && msg.data) {
+                const payloadBrief = msg.data.log?.message || "Incoming payload received";
+                const newNotif: NotificationItem = {
+                  id: Math.random().toString(),
+                  title: "Webhook Payload Received",
+                  message: payloadBrief,
+                  type: "success",
+                  timestamp: new Date(),
+                  read: false,
+                  link: "/webhook",
+                };
+                setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
+              }
+            } catch (e) {}
+          };
+        } else {
+          // Node.js Backend: Socket.IO
           connectSocketIO();
-        };
+        }
       } catch (err) {
         connectSocketIO();
       }

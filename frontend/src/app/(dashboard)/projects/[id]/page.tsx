@@ -264,58 +264,66 @@ export default function ProjectDetailPage() {
     let ws: WebSocket | null = null;
     let active = true;
 
-    const initConnection = () => {
+    const initConnection = async () => {
       try {
-        // Try opening Native WebSocket for Go backend support
-        const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
-        ws = new WebSocket(wsUrl);
+        // Query backend health to identify the running engine
+        const healthRes = await fetch(`${API_URL}/health`)
+          .then((res) => res.json())
+          .catch(() => ({}));
+        
+        const isGo = healthRes.engine === "Go/Fiber";
 
-        ws.onopen = () => {
-          if (!active) return;
-          ws?.send(JSON.stringify({
-            action: "subscribe",
-            projectId: id
-          }));
-        };
+        if (isGo) {
+          // Go Backend uses native WebSockets.
+          const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
+          ws = new WebSocket(wsUrl);
 
-        ws.onmessage = (event) => {
-          if (!active) return;
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.event === "payloadSent" && msg.data) {
-              const data = msg.data;
-              if (data.result) {
-                const isSuccess = data.result.success;
-                let responseData = data.result.data;
+          ws.onopen = () => {
+            if (!active) return;
+            ws?.send(JSON.stringify({
+              action: "subscribe",
+              projectId: id
+            }));
+          };
 
-                if (responseData === undefined) {
-                  responseData = isSuccess
-                    ? "Payload sent successfully (no response data)"
-                    : data.result.error || "Request failed (no response data)";
+          ws.onmessage = (event) => {
+            if (!active) return;
+            try {
+              const msg = JSON.parse(event.data);
+              if (msg.event === "payloadSent" && msg.data) {
+                const data = msg.data;
+                if (data.result) {
+                  const isSuccess = data.result.success;
+                  let responseData = data.result.data;
+
+                  if (responseData === undefined) {
+                    responseData = isSuccess
+                      ? "Payload sent successfully (no response data)"
+                      : data.result.error || "Request failed (no response data)";
+                  }
+
+                  setLastSentPayload(data.payload);
+                  setLastResponse({
+                    type: isSuccess ? "success" : "error",
+                    data: responseData,
+                    statusCode: data.result.statusCode,
+                    latency: data.result.latency,
+                    timestamp: new Date().toISOString(),
+                  });
                 }
-
-                setLastSentPayload(data.payload);
+              } else if (msg.event === "payloadError" && msg.data) {
                 setLastResponse({
-                  type: isSuccess ? "success" : "error",
-                  data: responseData,
-                  statusCode: data.result.statusCode,
-                  latency: data.result.latency,
+                  type: "error",
+                  error: msg.data.error,
                   timestamp: new Date().toISOString(),
                 });
               }
-            } else if (msg.event === "payloadError" && msg.data) {
-              setLastResponse({
-                type: "error",
-                error: msg.data.error,
-                timestamp: new Date().toISOString(),
-              });
-            }
-          } catch (e) {}
-        };
-
-        ws.onerror = () => {
+            } catch (e) {}
+          };
+        } else {
+          // Node.js Backend: Socket.IO
           connectSocketIO();
-        };
+        }
       } catch (err) {
         connectSocketIO();
       }
