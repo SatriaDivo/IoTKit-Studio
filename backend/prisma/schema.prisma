@@ -155,3 +155,29 @@ model ChatMessage {
   @@index([sessionId, createdAt])
   @@map("chat_messages")
 }
+
+model AlertRule {
+  id        String   @id @default(uuid())
+  name      String
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  field     String
+  operator  String
+  value     String
+  severity  String   @default("warning")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AlertLog {
+  id        String   @id @default(uuid())
+  ruleId    String?
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  message   String
+  value     String
+  severity  String
+  timestamp DateTime @default(now())
+  read      Boolean  @default(false)
+}

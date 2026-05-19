@@ -4,6 +4,7 @@ import { AuthRequest } from "../middleware/auth";
 import { randomUUID } from "crypto";
 import { io } from "../index";
 import { Logger } from "../utils/logger";
+import { AlertEngine } from "../services/alertEngine";
 
 const prisma = new PrismaClient();
 
@@ -125,6 +126,9 @@ export class WebhookController {
           projectId: project.id,
         },
       });
+
+      // Evaluate alert rules for incoming webhook payload
+      await AlertEngine.evaluatePayloadRules(project.id, body);
 
       // Emit real-time event to dashboard
       io.to(`project:${project.id}`).emit("webhookReceived", {

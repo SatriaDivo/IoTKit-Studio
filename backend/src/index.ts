@@ -24,6 +24,7 @@ import aiAgentRoutes from "./routes/aiAgent";
 import datasetRoutes from "./routes/datasets";
 import webhookRoutes from "./routes/webhook";
 import webhookManagementRoutes from "./routes/webhookManagement";
+import alertRoutes from "./routes/alerts";
 
 // Load environment variables
 dotenv.config();
@@ -66,6 +67,7 @@ app.use("/api/ai-agent", aiAgentRoutes);
 app.use("/api/datasets", datasetRoutes);
 app.use("/api/webhook-manage", webhookManagementRoutes);
 app.use("/api/webhook", webhookRoutes); // public — must be AFTER management routes
+app.use("/api/alerts", alertRoutes);
 
 // Error handler
 app.use(errorHandler);

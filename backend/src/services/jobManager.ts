@@ -9,6 +9,7 @@ import { schedulerManager } from "./scheduler";
 import { transportRouter } from "./transportRouter";
 import { Logger } from "../utils/logger";
 import { PrismaClient } from "@prisma/client";
+import { AlertEngine } from "./alertEngine";
 
 const prisma = new PrismaClient();
 
@@ -247,6 +248,11 @@ export class JobManager {
 
       // Send payload
       const result = await transportRouter.send(job.endpoint, payload);
+
+      // Run rule evaluation on simulated payload
+      if (job.project_id) {
+        await AlertEngine.evaluatePayloadRules(job.project_id, payload);
+      }
 
       // Record result
       jobStore.recordResult(
