@@ -142,15 +142,19 @@ func GetSimulationStatus(c *fiber.Ctx) error {
 
 func GetSimulationStats(c *fiber.Ctx) error {
 	var stats struct {
-		TotalSent    int64 `json:"totalSent"`
-		SuccessCount int64 `json:"successCount"`
-		ErrorCount   int64 `json:"errorCount"`
+		TotalSent    int64 `json:"totalSent" gorm:"column:totalSent"`
+		SuccessCount int64 `json:"successCount" gorm:"column:successCount"`
+		ErrorCount   int64 `json:"errorCount" gorm:"column:errorCount"`
 	}
 
-	// Query sum from database
-	database.DB.Model(&database.Simulation{}).
-		Select("COALESCE(SUM(total_sent), 0) as total_sent, COALESCE(SUM(success_count), 0) as success_count, COALESCE(SUM(error_count), 0) as error_count").
-		Scan(&stats)
+	// Query sum from database using camelCase column names matching the Prisma schema
+	err := database.DB.Model(&database.Simulation{}).
+		Select("COALESCE(SUM(\"totalSent\"), 0) as \"totalSent\", COALESCE(SUM(\"successCount\"), 0) as \"successCount\", COALESCE(SUM(\"errorCount\"), 0) as \"errorCount\"").
+		Scan(&stats).Error
+
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
 
 	return c.JSON(stats)
 }
