@@ -11,10 +11,12 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
+  FileDown,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProjectStore } from "@/store/projectStore";
 import { api } from "@/lib/api";
+import { toast } from "react-hot-toast";
 import {
   LineChart,
   Line,
@@ -52,6 +54,7 @@ export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState<"1h" | "24h" | "7d" | "30d">(
     "24h",
   );
+  const [exporting, setExporting] = useState(false);
 
   // Real-time metrics
   const [totalPayloads, setTotalPayloads] = useState(0);
@@ -279,6 +282,139 @@ export default function AnalyticsPage() {
     }
   };
 
+  const captureChartAsBase64 = async (
+    containerId: string,
+    fallbackTitle: string,
+    fallbackSubtitle: string
+  ): Promise<string> => {
+    const container = document.getElementById(containerId);
+    if (!container) return "";
+    const rechartsSvg = container.querySelector(".recharts-svg");
+    
+    let svgString = "";
+    let width = 500;
+    let height = 300;
+
+    if (rechartsSvg) {
+      const serializer = new XMLSerializer();
+      svgString = serializer.serializeToString(rechartsSvg);
+      width = rechartsSvg.clientWidth || 500;
+      height = rechartsSvg.clientHeight || 300;
+      
+      if (!svgString.includes("http://www.w3.org/2000/svg")) {
+        svgString = svgString.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+
+      svgString = svgString.replace(
+        "<svg",
+        `<svg style="background: white;"`
+      );
+    } else {
+      // Return a pristine, beautiful vector placeholder SVG for the empty state
+      svgString = `
+        <svg width="500" height="300" viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg">
+          <rect width="500" height="300" fill="#F8F9FA" rx="8" ry="8" stroke="#E8EDF2" stroke-width="1"/>
+          <circle cx="250" cy="100" r="28" fill="#6A89A7" fill-opacity="0.1" />
+          <path d="M242 108 L246 104 L250 108 L258 100" stroke="#6A89A7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <text x="250" y="165" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#2C3E50" text-anchor="middle">${fallbackTitle}</text>
+          <text x="250" y="190" font-family="Arial, sans-serif" font-size="11" fill="#5A6C7D" text-anchor="middle">${fallbackSubtitle}</text>
+        </svg>
+      `;
+      width = 500;
+      height = 300;
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const DOMURL = window.URL || window.webkitURL || window;
+        const url = DOMURL.createObjectURL(svgBlob);
+
+        const image = new Image();
+        image.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(image, 0, 0);
+          }
+          const pngBase64 = canvas.toDataURL("image/png");
+          DOMURL.revokeObjectURL(url);
+          resolve(pngBase64);
+        };
+        image.onerror = () => {
+          DOMURL.revokeObjectURL(url);
+          resolve("");
+        };
+        image.src = url;
+      } catch (e) {
+        console.error(e);
+        resolve("");
+      }
+    });
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setExporting(true);
+      toast.loading("Serializing charts and compiling PDF report...", { id: "export-pdf" });
+
+      // Capture all 4 Recharts SVGs
+      const [payloadTrends, successRateTrends, latencyTrends, protocolDistribution] = await Promise.all([
+        captureChartAsBase64("chart-payload-trends", "No Telemetry Logs Recorded", "Run simulations or send webhooks to view live data"),
+        captureChartAsBase64("chart-success-rate", "No Telemetry Logs Recorded", "Run simulations or send webhooks to view live data"),
+        captureChartAsBase64("chart-latency", "No Telemetry Logs Recorded", "Run simulations or send webhooks to view live data"),
+        captureChartAsBase64("chart-protocols", "No Registered IoT Projects", "Create HTTP, MQTT, or WS projects to analyze"),
+      ]);
+
+      const activeProj = projects[0];
+      const payload = {
+        projectId: activeProj?.id || "Global",
+        projectName: activeProj?.name || "Global Sandbox",
+        protocol: activeProj?.protocol || "HTTP/WS/MQTT",
+        host: activeProj?.host || "localhost",
+        port: activeProj?.port || "Various",
+        totalLogs: totalPayloads,
+        successRate: successRate,
+        averageLatency: avgLatency,
+        timeRange: timeRange === "1h" ? "1 Hour" : timeRange === "24h" ? "24 Hours" : timeRange === "7d" ? "7 Days" : "30 Days",
+        charts: {
+          payloadTrends,
+          successRateTrends,
+          latencyTrends,
+          protocolDistribution,
+        },
+      };
+
+      // Hit standard backend export API (works seamlessly on Go & Node since both have identical route setup)
+      const response = await api.post("/reports/export", payload, { responseType: "blob" });
+      
+      const now = new Date();
+      const pad = (num: number) => String(num).padStart(2, '0');
+      const timestamp = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `IoTKit-Industrial-Report-${activeProj?.id || "Global"}-${timestamp}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Industrial PDF report exported successfully!", { id: "export-pdf" });
+    } catch (error) {
+      console.error("PDF Export Error:", error);
+      toast.error("Failed to export professional PDF report.", { id: "export-pdf" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const metricCards = [
     {
       title: "Total Payloads",
@@ -336,27 +472,38 @@ export default function AnalyticsPage() {
           </p>
         </div>
 
-        {/* Time Range Selector */}
-        <div className="flex items-center gap-2 bg-white border border-[#D1DBE5] rounded-lg p-1">
-          {(["1h", "24h", "7d", "30d"] as const).map((range) => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                timeRange === range
-                  ? "bg-[#6A89A7] text-white"
-                  : "text-[#5A6C7D] hover:bg-[#E8EDF2]"
-              }`}
-            >
-              {range === "1h"
-                ? "1 Hour"
-                : range === "24h"
-                  ? "24 Hours"
-                  : range === "7d"
-                    ? "7 Days"
-                    : "30 Days"}
-            </button>
-          ))}
+        {/* Time Range Selector & Export PDF */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white border border-[#D1DBE5] rounded-lg p-1">
+            {(["1h", "24h", "7d", "30d"] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  timeRange === range
+                    ? "bg-[#6A89A7] text-white"
+                    : "text-[#5A6C7D] hover:bg-[#E8EDF2]"
+                }`}
+              >
+                {range === "1h"
+                  ? "1 Hour"
+                  : range === "24h"
+                    ? "24 Hours"
+                    : range === "7d"
+                      ? "7 Days"
+                      : "30 Days"}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleExportPDF}
+            disabled={exporting || timeSeriesData.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium bg-[#384959] hover:bg-[#2C3E50] text-white border border-[#384959] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            <FileDown className="h-4 w-4" />
+            {exporting ? "Exporting..." : "Export Report (PDF)"}
+          </button>
         </div>
       </div>
 
@@ -398,7 +545,7 @@ export default function AnalyticsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Card className="card-industrial">
+          <Card className="card-industrial" id="chart-payload-trends">
             <CardHeader className="border-b border-[#E8EDF2]">
               <CardTitle className="text-lg text-[#2C3E50] flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-[#6A89A7]" />
@@ -474,7 +621,7 @@ export default function AnalyticsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <Card className="card-industrial">
+          <Card className="card-industrial" id="chart-success-rate">
             <CardHeader className="border-b border-[#E8EDF2]">
               <CardTitle className="text-lg text-[#2C3E50] flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-[#4CAF50]" />
@@ -537,7 +684,7 @@ export default function AnalyticsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <Card className="card-industrial">
+          <Card className="card-industrial" id="chart-protocols">
             <CardHeader className="border-b border-[#E8EDF2]">
               <CardTitle className="text-lg text-[#2C3E50]">
                 Protocol Distribution
@@ -587,7 +734,7 @@ export default function AnalyticsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
         >
-          <Card className="card-industrial">
+          <Card className="card-industrial" id="chart-latency">
             <CardHeader className="border-b border-[#E8EDF2]">
               <CardTitle className="text-lg text-[#2C3E50] flex items-center gap-2">
                 <Clock className="h-5 w-5 text-[#88BDF2]" />

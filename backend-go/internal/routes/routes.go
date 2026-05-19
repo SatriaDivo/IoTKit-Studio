@@ -98,4 +98,7 @@ func Setup(app *fiber.App) {
 	aiAgent.Post("/execute", controllers.ExecuteAction)
 	aiAgent.Get("/models", controllers.GetModels)
 	aiAgent.Get("/usage", controllers.GetUsage)
+
+	// PDF Reports (auth required)
+	protected.Post("/reports/export", controllers.ExportPDFReport)
 }

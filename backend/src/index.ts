@@ -28,6 +28,7 @@ import webhookRoutes from "./routes/webhook";
 import webhookManagementRoutes from "./routes/webhookManagement";
 import alertRoutes from "./routes/alerts";
 import authConfigRoutes from "./routes/authConfig";
+import reportRoutes from "./routes/reports";
 
 // Load environment variables
 dotenv.config();
@@ -72,6 +73,7 @@ app.use("/api/webhook-manage", webhookManagementRoutes);
 app.use("/api/webhook", webhookRoutes); // public — must be AFTER management routes
 app.use("/api/alerts", alertRoutes);
 app.use("/api", authConfigRoutes); // Auth config routes
+app.use("/api/reports", reportRoutes); // PDF export routes
 
 // Error handler
 app.use(errorHandler);
