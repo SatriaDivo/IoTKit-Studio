@@ -61,4 +61,15 @@ func Setup(app *fiber.App) {
 	webhookManage.Delete("/clear/:projectId", controllers.WebhookClear)
 	webhookManage.Get("/history/:projectId", controllers.WebhookGetHistory)
 	webhookManage.Get("/info/:projectId", controllers.WebhookGetInfo)
+
+	// AI Agent (auth required)
+	aiAgent := protected.Group("/ai-agent")
+	aiAgent.Get("/sessions", controllers.GetSessions)
+	aiAgent.Get("/sessions/current", controllers.GetCurrentSession)
+	aiAgent.Post("/sessions", controllers.CreateSession)
+	aiAgent.Delete("/sessions/:id", controllers.DeleteSession)
+	aiAgent.Post("/chat", controllers.Chat)
+	aiAgent.Post("/execute", controllers.ExecuteAction)
+	aiAgent.Get("/models", controllers.GetModels)
+	aiAgent.Get("/usage", controllers.GetUsage)
 }

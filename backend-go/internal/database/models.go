@@ -2,8 +2,6 @@ package database
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // Models map exactly to the existing Prisma schema tables
@@ -142,13 +140,15 @@ type ChatSession struct {
 func (ChatSession) TableName() string { return "chat_sessions" }
 
 type ChatMessage struct {
-	ID        string          `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
-	SessionID string          `gorm:"not null" json:"sessionId"`
-	Session   ChatSession     `gorm:"foreignKey:SessionID" json:"-"`
-	Role      string          `gorm:"not null" json:"role"`
-	Content   string          `gorm:"type:text;not null" json:"content"`
-	Metadata  *gorm.DeletedAt `gorm:"type:jsonb" json:"metadata"`
-	CreatedAt time.Time       `json:"createdAt"`
+	ID        string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	SessionID string    `gorm:"not null" json:"sessionId"`
+	Session   ChatSession `gorm:"foreignKey:SessionID" json:"-"`
+	Role      string    `gorm:"not null" json:"role"`
+	Content   string    `gorm:"type:text;not null" json:"content"`
+	Metadata  *string   `gorm:"type:jsonb" json:"metadata"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 func (ChatMessage) TableName() string { return "chat_messages" }
+
+

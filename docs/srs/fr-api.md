@@ -1,8 +1,8 @@
 # Functional Requirements: API & Backend
 
-IoTKit Studio mengadopsi arsitektur **Dual-Backend** yang dirancang untuk performa dan keandalan tinggi:
-1. **Legacy Node.js & Express Backend (`/backend`)**: Mengelola modul administratif, orkestrasi sistem, autentikasi sekunder, dan *AI Agent (Gemini)*.
-2. **Golang & Go Fiber Backend (`/backend-go`)**: Engine simulasi utama berkecepatan tinggi, *Webhook Ingestion*, *Database Persistence* via **GORM**, dan *WebSocket Real-Time Hub* untuk komunikasi dua arah yang super ringan.
+IoTKit Studio mengadopsi arsitektur **Paralel Dual-Backend (Node.js & Go)** yang memiliki **100% kesamaan fitur (Feature Parity)**. Pengguna dapat memilih untuk menjalankan salah satu dari kedua backend tersebut secara mandiri (*standalone*), karena keduanya berbagi skema database PostgreSQL yang sama:
+1. **Node.js & Express Backend (`/backend`)**: Backend berbasis JavaScript/TypeScript (Express + Prisma) lengkap dengan simulasi, ingestor webhook, Socket.IO, dan AI Agent (Gemini/OpenRouter).
+2. **Golang & Go Fiber Backend (`/backend-go`)**: Backend berbasis Go (Fiber + GORM) lengkap dengan simulasi berkecepatan tinggi berbasis Goroutine, ingestor webhook berkecepatan tinggi, Go WebSocket Hub, dan AI Agent (OpenRouter) yang sangat hemat memori.
 
 ## API Endpoints Utama
 
