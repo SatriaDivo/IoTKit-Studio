@@ -139,3 +139,18 @@ func GetSimulationStatus(c *fiber.Ctx) error {
 		},
 	})
 }
+
+func GetSimulationStats(c *fiber.Ctx) error {
+	var stats struct {
+		TotalSent    int64 `json:"totalSent"`
+		SuccessCount int64 `json:"successCount"`
+		ErrorCount   int64 `json:"errorCount"`
+	}
+
+	// Query sum from database
+	database.DB.Model(&database.Simulation{}).
+		Select("COALESCE(SUM(total_sent), 0) as total_sent, COALESCE(SUM(success_count), 0) as success_count, COALESCE(SUM(error_count), 0) as error_count").
+		Scan(&stats)
+
+	return c.JSON(stats)
+}

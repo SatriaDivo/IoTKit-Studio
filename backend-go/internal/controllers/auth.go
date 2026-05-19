@@ -98,3 +98,52 @@ func GetMe(c *fiber.Ctx) error {
 		"name":  user.Name,
 	})
 }
+
+func GetProfile(c *fiber.Ctx) error {
+	userID := c.Locals("userId").(string)
+
+	var user database.User
+	if err := database.DB.First(&user, "id = ?", userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	return c.JSON(fiber.Map{
+		"id":    user.ID,
+		"email": user.Email,
+		"name":  user.Name,
+	})
+}
+
+func UpdateProfile(c *fiber.Ctx) error {
+	userID := c.Locals("userId").(string)
+
+	var input struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	var user database.User
+	if err := database.DB.First(&user, "id = ?", userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	// Update fields
+	user.Name = &input.Name
+	user.Email = input.Email
+
+	if err := database.DB.Save(&user).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to update profile"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Profile updated successfully",
+		"user": fiber.Map{
+			"id":    user.ID,
+			"email": user.Email,
+			"name":  user.Name,
+		},
+	})
+}

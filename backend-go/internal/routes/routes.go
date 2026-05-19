@@ -15,6 +15,8 @@ func Setup(app *fiber.App) {
 	auth.Post("/register", controllers.Register)
 	auth.Post("/login", controllers.Login)
 	auth.Get("/me", middleware.AuthMiddleware, controllers.GetMe)
+	auth.Get("/profile", middleware.AuthMiddleware, controllers.GetProfile)
+	auth.Put("/profile", middleware.AuthMiddleware, controllers.UpdateProfile)
 
 	// Public webhook receiver (no auth)
 	api.All("/webhook/:token", controllers.WebhookReceive)
@@ -57,6 +59,15 @@ func Setup(app *fiber.App) {
 	simulations.Post("/start", controllers.StartSimulation)
 	simulations.Post("/stop", controllers.StopSimulation)
 	simulations.Get("/status/:projectId", controllers.GetSimulationStatus)
+	simulations.Get("/stats", controllers.GetSimulationStats)
+
+	// Settings (auth required)
+	settings := protected.Group("/settings")
+	settings.Get("/notifications", controllers.GetNotificationSettings)
+	settings.Put("/notifications", controllers.UpdateNotificationSettings)
+	settings.Get("/api-keys", controllers.GetApiKeys)
+	settings.Post("/api-keys", controllers.CreateApiKey)
+	settings.Delete("/api-keys/:id", controllers.DeleteApiKey)
 
 	// Webhook Management (auth required)
 	webhookManage := protected.Group("/webhook-manage")
