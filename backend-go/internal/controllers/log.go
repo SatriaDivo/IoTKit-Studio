@@ -35,6 +35,22 @@ func GetLogs(c *fiber.Ctx) error {
 	return c.JSON(logs)
 }
 
+func GetLogsByProject(c *fiber.Ctx) error {
+	projectID := c.Params("projectId")
+	limit, _ := strconv.Atoi(c.Query("limit", "100"))
+	logType := c.Query("type")
+
+	query := database.DB.Where("\"projectId\" = ?", projectID)
+	if logType != "" {
+		query = query.Where("type = ?", logType)
+	}
+
+	var logs []database.Log
+	query.Order("timestamp DESC").Limit(limit).Find(&logs)
+
+	return c.JSON(logs)
+}
+
 func DeleteLogs(c *fiber.Ctx) error {
 	projectID := c.Query("projectId")
 
@@ -45,4 +61,15 @@ func DeleteLogs(c *fiber.Ctx) error {
 	query.Delete(&database.Log{})
 
 	return c.JSON(fiber.Map{"message": "Logs cleared"})
+}
+
+func ClearLogsByProject(c *fiber.Ctx) error {
+	projectID := c.Params("projectId")
+
+	// Delete all logs for this project
+	if err := database.DB.Where("\"projectId\" = ?", projectID).Delete(&database.Log{}).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to clear logs"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Logs cleared successfully"})
 }

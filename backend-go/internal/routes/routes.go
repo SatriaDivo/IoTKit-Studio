@@ -48,7 +48,9 @@ func Setup(app *fiber.App) {
 	// Logs
 	logs := protected.Group("/logs")
 	logs.Get("/", controllers.GetLogs)
+	logs.Get("/project/:projectId", controllers.GetLogsByProject)
 	logs.Delete("/", controllers.DeleteLogs)
+	logs.Delete("/project/:projectId/clear", controllers.ClearLogsByProject)
 
 	// Simulations
 	simulations := protected.Group("/simulations")

@@ -169,6 +169,18 @@ export default function WebhookListenerPage() {
     }
   };
 
+  const handleClearLogs = async () => {
+    if (!selectedProjectId) return;
+    try {
+      await api.delete(`/logs/project/${selectedProjectId}/clear`);
+      setLogs([]);
+      setLiveCount(0);
+      toast.success("Logs cleared successfully");
+    } catch {
+      toast.error("Failed to clear logs");
+    }
+  };
+
   const handleCopy = (text: string) => {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text)
@@ -391,7 +403,7 @@ export default function WebhookListenerPage() {
               <CardDescription>Live stream of all received webhook payloads</CardDescription>
             </div>
             {logs.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setLogs([])}>
+              <Button variant="ghost" size="sm" onClick={handleClearLogs}>
                 Clear
               </Button>
             )}
