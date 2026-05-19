@@ -15,7 +15,7 @@ Platform **IoTKit-Studio** mendukung penangkapan data luar (*Ingestion*) secara 
 *   Menerima HTTP request dengan method `POST` (dan method relevan lainnya) tanpa membutuhkan session/cookie.
 *   **Data Parsing:** Mengurai parameter kueri, header HTTP, dan payload body JSON.
 *   **Persistence:** Setiap request dicatat di tabel `Log` dengan tipe `"webhook"`, merekam alamat IP pengirim, timestamp, ukuran payload, header, dan isi body JSON.
-*   **Real-time Streaming:** Backend memancarkan data masuk via Socket.IO ke room `webhook:${token}` dan `project:${projectId}` agar halaman log ter-update seketika tanpa refresh.
+*   **Real-time Streaming:** Backend memancarkan data masuk via **Go WebSocket Hub** ke room `webhook:${token}` dan `project:${projectId}` agar halaman log ter-update seketika tanpa refresh.
 
 ### 3. Visual Instruction Selector (Client Guide)
 Dasbor menyediakan panduan pengiriman data cepat yang interaktif dengan tiga opsi tab bahasa:

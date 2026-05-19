@@ -13,15 +13,15 @@ Berikut adalah rasio nilai kegunaan industri, tingkat kesulitan pengembangan (*e
 | Prioritas | Nama Fitur | Kompleksitas (*Effort*) | Nilai Jual (*Impact*) | Persentase Rekomendasi | Alasan Utama Mengapa Ini Penting | Status |
 | :---: | :--- | :---: | :---: | :---: | :--- | :---: |
 | **1** | 🚨 **Alert & Rule Engine** | Sedang | Sangat Tinggi | **95%** | Mendeteksi anomali/threshold secara mandiri dan memicu notifikasi real-time tanpa bergantung pada server luar. | 📅 *Roadmap* |
-| **2** | 🚀 **Dataset Replay (Data Historis)** | Sedang | Sangat Tinggi | **95%** | Memutar kembali data historis riil (CSV/JSON) dengan kecepatan yang dapat disesuaikan untuk riset algoritma ML. | 📅 *Roadmap* |
-| **3** | 🐝 **Swarm Mode (Load Testing)** | Mudah - Sedang | Sangat Tinggi | **90%** | Mensimulasikan ribuan perangkat paralel untuk melakukan Stress/Load Testing kekuatan backend / broker pelanggan. | 📅 *Roadmap* |
-| **4** | 🎛️ **Embedded MQTT Inspector** | Sedang | Tinggi | **88%** | Bertindak sebagai MQTT Explorer internal untuk berlangganan dan memantau lalu lintas topik broker dari dasbor. | 📅 *Roadmap* |
-| **5** | 🔐 **Dynamic Auth & Headers** | Mudah | Tinggi | **85%** | Injeksi token otentikasi JWT/API Key dinamis dengan auto-refresh untuk simulasi non-stop 24/7 di server aman. | 📅 *Roadmap* |
-| **6** | 🗺️ **Webhook Schema Mapper** | Sedang | Tinggi | **82%** | Memetakan field payload webhook luar ke variabel internal IoTKit untuk divisualisasikan langsung pada chart. | 📅 *Roadmap* |
-| **7** | 📊 **Exportable PDF Reports** | Mudah | Tinggi | **80%** | Ekspor seluruh visualisasi chart, latensi, dan statistik simulasi ke PDF laporan profesional berstempel industri. | 📅 *Roadmap* |
-| **8** | 🌙 **Gorgeous Dark Mode** | Mudah | Tinggi | **78%** | Transisi UI estetika Stormy Morning ke nuansa stasiun ruang kontrol neon gelap malam hari. | 📅 *Roadmap* |
+| **2** | 🎛️ **Embedded MQTT Inspector** | Sedang | Tinggi | **88%** | Bertindak sebagai MQTT Explorer internal untuk berlangganan dan memantau lalu lintas topik broker dari dasbor. | 📅 *Roadmap* |
+| **3** | 🔐 **Dynamic Auth & Headers** | Mudah | Tinggi | **85%** | Injeksi token otentikasi JWT/API Key dinamis dengan auto-refresh untuk simulasi non-stop 24/7 di server aman. | 📅 *Roadmap* |
+| **4** | 🗺️ **Webhook Schema Mapper** | Sedang | Tinggi | **82%** | Memetakan field payload webhook luar ke variabel internal IoTKit untuk divisualisasikan langsung pada chart. | 📅 *Roadmap* |
+| **5** | 📊 **Exportable PDF Reports** | Mudah | Tinggi | **80%** | Ekspor seluruh visualisasi chart, latensi, dan statistik simulasi ke PDF laporan profesional berstempel industri. | 📅 *Roadmap* |
+| **6** | 🌙 **Gorgeous Dark Mode** | Mudah | Tinggi | **78%** | Transisi UI estetika Stormy Morning ke nuansa stasiun ruang kontrol neon gelap malam hari. | 📅 *Roadmap* |
 | **-** | 🌪️ **Chaos / Anomaly Injector** | Sedang | Tinggi | **100%** | Memanipulasi payload angka ekstrim (10x lipat) & membalik boolean acak untuk edge-case testing. | **✓ SELESAI** |
-| **-** | 🪝 **Webhook Listener** | Tinggi | Sedang | **100%** | Endpoint publik unik per-proyek dengan penangkap data luar, multi-shell tab (PS, curl, py) & log real-time. | **✓ SELESAI** |
+| **-** | 🪝 **Webhook Listener** | Tinggi | Sedang | **100%** | Endpoint publik unik per-proyek dengan penanggap data luar, multi-shell tab (PS, curl, py) & log real-time. | **✓ SELESAI** |
+| **-** | 🚀 **Dataset Replay (Data Historis)** | Sedang | Sangat Tinggi | **100%** | Memutar kembali data historis riil (CSV) dengan streaming memory-efficient dan filtrasi device_id. | **✓ SELESAI** |
+| **-** | 🐝 **Swarm Mode (Load Testing)** | Mudah - Sedang | Sangat Tinggi | **100%** | Goroutine-based VU simulation untuk load/stress testing hingga ribuan perangkat secara paralel. | **✓ SELESAI** |
 
 ---
 
