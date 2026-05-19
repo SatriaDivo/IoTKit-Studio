@@ -128,9 +128,10 @@ func GetSimulationStatus(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"status":  status,
-		"running": running,
-		"stats":   stats,
+		"status":    status,
+		"running":   running,
+		"isRunning": running,
+		"stats":     stats,
 		"simulation": fiber.Map{
 			"totalSent":    sim.TotalSent,
 			"successCount": sim.SuccessCount,
