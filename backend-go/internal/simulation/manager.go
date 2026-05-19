@@ -19,6 +19,7 @@ import (
 
 	"iotkit-studio-go/internal/database"
 	"iotkit-studio-go/internal/protocols"
+	"iotkit-studio-go/internal/rules"
 	ws "iotkit-studio-go/internal/websocket"
 )
 
@@ -408,10 +409,14 @@ func (m *SimulationManager) executeIteration(projectID string, vuID int) {
 
 		m.updateLatency(projectID, latency)
 
+		// Run rule evaluation on every simulated payload
+		payloadJSON, _ := json.Marshal(payload)
+		payloadStr := string(payloadJSON)
+		rules.EvaluatePayloadRules(projectID, payloadStr)
+
 		// Log to DB (sample for heavy load)
 		shouldLog := !job.config.SwarmMode || job.activeVUs <= 5 || (!success && rand.Float64() < 0.1)
 		if shouldLog {
-			payloadJSON, _ := json.Marshal(payload)
 			msg := fmt.Sprintf("→ [VU-%d] POST %s | %dms | %d", vuID, ptrStr(job.project.Endpoint, "/"), int(latency), statusCode)
 			if err != nil {
 				msg = err.Error()
@@ -420,7 +425,6 @@ func (m *SimulationManager) executeIteration(projectID string, vuID int) {
 			if err != nil {
 				logType = "error"
 			}
-			payloadStr := string(payloadJSON)
 			logEntry := database.Log{
 				Type:       logType,
 				Protocol:   job.project.Protocol,

@@ -16,6 +16,7 @@ import {
   Zap,
   Database,
   Webhook,
+  AlertTriangle,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -48,6 +49,7 @@ const navigation: NavGroup[] = [
       { name: "Projects", href: "/projects", icon: FolderKanban },
       { name: "Datasets", href: "/datasets", icon: Database },
       { name: "Webhook", href: "/webhook", icon: Webhook },
+      { name: "Alerts", href: "/alerts", icon: AlertTriangle },
       { name: "Logs", href: "/logs", icon: ScrollText },
     ],
   },

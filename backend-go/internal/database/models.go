@@ -206,3 +206,54 @@ func (cm *ChatMessage) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+type AlertRule struct {
+	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
+	Name      string    `gorm:"not null" json:"name"`
+	ProjectID string    `gorm:"column:projectId;not null" json:"projectId"`
+	Project   Project   `gorm:"foreignKey:ProjectID" json:"-"`
+	Field     string    `gorm:"not null" json:"field"`
+	Operator  string    `gorm:"not null" json:"operator"`
+	Value     string    `gorm:"not null" json:"value"`
+	Severity  string    `gorm:"default:warning" json:"severity"`
+	IsActive  bool      `gorm:"column:isActive;default:true" json:"isActive"`
+	CreatedAt time.Time `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"column:updatedAt" json:"updatedAt"`
+}
+
+func (AlertRule) TableName() string { return "AlertRule" }
+func (ar *AlertRule) BeforeCreate(tx *gorm.DB) error {
+	if ar.ID == "" {
+		ar.ID = uuid.New().String()
+	}
+	ar.CreatedAt = time.Now()
+	ar.UpdatedAt = time.Now()
+	return nil
+}
+func (ar *AlertRule) BeforeUpdate(tx *gorm.DB) error {
+	ar.UpdatedAt = time.Now()
+	return nil
+}
+
+type AlertLog struct {
+	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
+	RuleID    *string   `gorm:"column:ruleId" json:"ruleId"`
+	ProjectID string    `gorm:"column:projectId;not null" json:"projectId"`
+	Project   Project   `gorm:"foreignKey:ProjectID" json:"-"`
+	Message   string    `gorm:"not null" json:"message"`
+	Value     string    `gorm:"not null" json:"value"`
+	Severity  string    `gorm:"not null" json:"severity"`
+	Timestamp time.Time `gorm:"column:timestamp;default:now()" json:"timestamp"`
+	Read      bool      `gorm:"default:false" json:"read"`
+}
+
+func (AlertLog) TableName() string { return "AlertLog" }
+func (al *AlertLog) BeforeCreate(tx *gorm.DB) error {
+	if al.ID == "" {
+		al.ID = uuid.New().String()
+	}
+	if al.Timestamp.IsZero() {
+		al.Timestamp = time.Now()
+	}
+	return nil
+}

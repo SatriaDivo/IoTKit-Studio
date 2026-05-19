@@ -44,6 +44,8 @@ model Project {
   payloads        Payload[]
   logs            Log[]
   simulations     Simulation[]
+  alertRules      AlertRule[]
+  alertLogs       AlertLog[]
 }
 
 model Payload {

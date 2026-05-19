@@ -49,6 +49,12 @@ func Connect() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	// AutoMigrate new AlertRule and AlertLog tables
+	err = DB.AutoMigrate(&AlertRule{}, &AlertLog{})
+	if err != nil {
+		log.Printf("Failed to run GORM auto-migration for Alert tables: %v", err)
+	}
+
 	sqlDB, _ := DB.DB()
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(50)

@@ -61,6 +61,15 @@ func Setup(app *fiber.App) {
 	simulations.Get("/status/:projectId", controllers.GetSimulationStatus)
 	simulations.Get("/stats", controllers.GetSimulationStats)
 
+	// Alerts (auth required)
+	alerts := protected.Group("/alerts")
+	alerts.Get("/rules/project/:projectId", controllers.GetAlertRulesByProject)
+	alerts.Post("/rules", controllers.CreateAlertRule)
+	alerts.Put("/rules/:id", controllers.UpdateAlertRule)
+	alerts.Delete("/rules/:id", controllers.DeleteAlertRule)
+	alerts.Get("/history/project/:projectId", controllers.GetAlertHistoryByProject)
+	alerts.Post("/history/clear/:projectId", controllers.ClearAlertHistoryByProject)
+
 	// Settings (auth required)
 	settings := protected.Group("/settings")
 	settings.Get("/notifications", controllers.GetNotificationSettings)

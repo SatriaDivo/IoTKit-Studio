@@ -135,6 +135,9 @@ func WebhookReceive(c *fiber.Ctx) error {
 	}
 	database.DB.Create(&logEntry)
 
+	// Run rule evaluation on webhook payload
+	EvaluatePayloadRules(project.ID, payloadStr)
+
 	// Broadcast real-time event
 	var parsedPayload interface{}
 	json.Unmarshal(body, &parsedPayload)

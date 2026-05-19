@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { io } from "socket.io-client";
+import { toast } from "react-hot-toast";
 
 interface NotificationItem {
   id: string;
@@ -125,6 +126,27 @@ export default function Header({
                   link: "/webhook",
                 };
                 setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
+              } else if (msg.event === "alertTriggered" && msg.data) {
+                const isCritical = msg.data.severity === "critical" || msg.data.severity === "error";
+                const newNotif: NotificationItem = {
+                  id: msg.data.id || Math.random().toString(),
+                  title: msg.data.title || "Anomaly Alert Triggered",
+                  message: msg.data.message || "A threshold has been exceeded",
+                  type: isCritical ? "error" : (msg.data.severity === "warning" ? "warning" : "info"),
+                  timestamp: new Date(),
+                  read: false,
+                  link: "/alerts",
+                };
+                setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
+                
+                // Trigger live toast alert
+                if (isCritical) {
+                  toast.error(`⚠️ CRITICAL ALERT: ${msg.data.message}`, { duration: 6000 });
+                } else if (msg.data.severity === "warning") {
+                  toast.error(`⚠️ WARNING: ${msg.data.message}`, { duration: 5000 });
+                } else {
+                  toast(`ℹ️ INFO: ${msg.data.message}`, { duration: 4000 });
+                }
               }
             } catch (e) {}
           };
@@ -153,6 +175,28 @@ export default function Header({
             link: "/webhook",
           };
           setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
+        });
+        socket.on("alertTriggered", (data: any) => {
+          if (!active) return;
+          const isCritical = data.severity === "critical" || data.severity === "error";
+          const newNotif: NotificationItem = {
+            id: data.id || Math.random().toString(),
+            title: data.title || "Anomaly Alert Triggered",
+            message: data.message || "A threshold has been exceeded",
+            type: isCritical ? "error" : (data.severity === "warning" ? "warning" : "info"),
+            timestamp: new Date(),
+            read: false,
+            link: "/alerts",
+          };
+          setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
+          
+          if (isCritical) {
+            toast.error(`⚠️ CRITICAL ALERT: ${data.message}`, { duration: 6000 });
+          } else if (data.severity === "warning") {
+            toast.error(`⚠️ WARNING: ${data.message}`, { duration: 5000 });
+          } else {
+            toast(`ℹ️ INFO: ${data.message}`, { duration: 4000 });
+          }
         });
       } catch (e) {}
     };
