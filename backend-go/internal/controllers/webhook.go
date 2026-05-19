@@ -23,12 +23,8 @@ func WebhookGenerate(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
 	}
 
-	token := ""
-	if project.WebhookToken != nil && *project.WebhookToken != "" {
-		token = *project.WebhookToken
-	} else {
-		token = uuid.New().String()
-	}
+	// Always generate a fresh new token when requested (Regenerate)
+	token := uuid.New().String()
 
 	enabled := true
 	database.DB.Model(&project).Updates(map[string]interface{}{
