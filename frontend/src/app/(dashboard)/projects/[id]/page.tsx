@@ -33,6 +33,9 @@ export default function ProjectDetailPage() {
   const [isSimulationRunning, setIsSimulationRunning] = useState(false);
   const [simulationStats, setSimulationStats] = useState<any>(null);
   const [lastResponse, setLastResponse] = useState<any>(null);
+  const [countdown, setCountdown] = useState<number>(0);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTotalSentRef = useRef<number>(0);
   const [lastSentPayload, setLastSentPayload] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
@@ -231,7 +234,12 @@ export default function ProjectDetailPage() {
       .then(({ data }) => {
         setIsSimulationRunning(data.isRunning);
         if (data.stats) setSimulationStats(data.stats);
-        if (data.isRunning) startPolling(id);
+        if (data.isRunning) {
+          startPolling(id);
+          // Resume countdown with current interval setting
+          const intervalSec = parseFloat(simulationSettings.interval as any) || 1;
+          startCountdown(intervalSec);
+        }
       })
       .catch(() => {
         // 404 = no simulation yet, that's fine
@@ -239,7 +247,10 @@ export default function ProjectDetailPage() {
       });
 
     // Cleanup on unmount — guaranteed via ref
-    return () => clearPolling();
+    return () => {
+      clearPolling();
+      stopCountdown();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
@@ -458,11 +469,38 @@ export default function ProjectDetailPage() {
       setIsSimulationRunning(true);
       toast.success("Simulation started!");
       startPolling(params.id as string);
+      // Start countdown timer
+      const intervalSec = parseFloat(simulationSettings.interval as any) || 1;
+      lastTotalSentRef.current = 0;
+      setCountdown(intervalSec);
+      startCountdown(intervalSec);
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to start simulation");
     } finally {
       setStarting(false);
     }
+  };
+
+  const startCountdown = (intervalSec: number) => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    let remaining = intervalSec;
+    setCountdown(remaining);
+    countdownRef.current = setInterval(() => {
+      remaining = Math.max(0, remaining - 0.1);
+      setCountdown(parseFloat(remaining.toFixed(1)));
+      if (remaining <= 0) {
+        remaining = intervalSec;
+        setCountdown(intervalSec);
+      }
+    }, 100);
+  };
+
+  const stopCountdown = () => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    setCountdown(0);
   };
 
   const handleStopSimulation = async () => {
@@ -471,6 +509,7 @@ export default function ProjectDetailPage() {
       await api.post("/simulations/stop", { projectId: params.id });
       setIsSimulationRunning(false);
       clearPolling();
+      stopCountdown();
       toast.success("Simulation stopped!");
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to stop simulation");
@@ -1623,9 +1662,17 @@ export default function ProjectDetailPage() {
                   </CardTitle>
                   <CardDescription>Real-time statistics</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-sm text-green-500">Live</span>
+                <div className="flex items-center gap-3">
+                  {countdown > 0 && (
+                    <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-full px-3 py-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                      <span className="text-sm font-mono font-bold text-amber-500">{countdown.toFixed(1)}s</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-sm text-green-500">Live</span>
+                  </div>
                 </div>
               </div>
             </CardHeader>
