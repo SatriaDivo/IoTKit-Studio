@@ -369,11 +369,16 @@ export default function MQTTInspectorPage() {
                   className="w-full h-10 px-3 border border-[#D1DBE5] rounded-lg text-sm bg-white text-[#2C3E50] focus:ring-1 focus:ring-[#6A89A7] focus:outline-none"
                 >
                   <option value="">-- Choose an existing project --</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.protocol})
-                    </option>
-                  ))}
+                  {projects
+                    .filter((p) => {
+                      const proto = (p.protocol || "").toUpperCase();
+                      return proto === "MQTT" || proto === "MQTTS";
+                    })
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.protocol})
+                      </option>
+                    ))}
                 </select>
               </div>
 
