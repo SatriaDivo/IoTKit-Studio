@@ -139,13 +139,68 @@ export default function ProjectsPage() {
       }
 
       const latestPayload = payloads[0];
-      const structure = JSON.parse(latestPayload.structure);
+      let structure = JSON.parse(latestPayload.structure);
+
+      // Check if user had Dataset Replay mode enabled (saved in localStorage)
+      const savedUseDataset = localStorage.getItem(`useDataset_${projectId}`);
+      const savedDatasetId = localStorage.getItem(`selectedDatasetId_${projectId}`);
+
+      if (savedUseDataset === "true" && savedDatasetId) {
+        // Include dataset mode marker, same as project detail page
+        const staticFields = Array.isArray(structure)
+          ? structure.filter((f: any) => f.mode === "static")
+          : [];
+        structure = [
+          ...staticFields,
+          {
+            name: "__dataset_mode__",
+            type: "string",
+            mode: "static",
+            value: savedDatasetId,
+            required: true,
+          },
+        ];
+      }
+
+      // Load saved simulation settings from localStorage
+      let interval = 1000;
+      let batchSize = 1;
+      let swarmMode = false;
+      let swarmCount = 100;
+      let stages = [{ duration: 30, target: 100 }];
+      let chaosMode = false;
+      let chaosProbability = 5;
+      let chaosFields: string[] = [];
+
+      const savedSettings = localStorage.getItem(`simSettings_${projectId}`);
+      if (savedSettings) {
+        try {
+          const parsed = JSON.parse(savedSettings);
+          interval = (parseFloat(parsed.interval) || 1) * 1000;
+          batchSize = parseInt(parsed.batchSize) || 1;
+          swarmMode = parsed.swarmMode || false;
+          swarmCount = parsed.swarmCount || 100;
+          stages = parsed.stages || stages;
+          chaosMode = parsed.chaosMode || false;
+          chaosProbability = parsed.chaosProbability || 5;
+          chaosFields = parsed.chaosFields || [];
+        } catch (e) {}
+      }
 
       await api.post("/simulations/start", {
         projectId,
         payloadStructure: structure,
-        interval: 1000,
-        batchSize: 1,
+        interval,
+        batchSize,
+        swarmMode,
+        swarmCount,
+        stages: stages.map((s: any) => ({
+          duration: parseInt(s.duration) || 0,
+          target: parseInt(s.target) || 0,
+        })),
+        chaosMode,
+        chaosProbability,
+        chaosFields,
       });
 
       setRunningProjects((prev) => ({ ...prev, [projectId]: true }));
