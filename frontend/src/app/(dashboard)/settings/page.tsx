@@ -19,6 +19,7 @@ import {
   Trash2,
   Copy,
   RefreshCw,
+  Shield,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -193,7 +194,10 @@ export default function SettingsPage() {
   };
 
   const handleDeleteApiKey = async (id: string) => {
-    const isConfirmed = await confirm("Are you sure you want to delete this API key?", "Delete API Key");
+    const isConfirmed = await confirm(
+      "Are you sure you want to delete this API key?",
+      "Delete API Key",
+    );
     if (!isConfirmed) return;
 
     try {
@@ -249,6 +253,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
     { id: "security", label: "Security", icon: Lock },
+    { id: "authentication", label: "Authentication", icon: Shield },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "api-keys", label: "API Keys", icon: Key },
     { id: "preferences", label: "Preferences", icon: Palette },
@@ -529,6 +534,60 @@ export default function SettingsPage() {
                     <Lock className="h-4 w-4 mr-2" />
                     {saving ? "Changing..." : "Change Password"}
                   </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Authentication Tab */}
+          {activeTab === "authentication" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <Card className="bg-white border-blue-100 shadow-md">
+                <CardHeader className="border-b border-blue-50">
+                  <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-500" />
+                    OAuth 2.0 & Token Authentication
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start gap-3">
+                      <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold text-slate-800 mb-1">
+                          Automatic Token Management
+                        </h4>
+                        <p className="text-sm text-slate-600">
+                          Configure OAuth 2.0 authentication for your projects.
+                          Tokens will be automatically refreshed before expiry
+                          and injected into your requests. All credentials are
+                          encrypted at rest.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center py-8">
+                    <Shield className="h-16 w-16 text-blue-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-slate-800 mb-2">
+                      Authentication Configuration
+                    </h3>
+                    <p className="text-sm text-slate-600 mb-6 max-w-md mx-auto">
+                      Manage OAuth 2.0 configurations, token refresh settings,
+                      and view refresh logs for your projects.
+                    </p>
+                    <Button
+                      onClick={() => (window.location.href = "/settings/auth")}
+                      className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white"
+                    >
+                      <Shield className="h-4 w-4 mr-2" />
+                      Manage Authentication
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>

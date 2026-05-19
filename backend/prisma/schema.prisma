@@ -46,6 +46,7 @@ model Project {
   simulations     Simulation[]
   alertRules      AlertRule[]
   alertLogs       AlertLog[]
+  authConfig      AuthConfig?
 }
 
 model Payload {
@@ -180,4 +181,56 @@ model AlertLog {
   severity  String
   timestamp DateTime @default(now())
   read      Boolean  @default(false)
+}
+
+model AuthConfig {
+  id              String   @id @default(uuid())
+  projectId       String   @unique
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Auth Method
+  authType        String   // "bearer", "apikey", "custom", "none"
+  
+  // Token Storage (encrypted)
+  token           String?  @db.Text
+  tokenExpiry     DateTime?
+  
+  // Refresh Config
+  refreshEnabled  Boolean  @default(false)
+  refreshUrl      String?
+  refreshMethod   String?  @default("POST") // "POST", "GET"
+  refreshBody     Json?
+  refreshHeaders  Json?
+  refreshTokenPath String? // JSON path to extract token from response
+  refreshExpiryPath String? // JSON path to extract expiry from response
+  
+  // Custom Headers
+  customHeaders   Json?    // [{key, value, isDynamic}]
+  
+  // Header Injection Config
+  headerKey       String?  @default("Authorization") // Where to inject token
+  headerPrefix    String?  @default("Bearer") // Prefix for token (Bearer, API-Key, etc)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  refreshLogs     RefreshLog[]
+  
+  @@index([projectId])
+}
+
+model RefreshLog {
+  id            String     @id @default(uuid())
+  authConfigId  String
+  authConfig    AuthConfig @relation(fields: [authConfigId], references: [id], onDelete: Cascade)
+  
+  status        String     // "success", "failed"
+  oldTokenHash  String?    // Hash of old token for security
+  newTokenHash  String?    // Hash of new token
+  errorMessage  String?    @db.Text
+  responseTime  Int?       // milliseconds
+  
+  createdAt     DateTime   @default(now())
+  
+  @@index([authConfigId, createdAt])
 }

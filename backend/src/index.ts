@@ -14,6 +14,7 @@ import { schedulerManager } from "./services/scheduler";
 import { jobManager } from "./services/jobManager";
 import { heraService, droneService, carbonService } from "./modules";
 import { startChatCleanupScheduler } from "./services/chatCleanupScheduler";
+import { tokenRefreshService } from "./services/tokenRefreshService";
 
 // Import routes
 import authRoutes from "./routes/auth";
@@ -26,6 +27,7 @@ import datasetRoutes from "./routes/datasets";
 import webhookRoutes from "./routes/webhook";
 import webhookManagementRoutes from "./routes/webhookManagement";
 import alertRoutes from "./routes/alerts";
+import authConfigRoutes from "./routes/authConfig";
 
 // Load environment variables
 dotenv.config();
@@ -69,6 +71,7 @@ app.use("/api/datasets", datasetRoutes);
 app.use("/api/webhook-manage", webhookManagementRoutes);
 app.use("/api/webhook", webhookRoutes); // public — must be AFTER management routes
 app.use("/api/alerts", alertRoutes);
+app.use("/api", authConfigRoutes); // Auth config routes
 
 // Error handler
 app.use(errorHandler);
@@ -119,18 +122,21 @@ io.on("connection", (socket) => {
 
     try {
       const { broker, clientId, username, password, topics } = config;
-      
+
       const client = mqtt.connect(broker, {
-        clientId: clientId || `iotkit_${Math.random().toString(16).substring(2, 10)}`,
+        clientId:
+          clientId || `iotkit_${Math.random().toString(16).substring(2, 10)}`,
         username: username || undefined,
         password: password || undefined,
         clean: true,
         connectTimeout: 5000,
-        reconnectPeriod: 0
+        reconnectPeriod: 0,
       });
 
       client.on("connect", () => {
-        Logger.info(`[MQTT-Inspector] Connected to ${broker} on socket ${socket.id}`);
+        Logger.info(
+          `[MQTT-Inspector] Connected to ${broker} on socket ${socket.id}`,
+        );
         socket.emit("mqtt-inspector:connected", { broker });
 
         if (Array.isArray(topics)) {
@@ -148,7 +154,7 @@ io.on("connection", (socket) => {
           payload: message.toString(),
           qos: packet.qos,
           retained: packet.retain,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       });
 
@@ -159,7 +165,9 @@ io.on("connection", (socket) => {
 
       inspectorClients.set(socket.id, client);
     } catch (err: any) {
-      socket.emit("mqtt-inspector:error", { message: err.message || "Failed to initiate connection" });
+      socket.emit("mqtt-inspector:error", {
+        message: err.message || "Failed to initiate connection",
+      });
     }
   });
 
@@ -204,6 +212,10 @@ async function initializeServices() {
     startChatCleanupScheduler();
     Logger.info("✅ Chat cleanup scheduler started");
 
+    // Start token refresh service (runs every 5 minutes)
+    tokenRefreshService.start();
+    Logger.info("✅ Token refresh service started");
+
     // Register modules
     jobManager.registerModule("hera", heraService);
     jobManager.registerModule("drone", droneService);
@@ -235,6 +247,9 @@ async function gracefulShutdown(signal: string) {
 
   // Shutdown scheduler
   schedulerManager.shutdown();
+
+  // Shutdown token refresh service
+  tokenRefreshService.stop();
 
   // Close HTTP server
   httpServer.close(() => {
