@@ -209,7 +209,7 @@ export default function DatasetsPage() {
                       <th className="px-4 py-3">Rows</th>
                       <th className="px-4 py-3">Size</th>
                       <th className="px-4 py-3">Uploaded</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
+                      <th className="px-4 py-3 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -224,25 +224,27 @@ export default function DatasetsPage() {
                         <td className="px-4 py-3">
                           {new Date(dataset.createdAt).toLocaleDateString()}
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 mr-1"
-                            onClick={() => handleRename(dataset.id, dataset.name)}
-                            title="Rename Dataset"
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDelete(dataset.id)}
-                            title="Delete Dataset"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => handleRename(dataset.id, dataset.name)}
+                              title="Rename Dataset"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleDelete(dataset.id)}
+                              title="Delete Dataset"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
