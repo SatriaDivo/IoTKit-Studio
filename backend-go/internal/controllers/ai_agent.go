@@ -57,8 +57,8 @@ func GetSessions(c *fiber.Ctx) error {
 	}
 
 	var sessions []database.ChatSession
-	if err := database.DB.Where("userId = ?", userID).
-		Order("updatedAt desc").
+	if err := database.DB.Where("\"userId\" = ?", userID).
+		Order("\"updatedAt\" desc").
 		Limit(limit).
 		Offset(offset).
 		Find(&sessions).Error; err != nil {
@@ -71,15 +71,15 @@ func GetSessions(c *fiber.Ctx) error {
 		var msgCount int64
 
 		// Count messages
-		database.DB.Model(&database.ChatMessage{}).Where("sessionId = ?", s.ID).Count(&msgCount)
+		database.DB.Model(&database.ChatMessage{}).Where("\"sessionId\" = ?", s.ID).Count(&msgCount)
 
 		// Get last message
 		var lastMessageContent string
 		var lastMessageRole string
 		var lastMessageAt *time.Time
 
-		if err := database.DB.Where("sessionId = ?", s.ID).
-			Order("createdAt desc").
+		if err := database.DB.Where("\"sessionId\" = ?", s.ID).
+			Order("\"createdAt\" desc").
 			First(&lastMsg).Error; err == nil {
 			lastMessageContent = lastMsg.Content
 			if len(lastMessageContent) > 100 {
@@ -110,8 +110,8 @@ func GetCurrentSession(c *fiber.Ctx) error {
 
 	var session database.ChatSession
 	err := database.DB.Preload("Messages", func(db *gorm.DB) *gorm.DB {
-		return db.Order("chat_messages.createdAt asc").Limit(100)
-	}).Where("userId = ? AND title = ?", userID, "Current Chat").First(&session).Error
+		return db.Order("chat_messages.\"createdAt\" asc").Limit(100)
+	}).Where("\"userId\" = ? AND title = ?", userID, "Current Chat").First(&session).Error
 
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -165,7 +165,7 @@ func DeleteSession(c *fiber.Ctx) error {
 	userID := c.Locals("userId").(string)
 	id := c.Params("id")
 
-	result := database.DB.Where("id = ? AND userId = ?", id, userID).Delete(&database.ChatSession{})
+	result := database.DB.Where("id = ? AND \"userId\" = ?", id, userID).Delete(&database.ChatSession{})
 	if result.Error != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete session"})
 	}
@@ -194,8 +194,8 @@ func Chat(c *fiber.Ctx) error {
 	var dailyCount int64
 
 	database.DB.Model(&database.ChatMessage{}).
-		Joins("JOIN chat_sessions ON chat_messages.sessionId = chat_sessions.id").
-		Where("chat_messages.role = ? AND chat_messages.createdAt >= ? AND chat_sessions.userId = ?", "user", today, userID).
+		Joins("JOIN chat_sessions ON chat_messages.\"sessionId\" = chat_sessions.id").
+		Where("chat_messages.role = ? AND chat_messages.\"createdAt\" >= ? AND chat_sessions.\"userId\" = ?", "user", today, userID).
 		Count(&dailyCount)
 
 	if dailyCount >= 5 {
@@ -222,7 +222,7 @@ func Chat(c *fiber.Ctx) error {
 	var session database.ChatSession
 	var err error
 	if input.SessionID != "" {
-		err = database.DB.Where("id = ? AND userId = ?", input.SessionID, userID).First(&session).Error
+		err = database.DB.Where("id = ? AND \"userId\" = ?", input.SessionID, userID).First(&session).Error
 	}
 
 	if input.SessionID == "" || err != nil {
@@ -413,7 +413,7 @@ IMPORTANT:
 	}
 
 	// Update session updatedAt
-	database.DB.Model(&session).Update("updatedAt", time.Now())
+	database.DB.Model(&session).Update("\"updatedAt\"", time.Now())
 
 	return c.JSON(fiber.Map{
 		"message":    aiMessage,
@@ -599,8 +599,8 @@ func executeCreatePayload(userID string, paramsBytes []byte) (any, error) {
 
 	if projectID == "" && params.ProjectName != "" {
 		var project database.Project
-		err := database.DB.Where("userId = ? AND name = ?", userID, params.ProjectName).
-			Order("createdAt desc").
+		err := database.DB.Where("\"userId\" = ? AND name = ?", userID, params.ProjectName).
+			Order("\"createdAt\" desc").
 			First(&project).Error
 		if err != nil {
 			return nil, fmt.Errorf("project '%s' not found", params.ProjectName)
@@ -706,8 +706,8 @@ func GetUsage(c *fiber.Ctx) error {
 	var dailyCount int64
 
 	database.DB.Model(&database.ChatMessage{}).
-		Joins("JOIN chat_sessions ON chat_messages.sessionId = chat_sessions.id").
-		Where("chat_messages.role = ? AND chat_messages.createdAt >= ? AND chat_sessions.userId = ?", "user", today, userID).
+		Joins("JOIN chat_sessions ON chat_messages.\"sessionId\" = chat_sessions.id").
+		Where("chat_messages.role = ? AND chat_messages.\"createdAt\" >= ? AND chat_sessions.\"userId\" = ?", "user", today, userID).
 		Count(&dailyCount)
 
 	currentModel := os.Getenv("OPENROUTER_MODEL")

@@ -2,54 +2,71 @@ package database
 
 import (
 	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // Models map exactly to the existing Prisma schema tables
+// Prisma generates UUIDs at the application level, NOT as database DEFAULT.
+// Therefore we must generate UUIDs via BeforeCreate hooks in GORM.
 
 type User struct {
-	ID        string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
-	Email     string         `gorm:"uniqueIndex;not null" json:"email"`
-	Password  string         `gorm:"not null" json:"-"`
-	Name      *string        `json:"name"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	Projects  []Project      `gorm:"foreignKey:UserID" json:"projects,omitempty"`
+	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
+	Email     string    `gorm:"uniqueIndex;not null" json:"email"`
+	Password  string    `gorm:"not null" json:"-"`
+	Name      *string   `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Projects  []Project `gorm:"foreignKey:UserID" json:"projects,omitempty"`
 }
 
 func (User) TableName() string { return "User" }
+func (u *User) BeforeCreate(tx *gorm.DB) error {
+	if u.ID == "" {
+		u.ID = uuid.New().String()
+	}
+	return nil
+}
 
 type Project struct {
-	ID             string      `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
-	Name           string      `gorm:"not null" json:"name"`
-	Description    *string     `json:"description"`
-	Protocol       string      `gorm:"not null" json:"protocol"`
-	Host           string      `gorm:"not null" json:"host"`
-	Port           *int        `json:"port"`
-	Endpoint       *string     `json:"endpoint"`
-	Topic          *string     `json:"topic"`
-	AuthToken      *string     `json:"authToken"`
-	Headers        *string     `json:"headers"`
-	Username       *string     `json:"username"`
-	Password       *string     `json:"password"`
-	SSLEnabled     bool        `gorm:"default:false" json:"sslEnabled"`
-	AutoReconnect  bool        `gorm:"default:true" json:"autoReconnect"`
-	WebhookToken   *string     `gorm:"uniqueIndex" json:"webhookToken"`
-	WebhookEnabled bool        `gorm:"default:false" json:"webhookEnabled"`
-	Status         string      `gorm:"default:inactive" json:"status"`
-	LastActivity   *time.Time  `json:"lastActivity"`
-	CreatedAt      time.Time   `json:"createdAt"`
-	UpdatedAt      time.Time   `json:"updatedAt"`
-	UserID         string      `gorm:"not null" json:"userId"`
-	User           User        `gorm:"foreignKey:UserID" json:"-"`
-	Payloads       []Payload   `gorm:"foreignKey:ProjectID" json:"payloads,omitempty"`
-	Logs           []Log       `gorm:"foreignKey:ProjectID" json:"logs,omitempty"`
+	ID             string       `gorm:"primaryKey;type:uuid" json:"id"`
+	Name           string       `gorm:"not null" json:"name"`
+	Description    *string      `json:"description"`
+	Protocol       string       `gorm:"not null" json:"protocol"`
+	Host           string       `gorm:"not null" json:"host"`
+	Port           *int         `json:"port"`
+	Endpoint       *string      `json:"endpoint"`
+	Topic          *string      `json:"topic"`
+	AuthToken      *string      `json:"authToken"`
+	Headers        *string      `json:"headers"`
+	Username       *string      `json:"username"`
+	Password       *string      `json:"password"`
+	SSLEnabled     bool         `gorm:"default:false" json:"sslEnabled"`
+	AutoReconnect  bool         `gorm:"default:true" json:"autoReconnect"`
+	WebhookToken   *string      `gorm:"uniqueIndex" json:"webhookToken"`
+	WebhookEnabled bool         `gorm:"default:false" json:"webhookEnabled"`
+	Status         string       `gorm:"default:inactive" json:"status"`
+	LastActivity   *time.Time   `json:"lastActivity"`
+	CreatedAt      time.Time    `json:"createdAt"`
+	UpdatedAt      time.Time    `json:"updatedAt"`
+	UserID         string       `gorm:"not null" json:"userId"`
+	User           User         `gorm:"foreignKey:UserID" json:"-"`
+	Payloads       []Payload    `gorm:"foreignKey:ProjectID" json:"payloads,omitempty"`
+	Logs           []Log        `gorm:"foreignKey:ProjectID" json:"logs,omitempty"`
 	Simulations    []Simulation `gorm:"foreignKey:ProjectID" json:"simulations,omitempty"`
 }
 
 func (Project) TableName() string { return "Project" }
+func (p *Project) BeforeCreate(tx *gorm.DB) error {
+	if p.ID == "" {
+		p.ID = uuid.New().String()
+	}
+	return nil
+}
 
 type Payload struct {
-	ID        string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
 	Name      string    `gorm:"not null" json:"name"`
 	Structure string    `gorm:"not null" json:"structure"`
 	Template  bool      `gorm:"default:false" json:"template"`
@@ -60,9 +77,15 @@ type Payload struct {
 }
 
 func (Payload) TableName() string { return "Payload" }
+func (p *Payload) BeforeCreate(tx *gorm.DB) error {
+	if p.ID == "" {
+		p.ID = uuid.New().String()
+	}
+	return nil
+}
 
 type Simulation struct {
-	ID             string     `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID             string     `gorm:"primaryKey;type:uuid" json:"id"`
 	JobID          *string    `gorm:"uniqueIndex" json:"jobId"`
 	ModuleName     string     `gorm:"default:custom" json:"moduleName"`
 	Mode           string     `gorm:"default:interval" json:"mode"`
@@ -91,9 +114,15 @@ type Simulation struct {
 }
 
 func (Simulation) TableName() string { return "Simulation" }
+func (s *Simulation) BeforeCreate(tx *gorm.DB) error {
+	if s.ID == "" {
+		s.ID = uuid.New().String()
+	}
+	return nil
+}
 
 type Log struct {
-	ID         string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID         string    `gorm:"primaryKey;type:uuid" json:"id"`
 	Type       string    `gorm:"not null" json:"type"`
 	Protocol   string    `gorm:"not null" json:"protocol"`
 	Message    string    `gorm:"not null" json:"message"`
@@ -106,9 +135,18 @@ type Log struct {
 }
 
 func (Log) TableName() string { return "Log" }
+func (l *Log) BeforeCreate(tx *gorm.DB) error {
+	if l.ID == "" {
+		l.ID = uuid.New().String()
+	}
+	if l.Timestamp.IsZero() {
+		l.Timestamp = time.Now()
+	}
+	return nil
+}
 
 type Dataset struct {
-	ID               string     `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID               string     `gorm:"primaryKey;type:uuid" json:"id"`
 	Name             string     `gorm:"not null" json:"name"`
 	ModuleName       string     `gorm:"not null" json:"moduleName"`
 	FileName         string     `gorm:"not null" json:"fileName"`
@@ -126,9 +164,15 @@ type Dataset struct {
 }
 
 func (Dataset) TableName() string { return "Dataset" }
+func (d *Dataset) BeforeCreate(tx *gorm.DB) error {
+	if d.ID == "" {
+		d.ID = uuid.New().String()
+	}
+	return nil
+}
 
 type ChatSession struct {
-	ID        string        `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID        string        `gorm:"primaryKey;type:uuid" json:"id"`
 	UserID    string        `gorm:"not null" json:"userId"`
 	User      User          `gorm:"foreignKey:UserID" json:"-"`
 	Title     string        `gorm:"default:New Conversation" json:"title"`
@@ -138,17 +182,27 @@ type ChatSession struct {
 }
 
 func (ChatSession) TableName() string { return "chat_sessions" }
+func (cs *ChatSession) BeforeCreate(tx *gorm.DB) error {
+	if cs.ID == "" {
+		cs.ID = uuid.New().String()
+	}
+	return nil
+}
 
 type ChatMessage struct {
-	ID        string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
-	SessionID string    `gorm:"not null" json:"sessionId"`
+	ID        string      `gorm:"primaryKey;type:uuid" json:"id"`
+	SessionID string      `gorm:"not null" json:"sessionId"`
 	Session   ChatSession `gorm:"foreignKey:SessionID" json:"-"`
-	Role      string    `gorm:"not null" json:"role"`
-	Content   string    `gorm:"type:text;not null" json:"content"`
-	Metadata  *string   `gorm:"type:jsonb" json:"metadata"`
-	CreatedAt time.Time `json:"createdAt"`
+	Role      string      `gorm:"not null" json:"role"`
+	Content   string      `gorm:"type:text;not null" json:"content"`
+	Metadata  *string     `gorm:"type:jsonb" json:"metadata"`
+	CreatedAt time.Time   `json:"createdAt"`
 }
 
 func (ChatMessage) TableName() string { return "chat_messages" }
-
-
+func (cm *ChatMessage) BeforeCreate(tx *gorm.DB) error {
+	if cm.ID == "" {
+		cm.ID = uuid.New().String()
+	}
+	return nil
+}
