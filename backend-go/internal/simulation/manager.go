@@ -20,6 +20,7 @@ import (
 	"iotkit-studio-go/internal/database"
 	"iotkit-studio-go/internal/protocols"
 	"iotkit-studio-go/internal/rules"
+	"iotkit-studio-go/internal/services"
 	ws "iotkit-studio-go/internal/websocket"
 )
 
@@ -911,19 +912,27 @@ func sendHTTP(project *database.Project, payload interface{}) (int, bool, error)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	if project.AuthToken != nil && *project.AuthToken != "" {
-		req.Header.Set("Authorization", "Bearer "+*project.AuthToken)
-	}
-
-	// Parse custom headers
-	if project.Headers != nil && *project.Headers != "" {
-		var headers []struct {
-			Key   string `json:"key"`
-			Value string `json:"value"`
+	// Inject dynamic headers if configured
+	dynamicHeaders, _ := services.GetHeadersForProject(project.ID)
+	if len(dynamicHeaders) > 0 {
+		for k, v := range dynamicHeaders {
+			req.Header.Set(k, v)
 		}
-		json.Unmarshal([]byte(*project.Headers), &headers)
-		for _, h := range headers {
-			req.Header.Set(h.Key, h.Value)
+	} else {
+		if project.AuthToken != nil && *project.AuthToken != "" {
+			req.Header.Set("Authorization", "Bearer "+*project.AuthToken)
+		}
+
+		// Parse custom headers
+		if project.Headers != nil && *project.Headers != "" {
+			var headers []struct {
+				Key   string `json:"key"`
+				Value string `json:"value"`
+			}
+			json.Unmarshal([]byte(*project.Headers), &headers)
+			for _, h := range headers {
+				req.Header.Set(h.Key, h.Value)
+			}
 		}
 	}
 

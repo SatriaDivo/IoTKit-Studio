@@ -1,7 +1,9 @@
 import express from "express";
 import {
-  upsertAuthConfig,
-  getAuthConfig,
+  createAuthConfig,
+  getAuthConfigsByProject,
+  getAuthConfigById,
+  updateAuthConfig,
   deleteAuthConfig,
   testAuthConfig,
   refreshToken,
@@ -14,16 +16,18 @@ const router = express.Router();
 // All routes require authentication
 router.use(authMiddleware);
 
-// Auth config CRUD
-router.post("/projects/:projectId/auth-config", upsertAuthConfig);
-router.get("/projects/:projectId/auth-config", getAuthConfig);
-router.delete("/projects/:projectId/auth-config", deleteAuthConfig);
+// Auth config CRUD (Frontend Aligned)
+router.post("/auth-config", createAuthConfig);
+router.get("/auth-config/project/:projectId", getAuthConfigsByProject);
+router.get("/auth-config/:id", getAuthConfigById);
+router.put("/auth-config/:id", updateAuthConfig);
+router.delete("/auth-config/:id", deleteAuthConfig);
 
-// Test and refresh
-router.post("/projects/:projectId/auth-config/test", testAuthConfig);
-router.post("/projects/:projectId/auth-config/refresh", refreshToken);
+// Test and manual refresh (Frontend Aligned)
+router.post("/auth-config/:id/test", testAuthConfig);
+router.post("/auth-config/:id/refresh", refreshToken);
 
-// Logs
-router.get("/projects/:projectId/auth-config/logs", getRefreshLogs);
+// Logs (Frontend Aligned)
+router.get("/auth-config/:authConfigId/logs", getRefreshLogs);
 
 export default router;

@@ -184,53 +184,55 @@ model AlertLog {
 }
 
 model AuthConfig {
-  id              String   @id @default(uuid())
-  projectId       String   @unique
-  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                  String   @id @default(uuid())
+  projectId           String   @unique
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   
-  // Auth Method
-  authType        String   // "bearer", "apikey", "custom", "none"
+  // OAuth 2.0 Provider
+  provider            String   // "oauth2", "keycloak", "auth0", "okta", "custom"
+  tokenEndpoint       String   // OAuth token endpoint URL
   
-  // Token Storage (encrypted)
-  token           String?  @db.Text
-  tokenExpiry     DateTime?
+  // OAuth Credentials (encrypted)
+  clientId            String
+  clientSecret        String   @db.Text // Encrypted
+  scope               String?
+  grantType           String   @default("client_credentials") // "client_credentials", "password", "authorization_code", "refresh_token"
   
-  // Refresh Config
-  refreshEnabled  Boolean  @default(false)
-  refreshUrl      String?
-  refreshMethod   String?  @default("POST") // "POST", "GET"
-  refreshBody     Json?
-  refreshHeaders  Json?
-  refreshTokenPath String? // JSON path to extract token from response
-  refreshExpiryPath String? // JSON path to extract expiry from response
+  // Current Token (encrypted)
+  currentToken        String?  @db.Text // Encrypted access token
+  tokenExpiry         DateTime?
   
-  // Custom Headers
-  customHeaders   Json?    // [{key, value, isDynamic}]
+  // Auto Refresh Config
+  refreshEnabled      Boolean  @default(true)
+  refreshBeforeExpiry Int      @default(300) // Refresh N seconds before expiry
   
-  // Header Injection Config
-  headerKey       String?  @default("Authorization") // Where to inject token
-  headerPrefix    String?  @default("Bearer") // Prefix for token (Bearer, API-Key, etc)
+  // Custom Parameters
+  customHeaders       Json?    // Additional headers for token request
+  customBody          Json?    // Additional body parameters for token request
   
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // Status
+  active              Boolean  @default(true)
   
-  refreshLogs     RefreshLog[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  refreshLogs         RefreshLog[]
   
   @@index([projectId])
+  @@index([active])
 }
 
 model RefreshLog {
-  id            String     @id @default(uuid())
-  authConfigId  String
-  authConfig    AuthConfig @relation(fields: [authConfigId], references: [id], onDelete: Cascade)
+  id              String     @id @default(uuid())
+  authConfigId    String
+  authConfig      AuthConfig @relation(fields: [authConfigId], references: [id], onDelete: Cascade)
   
-  status        String     // "success", "failed"
-  oldTokenHash  String?    // Hash of old token for security
-  newTokenHash  String?    // Hash of new token
-  errorMessage  String?    @db.Text
-  responseTime  Int?       // milliseconds
+  success         Boolean    // true if refresh succeeded
+  errorMessage    String?    @db.Text
+  oldTokenExpiry  DateTime?  // When old token would have expired
+  newTokenExpiry  DateTime?  // When new token will expire
   
-  createdAt     DateTime   @default(now())
+  createdAt       DateTime   @default(now())
   
   @@index([authConfigId, createdAt])
 }

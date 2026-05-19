@@ -2,6 +2,7 @@ import WebSocket from "ws";
 import { Project } from "../../types";
 import { Logger } from "../../utils/logger";
 import { EventEmitter } from "events";
+import { headerInjectionService } from "../../services/headerInjectionService";
 
 export class WsClient extends EventEmitter {
   private client: WebSocket | null = null;
@@ -15,6 +16,8 @@ export class WsClient extends EventEmitter {
   }
 
   async connect(): Promise<void> {
+    const dynamicHeaders = await headerInjectionService.getHeadersForProject(this.project.id);
+
     return new Promise((resolve, reject) => {
       const protocol = this.project.protocol.toLowerCase();
       const url = `${protocol}://${this.project.host}:${this.project.port || 80}${
@@ -23,22 +26,26 @@ export class WsClient extends EventEmitter {
 
       const options: any = { headers: {} };
 
-      if (this.project.authToken) {
-        options.headers.Authorization = `Bearer ${this.project.authToken}`;
-      }
+      if (Object.keys(dynamicHeaders).length > 0) {
+        Object.assign(options.headers, dynamicHeaders);
+      } else {
+        if (this.project.authToken) {
+          options.headers.Authorization = `Bearer ${this.project.authToken}`;
+        }
 
-      if (this.project.headers) {
-        try {
-          const parsedHeaders = JSON.parse(this.project.headers);
-          if (Array.isArray(parsedHeaders)) {
-            parsedHeaders.forEach((h: { key: string; value: string }) => {
-              if (h.key && h.value) {
-                options.headers[h.key] = h.value;
-              }
-            });
+        if (this.project.headers) {
+          try {
+            const parsedHeaders = JSON.parse(this.project.headers);
+            if (Array.isArray(parsedHeaders)) {
+              parsedHeaders.forEach((h: { key: string; value: string }) => {
+                if (h.key && h.value) {
+                  options.headers[h.key] = h.value;
+                }
+              });
+            }
+          } catch (e) {
+            Logger.error("Failed to parse project headers", e);
           }
-        } catch (e) {
-          Logger.error("Failed to parse project headers", e);
         }
       }
 

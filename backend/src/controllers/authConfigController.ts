@@ -1,30 +1,27 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { encrypt, decrypt, hash } from "../utils/encryption";
+import { encrypt, decrypt } from "../utils/encryption";
 import axios from "axios";
 
 const prisma = new PrismaClient();
 
 /**
- * Create or update auth config for a project
+ * Create auth config for a project
  */
-export const upsertAuthConfig = async (req: Request, res: Response) => {
+export const createAuthConfig = async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
     const {
-      authType,
-      token,
-      tokenExpiry,
+      projectId,
+      provider,
+      tokenEndpoint,
+      clientId,
+      clientSecret,
+      scope,
+      grantType,
       refreshEnabled,
-      refreshUrl,
-      refreshMethod,
-      refreshBody,
-      refreshHeaders,
-      refreshTokenPath,
-      refreshExpiryPath,
+      refreshBeforeExpiry,
       customHeaders,
-      headerKey,
-      headerPrefix,
+      customBody,
     } = req.body;
 
     // Verify project exists and belongs to user
@@ -39,70 +36,92 @@ export const upsertAuthConfig = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Project not found" });
     }
 
-    // Encrypt token if provided
-    const encryptedToken = token ? encrypt(token) : null;
+    // Encrypt clientSecret if provided
+    const encryptedSecret = clientSecret ? encrypt(clientSecret) : "";
 
-    // Upsert auth config
-    const authConfig = await prisma.authConfig.upsert({
-      where: { projectId },
-      create: {
+    // Create auth config
+    const authConfig = await prisma.authConfig.create({
+      data: {
         projectId,
-        authType,
-        token: encryptedToken,
-        tokenExpiry: tokenExpiry ? new Date(tokenExpiry) : null,
-        refreshEnabled,
-        refreshUrl,
-        refreshMethod: refreshMethod || "POST",
-        refreshBody,
-        refreshHeaders,
-        refreshTokenPath,
-        refreshExpiryPath,
-        customHeaders,
-        headerKey: headerKey || "Authorization",
-        headerPrefix: headerPrefix || "Bearer",
-      },
-      update: {
-        authType,
-        token: encryptedToken,
-        tokenExpiry: tokenExpiry ? new Date(tokenExpiry) : null,
-        refreshEnabled,
-        refreshUrl,
-        refreshMethod: refreshMethod || "POST",
-        refreshBody,
-        refreshHeaders,
-        refreshTokenPath,
-        refreshExpiryPath,
-        customHeaders,
-        headerKey: headerKey || "Authorization",
-        headerPrefix: headerPrefix || "Bearer",
-        updatedAt: new Date(),
+        provider: provider || "oauth2",
+        tokenEndpoint,
+        clientId,
+        clientSecret: encryptedSecret,
+        scope: scope || null,
+        grantType: grantType || "client_credentials",
+        refreshEnabled: refreshEnabled !== undefined ? refreshEnabled : true,
+        refreshBeforeExpiry: refreshBeforeExpiry !== undefined ? Number(refreshBeforeExpiry) : 300,
+        customHeaders: customHeaders || {},
+        customBody: customBody || {},
+        active: true,
       },
     });
 
     res.json({
       ...authConfig,
-      token: token ? "***ENCRYPTED***" : null, // Don't send token back
+      clientSecret: "***ENCRYPTED***",
+      currentToken: authConfig.currentToken ? "***ENCRYPTED***" : null,
     });
   } catch (error: any) {
-    console.error("Error upserting auth config:", error);
+    console.error("Error creating auth config:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
 /**
- * Get auth config for a project
+ * Get all auth configs for a project
  */
-export const getAuthConfig = async (req: Request, res: Response) => {
+export const getAuthConfigsByProject = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
 
+    // Verify project belongs to user
+    const project = await prisma.project.findFirst({
+      where: {
+        id: projectId,
+        userId: (req as any).user.id,
+      },
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
     const authConfig = await prisma.authConfig.findUnique({
       where: { projectId },
+    });
+
+    // Return as array to match frontend expectations
+    if (!authConfig) {
+      return res.json([]);
+    }
+
+    res.json([
+      {
+        ...authConfig,
+        clientSecret: "***ENCRYPTED***",
+        currentToken: authConfig.currentToken ? "***ENCRYPTED***" : null,
+        tokenStatus: getTokenStatus(authConfig.tokenExpiry),
+      },
+    ]);
+  } catch (error: any) {
+    console.error("Error getting auth configs by project:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Get single auth config
+ */
+export const getAuthConfigById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const authConfig = await prisma.authConfig.findUnique({
+      where: { id },
       include: {
         project: {
           select: {
-            id: true,
-            name: true,
             userId: true,
           },
         },
@@ -118,10 +137,10 @@ export const getAuthConfig = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    // Don't send encrypted token
     res.json({
       ...authConfig,
-      token: authConfig.token ? "***ENCRYPTED***" : null,
+      clientSecret: "***ENCRYPTED***",
+      currentToken: authConfig.currentToken ? "***ENCRYPTED***" : null,
       tokenStatus: getTokenStatus(authConfig.tokenExpiry),
     });
   } catch (error: any) {
@@ -131,14 +150,85 @@ export const getAuthConfig = async (req: Request, res: Response) => {
 };
 
 /**
+ * Update auth config
+ */
+export const updateAuthConfig = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      provider,
+      tokenEndpoint,
+      clientId,
+      clientSecret,
+      scope,
+      grantType,
+      refreshEnabled,
+      refreshBeforeExpiry,
+      customHeaders,
+      customBody,
+      active,
+    } = req.body;
+
+    const existing = await prisma.authConfig.findUnique({
+      where: { id },
+      include: {
+        project: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: "Auth config not found" });
+    }
+
+    if (existing.project.userId !== (req as any).user.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const updateData: any = {
+      provider,
+      tokenEndpoint,
+      clientId,
+      scope,
+      grantType,
+      refreshEnabled,
+      refreshBeforeExpiry: refreshBeforeExpiry !== undefined ? Number(refreshBeforeExpiry) : undefined,
+      customHeaders,
+      customBody,
+      active,
+      updatedAt: new Date(),
+    };
+
+    if (clientSecret) {
+      updateData.clientSecret = encrypt(clientSecret);
+    }
+
+    const updated = await prisma.authConfig.update({
+      where: { id },
+      data: updateData,
+    });
+
+    res.json({
+      ...updated,
+      clientSecret: "***ENCRYPTED***",
+      currentToken: updated.currentToken ? "***ENCRYPTED***" : null,
+    });
+  } catch (error: any) {
+    console.error("Error updating auth config:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
  * Delete auth config
  */
 export const deleteAuthConfig = async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
+    const { id } = req.params;
 
     const authConfig = await prisma.authConfig.findUnique({
-      where: { projectId },
+      where: { id },
       include: {
         project: {
           select: { userId: true },
@@ -155,7 +245,7 @@ export const deleteAuthConfig = async (req: Request, res: Response) => {
     }
 
     await prisma.authConfig.delete({
-      where: { projectId },
+      where: { id },
     });
 
     res.json({ message: "Auth config deleted successfully" });
@@ -166,15 +256,14 @@ export const deleteAuthConfig = async (req: Request, res: Response) => {
 };
 
 /**
- * Test auth config by making a test request
+ * Test auth config by calling token endpoint and saving results
  */
 export const testAuthConfig = async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
-    const { testUrl, testMethod = "GET" } = req.body;
+    const { id } = req.params;
 
     const authConfig = await prisma.authConfig.findUnique({
-      where: { projectId },
+      where: { id },
       include: {
         project: {
           select: { userId: true },
@@ -190,48 +279,8 @@ export const testAuthConfig = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    // Decrypt token
-    const token = authConfig.token ? decrypt(authConfig.token) : null;
-
-    if (!token) {
-      return res.status(400).json({ error: "No token configured" });
-    }
-
-    // Build headers
-    const headers: any = {};
-    if (authConfig.authType === "bearer") {
-      headers[authConfig.headerKey || "Authorization"] =
-        `${authConfig.headerPrefix || "Bearer"} ${token}`;
-    } else if (authConfig.authType === "apikey") {
-      headers[authConfig.headerKey || "X-API-Key"] = token;
-    }
-
-    // Add custom headers
-    if (authConfig.customHeaders) {
-      const customHeaders = authConfig.customHeaders as any[];
-      customHeaders.forEach((header: any) => {
-        headers[header.key] = header.value;
-      });
-    }
-
-    // Make test request
-    const startTime = Date.now();
-    const response = await axios({
-      method: testMethod,
-      url: testUrl,
-      headers,
-      timeout: 10000,
-      validateStatus: () => true, // Don't throw on any status
-    });
-    const responseTime = Date.now() - startTime;
-
-    res.json({
-      success: response.status >= 200 && response.status < 300,
-      statusCode: response.status,
-      responseTime,
-      headers: response.headers,
-      data: response.data,
-    });
+    const result = await performTokenRefresh(authConfig);
+    res.json(result);
   } catch (error: any) {
     console.error("Error testing auth config:", error);
     res.status(500).json({
@@ -246,10 +295,10 @@ export const testAuthConfig = async (req: Request, res: Response) => {
  */
 export const refreshToken = async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
+    const { id } = req.params;
 
     const authConfig = await prisma.authConfig.findUnique({
-      where: { projectId },
+      where: { id },
       include: {
         project: {
           select: { userId: true },
@@ -265,13 +314,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    if (!authConfig.refreshEnabled || !authConfig.refreshUrl) {
-      return res.status(400).json({ error: "Token refresh not configured" });
-    }
-
-    // Perform refresh
     const result = await performTokenRefresh(authConfig);
-
     res.json(result);
   } catch (error: any) {
     console.error("Error refreshing token:", error);
@@ -284,11 +327,11 @@ export const refreshToken = async (req: Request, res: Response) => {
  */
 export const getRefreshLogs = async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
+    const { authConfigId } = req.params;
     const { limit = 50, offset = 0 } = req.query;
 
     const authConfig = await prisma.authConfig.findUnique({
-      where: { projectId },
+      where: { id: authConfigId },
       include: {
         project: {
           select: { userId: true },
@@ -305,14 +348,14 @@ export const getRefreshLogs = async (req: Request, res: Response) => {
     }
 
     const logs = await prisma.refreshLog.findMany({
-      where: { authConfigId: authConfig.id },
+      where: { authConfigId },
       orderBy: { createdAt: "desc" },
       take: Number(limit),
       skip: Number(offset),
     });
 
     const total = await prisma.refreshLog.count({
-      where: { authConfigId: authConfig.id },
+      where: { authConfigId },
     });
 
     res.json({
@@ -334,54 +377,91 @@ export const performTokenRefresh = async (authConfig: any) => {
   const startTime = Date.now();
 
   try {
-    // Get old token hash
-    const oldTokenHash = authConfig.token
-      ? hash(decrypt(authConfig.token))
-      : null;
+    // Decrypt credentials
+    const decryptedSecret = authConfig.clientSecret ? decrypt(authConfig.clientSecret) : "";
 
-    // Build refresh request
-    const headers = authConfig.refreshHeaders || {};
-    const body = authConfig.refreshBody || {};
+    // Build standard OAuth 2.0 payload
+    const body: Record<string, string> = {
+      grant_type: authConfig.grantType || "client_credentials",
+      client_id: authConfig.clientId,
+      client_secret: decryptedSecret,
+    };
 
-    // Make refresh request
-    const response = await axios({
-      method: authConfig.refreshMethod || "POST",
-      url: authConfig.refreshUrl,
-      headers,
-      data: body,
-      timeout: 10000,
-    });
-
-    // Extract new token from response
-    const newToken = extractValueFromPath(
-      response.data,
-      authConfig.refreshTokenPath || "token",
-    );
-
-    if (!newToken) {
-      throw new Error("Failed to extract token from refresh response");
+    if (authConfig.scope) {
+      body.scope = authConfig.scope;
     }
 
-    // Extract expiry if configured
-    let tokenExpiry = null;
-    if (authConfig.refreshExpiryPath) {
-      const expiryValue = extractValueFromPath(
-        response.data,
-        authConfig.refreshExpiryPath,
-      );
-      if (expiryValue) {
-        tokenExpiry = new Date(expiryValue);
+    // Load custom body params
+    if (authConfig.customBody) {
+      const parsedBody =
+        typeof authConfig.customBody === "string"
+          ? JSON.parse(authConfig.customBody)
+          : authConfig.customBody;
+      if (parsedBody && typeof parsedBody === "object") {
+        Object.assign(body, parsedBody);
       }
     }
 
-    // Encrypt and save new token
-    const encryptedToken = encrypt(newToken);
-    const newTokenHash = hash(newToken);
+    // Build headers
+    const headers: Record<string, string> = {
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
 
+    if (authConfig.customHeaders) {
+      const parsedHeaders =
+        typeof authConfig.customHeaders === "string"
+          ? JSON.parse(authConfig.customHeaders)
+          : authConfig.customHeaders;
+      if (parsedHeaders && typeof parsedHeaders === "object") {
+        Object.assign(headers, parsedHeaders);
+      }
+    }
+
+    let requestData: any = body;
+    if (headers["Content-Type"] === "application/x-www-form-urlencoded") {
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(body)) {
+        params.append(k, String(v));
+      }
+      requestData = params.toString();
+    }
+
+    // Call token endpoint
+    const response = await axios({
+      method: "POST",
+      url: authConfig.tokenEndpoint,
+      headers,
+      data: requestData,
+      timeout: 15000,
+    });
+
+    // Extract access token & expiry
+    const newToken =
+      response.data.access_token ||
+      response.data.token ||
+      (response.data.data && response.data.data.token);
+
+    if (!newToken) {
+      throw new Error("Failed to extract access_token from response: " + JSON.stringify(response.data));
+    }
+
+    const expiresIn = response.data.expires_in || response.data.expiresIn;
+    let tokenExpiry: Date | null = null;
+    if (expiresIn) {
+      tokenExpiry = new Date(Date.now() + Number(expiresIn) * 1000);
+    } else {
+      // Default to 1 hour
+      tokenExpiry = new Date(Date.now() + 3600 * 1000);
+    }
+
+    // Encrypt token
+    const encryptedToken = encrypt(newToken);
+
+    // Save token
     await prisma.authConfig.update({
       where: { id: authConfig.id },
       data: {
-        token: encryptedToken,
+        currentToken: encryptedToken,
         tokenExpiry,
         updatedAt: new Date(),
       },
@@ -391,50 +471,35 @@ export const performTokenRefresh = async (authConfig: any) => {
     await prisma.refreshLog.create({
       data: {
         authConfigId: authConfig.id,
-        status: "success",
-        oldTokenHash,
-        newTokenHash,
-        responseTime: Date.now() - startTime,
+        success: true,
+        oldTokenExpiry: authConfig.tokenExpiry,
+        newTokenExpiry: tokenExpiry,
       },
     });
 
     return {
       success: true,
-      message: "Token refreshed successfully",
-      tokenExpiry,
-      responseTime: Date.now() - startTime,
+      token: newToken,
+      expiresIn: expiresIn || 3600,
     };
   } catch (error: any) {
+    console.error("Token refresh helper error:", error.message);
+
     // Log failure
     await prisma.refreshLog.create({
       data: {
         authConfigId: authConfig.id,
-        status: "failed",
-        errorMessage: error.message,
-        responseTime: Date.now() - startTime,
+        success: false,
+        errorMessage: error.message || "Unknown error during refresh",
+        oldTokenExpiry: authConfig.tokenExpiry,
       },
     });
 
-    throw error;
+    return {
+      success: false,
+      error: error.message || "Failed to call token endpoint",
+    };
   }
-};
-
-/**
- * Helper: Extract value from nested object using path
- */
-const extractValueFromPath = (obj: any, path: string): any => {
-  const keys = path.split(".");
-  let value = obj;
-
-  for (const key of keys) {
-    if (value && typeof value === "object" && key in value) {
-      value = value[key];
-    } else {
-      return null;
-    }
-  }
-
-  return value;
 };
 
 /**

@@ -357,7 +357,7 @@ export default function MQTTInspectorPage() {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-[#F5F7FA]">
+    <div className="flex flex-col h-[calc(100vh-140px)] min-h-[500px] bg-[#F5F7FA] rounded-xl border border-[#E8EDF2] overflow-hidden shadow-sm">
       {/* Top Bar */}
       <div className="h-14 bg-white border-b border-[#E8EDF2] flex items-center justify-between px-6">
         <div className="flex items-center gap-3">

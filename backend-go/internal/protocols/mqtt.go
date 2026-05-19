@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
 	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
 	"iotkit-studio-go/internal/database"
+	"iotkit-studio-go/internal/services"
 )
 
 type MQTTClient struct {
@@ -37,6 +39,18 @@ func (m *MQTTClient) Connect() error {
 		if port == 1883 {
 			port = 8883
 		}
+	} else if proto == "WS" || proto == "ws" || proto == "WSS" || proto == "wss" {
+		protocol = "ws"
+		if proto == "WSS" || proto == "wss" {
+			protocol = "wss"
+		}
+		if port == 1883 {
+			if protocol == "wss" {
+				port = 443
+			} else {
+				port = 80
+			}
+		}
 	}
 
 	broker := fmt.Sprintf("%s://%s:%d", protocol, m.project.Host, port)
@@ -54,6 +68,39 @@ func (m *MQTTClient) Connect() error {
 	}
 	if m.project.Password != nil && *m.project.Password != "" {
 		opts.SetPassword(*m.project.Password)
+	}
+
+	// Dynamic/static headers for WS/WSS connections
+	if protocol == "ws" || protocol == "wss" {
+		dynamicHeaders, _ := services.GetHeadersForProject(m.project.ID)
+		httpHeaders := make(http.Header)
+
+		if len(dynamicHeaders) > 0 {
+			for k, v := range dynamicHeaders {
+				httpHeaders.Set(k, v)
+			}
+		} else {
+			if m.project.AuthToken != nil && *m.project.AuthToken != "" {
+				httpHeaders.Set("Authorization", "Bearer "+*m.project.AuthToken)
+			}
+
+			if m.project.Headers != nil && *m.project.Headers != "" {
+				var customHeaders []struct {
+					Key   string `json:"key"`
+					Value string `json:"value"`
+				}
+				json.Unmarshal([]byte(*m.project.Headers), &customHeaders)
+				for _, h := range customHeaders {
+					if h.Key != "" && h.Value != "" {
+						httpHeaders.Set(h.Key, h.Value)
+					}
+				}
+			}
+		}
+
+		if len(httpHeaders) > 0 {
+			opts.SetHTTPHeaders(httpHeaders)
+		}
 	}
 
 	opts.SetOnConnectHandler(func(c mqtt.Client) {

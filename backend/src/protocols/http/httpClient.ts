@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
 import { Project } from "../../types";
 import { Logger } from "../../utils/logger";
+import { HeaderInjectionService } from "../../services/headerInjectionService";
 
 export class HttpClient {
   private client: AxiosInstance;
@@ -47,10 +48,19 @@ export class HttpClient {
     const startTime = Date.now();
 
     try {
+      // Get auth headers from HeaderInjectionService
+      const authHeaders = await HeaderInjectionService.getAuthHeaders(
+        this.project.id,
+      );
+
       const config: AxiosRequestConfig = {
         method: method.toUpperCase(),
         url: this.project.endpoint || "/",
         ...(method.toUpperCase() !== "GET" && { data: payload }),
+        headers: {
+          ...this.client.defaults.headers.common,
+          ...authHeaders, // Inject OAuth token headers
+        },
       };
 
       const response = await this.client.request(config);

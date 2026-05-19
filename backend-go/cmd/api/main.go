@@ -12,6 +12,7 @@ import (
 	"iotkit-studio-go/internal/config"
 	"iotkit-studio-go/internal/database"
 	"iotkit-studio-go/internal/routes"
+	"iotkit-studio-go/internal/services"
 	ws "iotkit-studio-go/internal/websocket"
 )
 
@@ -21,6 +22,9 @@ func main() {
 
 	// Connect to database
 	database.Connect()
+
+	// Start Dynamic Token Refresh Worker
+	services.StartTokenRefreshWorker()
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{

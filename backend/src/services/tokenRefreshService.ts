@@ -56,11 +56,11 @@ class TokenRefreshService {
     try {
       Logger.info("Checking for tokens that need refresh...");
 
-      // Get all auth configs with refresh enabled
+      // Get all auth configs with refresh enabled and active
       const authConfigs = await prisma.authConfig.findMany({
         where: {
           refreshEnabled: true,
-          refreshUrl: { not: null },
+          active: true,
         },
         include: {
           project: {
@@ -74,7 +74,7 @@ class TokenRefreshService {
       });
 
       Logger.info(
-        `Found ${authConfigs.length} auth configs with refresh enabled`,
+        `Found ${authConfigs.length} active auth configs with refresh enabled`,
       );
 
       for (const authConfig of authConfigs) {
@@ -113,15 +113,17 @@ class TokenRefreshService {
   /**
    * Determine if a token should be refreshed
    * Refresh if:
-   * - Token is expired
-   * - Token expires within 1 hour
-   * - No token expiry set (refresh anyway to be safe)
+   * - No token yet (initial fetch)
+   * - Token expires soon (within the refreshBeforeExpiry buffer)
+   * - No token expiry set (refresh every 24 hours based on last update)
    */
   private shouldRefreshToken(authConfig: any): boolean {
-    // If no token, don't refresh
-    if (!authConfig.token) {
-      return false;
+    // If no token, refresh to acquire one
+    if (!authConfig.currentToken) {
+      return true;
     }
+
+    const refreshBeforeExpiryMs = (authConfig.refreshBeforeExpiry || 300) * 1000;
 
     // If no expiry set, refresh every 24 hours based on last update
     if (!authConfig.tokenExpiry) {
@@ -131,14 +133,13 @@ class TokenRefreshService {
       return hoursSinceUpdate >= 24;
     }
 
-    // Check if token is expired or expiring soon (within 1 hour)
-    const now = new Date();
-    const expiryTime = new Date(authConfig.tokenExpiry);
-    const timeUntilExpiry = expiryTime.getTime() - now.getTime();
-    const hoursUntilExpiry = timeUntilExpiry / (1000 * 60 * 60);
+    // Check if token is expired or expiring soon
+    const now = Date.now();
+    const expiryTime = new Date(authConfig.tokenExpiry).getTime();
+    const timeUntilExpiry = expiryTime - now;
 
-    // Refresh if expired or expiring within 1 hour
-    return hoursUntilExpiry <= 1;
+    // Refresh if expired or expiring within buffer
+    return timeUntilExpiry <= refreshBeforeExpiryMs;
   }
 
   /**

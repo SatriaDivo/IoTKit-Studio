@@ -1,14 +1,24 @@
 import { PrismaClient } from "@prisma/client";
 import { decrypt } from "../utils/encryption";
-import { v4 as uuidv4 } from "uuid";
+import { Logger } from "../utils/logger";
 
 const prisma = new PrismaClient();
 
 /**
  * Header Injection Service
- * Injects authentication headers and custom headers into requests
+ * Injects OAuth 2.0 tokens and custom headers into client requests
  */
 export class HeaderInjectionService {
+  /**
+   * Get auth headers for a project (static method for easy access)
+   */
+  static async getAuthHeaders(
+    projectId: string,
+  ): Promise<Record<string, string>> {
+    const service = new HeaderInjectionService();
+    return service.getHeadersForProject(projectId);
+  }
+
   /**
    * Get headers for a project with auth config
    */
@@ -18,116 +28,78 @@ export class HeaderInjectionService {
     const headers: Record<string, string> = {};
 
     try {
-      // Get auth config
-      const authConfig = await prisma.authConfig.findUnique({
-        where: { projectId },
+      // Get active auth config for project
+      let authConfig = await prisma.authConfig.findFirst({
+        where: {
+          projectId,
+          active: true,
+        },
       });
 
       if (!authConfig) {
         return headers;
       }
 
-      // Inject auth token
-      if (authConfig.token && authConfig.authType !== "none") {
-        const token = decrypt(authConfig.token);
-        const headerKey = authConfig.headerKey || "Authorization";
-        const headerPrefix = authConfig.headerPrefix || "Bearer";
+      // Check if token is missing or expired, and refresh if enabled
+      const now = Date.now();
+      const expiryTime = authConfig.tokenExpiry ? new Date(authConfig.tokenExpiry).getTime() : 0;
+      const bufferMs = (authConfig.refreshBeforeExpiry || 300) * 1000;
+      const isExpired = !authConfig.currentToken || !expiryTime || (expiryTime - now <= bufferMs);
 
-        if (authConfig.authType === "bearer") {
-          headers[headerKey] = `${headerPrefix} ${token}`;
-        } else if (authConfig.authType === "apikey") {
-          headers[headerKey] = token;
-        } else if (authConfig.authType === "custom") {
-          headers[headerKey] = token;
+      if (isExpired && authConfig.refreshEnabled) {
+        Logger.info(`Token for project ${projectId} is expired or expiring soon. Refreshing synchronously...`);
+        try {
+          const { performTokenRefresh } = require("../controllers/authConfigController");
+          const result = await performTokenRefresh(authConfig);
+          if (result.success && result.token) {
+            // Load the updated config
+            const updatedConfig = await prisma.authConfig.findUnique({
+              where: { id: authConfig.id },
+            });
+            if (updatedConfig) {
+              authConfig = updatedConfig;
+            }
+          }
+        } catch (refreshErr: any) {
+          Logger.error(`Failed to auto-refresh token synchronously for project ${projectId}:`, refreshErr.message);
         }
       }
 
-      // Inject custom headers
+      // If we still don't have a token, warn and return empty headers
+      if (!authConfig.currentToken) {
+        Logger.warn(`No token available for project ${projectId}.`);
+        return headers;
+      }
+
+      // Decrypt and inject token
+      try {
+        const token = decrypt(authConfig.currentToken);
+        headers["Authorization"] = `Bearer ${token}`;
+      } catch (error) {
+        Logger.error(
+          `Failed to decrypt token for project ${projectId}:`,
+          error,
+        );
+        return headers;
+      }
+
+      // Inject custom headers if configured
       if (authConfig.customHeaders) {
-        const customHeaders = authConfig.customHeaders as any[];
+        const customHeaders =
+          typeof authConfig.customHeaders === "string"
+            ? JSON.parse(authConfig.customHeaders)
+            : authConfig.customHeaders;
 
-        for (const header of customHeaders) {
-          if (header.key && header.value) {
-            // Process dynamic values
-            const value = header.isDynamic
-              ? this.processDynamicValue(header.value)
-              : header.value;
-
-            headers[header.key] = value;
-          }
+        if (customHeaders && typeof customHeaders === "object") {
+          Object.assign(headers, customHeaders);
         }
       }
 
       return headers;
     } catch (error: any) {
-      console.error("Error getting headers for project:", error);
+      Logger.error("Error getting headers for project:", error);
       return headers;
     }
-  }
-
-  /**
-   * Process dynamic values in headers
-   * Supports template variables like {{timestamp}}, {{uuid}}, etc.
-   */
-  private processDynamicValue(value: string): string {
-    let processed = value;
-
-    // Replace {{timestamp}} with current Unix timestamp
-    processed = processed.replace(/\{\{timestamp\}\}/g, Date.now().toString());
-
-    // Replace {{timestamp_iso}} with ISO 8601 timestamp
-    processed = processed.replace(
-      /\{\{timestamp_iso\}\}/g,
-      new Date().toISOString(),
-    );
-
-    // Replace {{uuid}} with random UUID
-    processed = processed.replace(/\{\{uuid\}\}/g, uuidv4());
-
-    // Replace {{random}} with random number
-    processed = processed.replace(/\{\{random\}\}/g, Math.random().toString());
-
-    // Replace {{random_int}} with random integer (0-999999)
-    processed = processed.replace(
-      /\{\{random_int\}\}/g,
-      Math.floor(Math.random() * 1000000).toString(),
-    );
-
-    return processed;
-  }
-
-  /**
-   * Merge project headers with auth headers
-   * Auth headers take precedence
-   */
-  mergeHeaders(
-    projectHeaders: Record<string, string> | string | null,
-    authHeaders: Record<string, string>,
-  ): Record<string, string> {
-    const merged: Record<string, string> = {};
-
-    // Parse project headers if string
-    if (typeof projectHeaders === "string") {
-      try {
-        const parsed = JSON.parse(projectHeaders);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((h: any) => {
-            if (h.key && h.value) {
-              merged[h.key] = h.value;
-            }
-          });
-        }
-      } catch (error) {
-        console.error("Error parsing project headers:", error);
-      }
-    } else if (projectHeaders && typeof projectHeaders === "object") {
-      Object.assign(merged, projectHeaders);
-    }
-
-    // Auth headers override project headers
-    Object.assign(merged, authHeaders);
-
-    return merged;
   }
 
   /**
@@ -135,11 +107,14 @@ export class HeaderInjectionService {
    */
   async isTokenValid(projectId: string): Promise<boolean> {
     try {
-      const authConfig = await prisma.authConfig.findUnique({
-        where: { projectId },
+      const authConfig = await prisma.authConfig.findFirst({
+        where: {
+          projectId,
+          active: true,
+        },
       });
 
-      if (!authConfig || !authConfig.token) {
+      if (!authConfig || !authConfig.currentToken) {
         return false;
       }
 
@@ -154,8 +129,27 @@ export class HeaderInjectionService {
 
       return expiryTime > now;
     } catch (error) {
-      console.error("Error checking token validity:", error);
+      Logger.error("Error checking token validity:", error);
       return false;
+    }
+  }
+
+  /**
+   * Get token expiry time for a project
+   */
+  async getTokenExpiry(projectId: string): Promise<Date | null> {
+    try {
+      const authConfig = await prisma.authConfig.findFirst({
+        where: {
+          projectId,
+          active: true,
+        },
+      });
+
+      return authConfig?.tokenExpiry || null;
+    } catch (error) {
+      Logger.error("Error getting token expiry:", error);
+      return null;
     }
   }
 }

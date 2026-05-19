@@ -2,6 +2,7 @@ import mqtt, { MqttClient as MQTTClientType } from "mqtt";
 import { Project } from "../../types";
 import { Logger } from "../../utils/logger";
 import { EventEmitter } from "events";
+import { headerInjectionService } from "../../services/headerInjectionService";
 
 export class MqttClient extends EventEmitter {
   private client: MQTTClientType | null = null;
@@ -14,6 +15,8 @@ export class MqttClient extends EventEmitter {
   }
 
   async connect(): Promise<void> {
+    const dynamicHeaders = await headerInjectionService.getHeadersForProject(this.project.id);
+
     return new Promise((resolve, reject) => {
       const protocol = this.project.protocol.toLowerCase();
       const url = `${protocol}://${this.project.host}:${this.project.port || 1883}`;
@@ -28,22 +31,27 @@ export class MqttClient extends EventEmitter {
 
       if (protocol === "ws" || protocol === "wss") {
         const customHeaders: Record<string, string> = {};
-        if (this.project.authToken) {
-          customHeaders["Authorization"] = `Bearer ${this.project.authToken}`;
-        }
         
-        if (this.project.headers) {
-          try {
-            const parsedHeaders = JSON.parse(this.project.headers);
-            if (Array.isArray(parsedHeaders)) {
-              parsedHeaders.forEach((h: { key: string; value: string }) => {
-                if (h.key && h.value) {
-                  customHeaders[h.key] = h.value;
-                }
-              });
+        if (Object.keys(dynamicHeaders).length > 0) {
+          Object.assign(customHeaders, dynamicHeaders);
+        } else {
+          if (this.project.authToken) {
+            customHeaders["Authorization"] = `Bearer ${this.project.authToken}`;
+          }
+          
+          if (this.project.headers) {
+            try {
+              const parsedHeaders = JSON.parse(this.project.headers);
+              if (Array.isArray(parsedHeaders)) {
+                parsedHeaders.forEach((h: { key: string; value: string }) => {
+                  if (h.key && h.value) {
+                    customHeaders[h.key] = h.value;
+                  }
+                });
+              }
+            } catch (e) {
+              Logger.error("Failed to parse project headers", e);
             }
-          } catch (e) {
-            Logger.error("Failed to parse project headers", e);
           }
         }
         

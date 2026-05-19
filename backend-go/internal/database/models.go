@@ -257,3 +257,63 @@ func (al *AlertLog) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// AuthConfig - OAuth 2.0 authentication configuration
+type AuthConfig struct {
+	ID                  string     `gorm:"primaryKey;type:uuid" json:"id"`
+	ProjectID           string     `gorm:"column:projectId;uniqueIndex;not null" json:"projectId"`
+	Project             Project    `gorm:"foreignKey:ProjectID" json:"-"`
+	Provider            string     `gorm:"not null" json:"provider"`
+	TokenEndpoint       string     `gorm:"column:tokenEndpoint;not null" json:"tokenEndpoint"`
+	ClientID            string     `gorm:"column:clientId;not null" json:"clientId"`
+	ClientSecret        string     `gorm:"column:clientSecret;type:text;not null" json:"-"` // Encrypted
+	Scope               *string    `json:"scope"`
+	GrantType           string     `gorm:"column:grantType;default:client_credentials" json:"grantType"`
+	CurrentToken        *string    `gorm:"column:currentToken;type:text" json:"-"` // Encrypted
+	TokenExpiry         *time.Time `gorm:"column:tokenExpiry" json:"tokenExpiry"`
+	RefreshEnabled      bool       `gorm:"column:refreshEnabled;default:true" json:"refreshEnabled"`
+	RefreshBeforeExpiry int        `gorm:"column:refreshBeforeExpiry;default:300" json:"refreshBeforeExpiry"`
+	CustomHeaders       *string    `gorm:"column:customHeaders;type:jsonb" json:"customHeaders"`
+	CustomBody          *string    `gorm:"column:customBody;type:jsonb" json:"customBody"`
+	Active              bool       `gorm:"default:true" json:"active"`
+	CreatedAt           time.Time  `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt           time.Time  `gorm:"column:updatedAt" json:"updatedAt"`
+	RefreshLogs         []RefreshLog `gorm:"foreignKey:AuthConfigID" json:"refreshLogs,omitempty"`
+}
+
+func (AuthConfig) TableName() string { return "AuthConfig" }
+func (ac *AuthConfig) BeforeCreate(tx *gorm.DB) error {
+	if ac.ID == "" {
+		ac.ID = uuid.New().String()
+	}
+	ac.CreatedAt = time.Now()
+	ac.UpdatedAt = time.Now()
+	return nil
+}
+func (ac *AuthConfig) BeforeUpdate(tx *gorm.DB) error {
+	ac.UpdatedAt = time.Now()
+	return nil
+}
+
+// RefreshLog - Token refresh attempt log
+type RefreshLog struct {
+	ID             string     `gorm:"primaryKey;type:uuid" json:"id"`
+	AuthConfigID   string     `gorm:"column:authConfigId;not null" json:"authConfigId"`
+	AuthConfig     AuthConfig `gorm:"foreignKey:AuthConfigID" json:"-"`
+	Success        bool       `gorm:"not null" json:"success"`
+	ErrorMessage   *string    `gorm:"column:errorMessage;type:text" json:"errorMessage"`
+	OldTokenExpiry *time.Time `gorm:"column:oldTokenExpiry" json:"oldTokenExpiry"`
+	NewTokenExpiry *time.Time `gorm:"column:newTokenExpiry" json:"newTokenExpiry"`
+	CreatedAt      time.Time  `gorm:"column:createdAt" json:"createdAt"`
+}
+
+func (RefreshLog) TableName() string { return "RefreshLog" }
+func (rl *RefreshLog) BeforeCreate(tx *gorm.DB) error {
+	if rl.ID == "" {
+		rl.ID = uuid.New().String()
+	}
+	if rl.CreatedAt.IsZero() {
+		rl.CreatedAt = time.Now()
+	}
+	return nil
+}

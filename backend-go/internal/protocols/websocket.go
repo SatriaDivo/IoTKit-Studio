@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"iotkit-studio-go/internal/database"
+	"iotkit-studio-go/internal/services"
 )
 
 type WSClient struct {
@@ -42,19 +43,26 @@ func (w *WSClient) Connect() error {
 	url := fmt.Sprintf("%s://%s:%d%s", scheme, w.project.Host, port, endpoint)
 
 	headers := make(map[string][]string)
-	if w.project.AuthToken != nil && *w.project.AuthToken != "" {
-		headers["Authorization"] = []string{"Bearer " + *w.project.AuthToken}
-	}
-
-	if w.project.Headers != nil && *w.project.Headers != "" {
-		var customHeaders []struct {
-			Key   string `json:"key"`
-			Value string `json:"value"`
+	dynamicHeaders, _ := services.GetHeadersForProject(w.project.ID)
+	if len(dynamicHeaders) > 0 {
+		for k, v := range dynamicHeaders {
+			headers[k] = []string{v}
 		}
-		json.Unmarshal([]byte(*w.project.Headers), &customHeaders)
-		for _, h := range customHeaders {
-			if h.Key != "" && h.Value != "" {
-				headers[h.Key] = []string{h.Value}
+	} else {
+		if w.project.AuthToken != nil && *w.project.AuthToken != "" {
+			headers["Authorization"] = []string{"Bearer " + *w.project.AuthToken}
+		}
+
+		if w.project.Headers != nil && *w.project.Headers != "" {
+			var customHeaders []struct {
+				Key   string `json:"key"`
+				Value string `json:"value"`
+			}
+			json.Unmarshal([]byte(*w.project.Headers), &customHeaders)
+			for _, h := range customHeaders {
+				if h.Key != "" && h.Value != "" {
+					headers[h.Key] = []string{h.Value}
+				}
 			}
 		}
 	}
