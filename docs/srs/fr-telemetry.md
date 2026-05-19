@@ -11,7 +11,10 @@
 - Saat JSON digeneralisasi untuk dikirim, nilainya di-*render* dinamis berdasarkan *rule* yang disetel.
 
 ## 2. Simulasi Data (Interval & Batch)
-- Pengguna dapat menyetel seberapa cepat data dikirimkan (*Interval* dalam *milliseconds*, misalnya 1000ms = 1 detik).
+- **Konfigurasi Interval (Seconds):** Pengguna menyetel seberapa cepat data dikirimkan menggunakan satuan **Detik (Seconds)** secara default (bukan milidetik) untuk kemudahan pembacaan (misal: 15s). Unit detik ini dikonversi secara otomatis di tingkat backend menjadi milidetik (ms).
+- **Countdown Timer UI:** Antarmuka detail proyek menyediakan indikator waktu mundur (*countdown timer*) visual (misal: dari 15s turun ke 0s) dengan tingkat penyegaran resolusi tinggi (100ms) untuk memberikan umpan balik pergerakan jarum detik yang mulus sebelum data berikutnya dikirimkan.
+- **State Persistence & Resume:** Status timer mundur dan konfigurasi simulasi disimpan per proyek di browser menggunakan `localStorage`. Hal ini menjamin bahwa jika pengguna tidak sengaja me-refresh halaman atau berpindah menu dan kembali lagi, simulasi yang sedang berjalan akan otomatis melanjutkan (*resume*) status countdown-nya tanpa terputus.
+- **Project List Simulation Synchronization:** Pemicuan simulasi dari luar proyek (tombol Start di halaman daftar proyek) disinkronkan sepenuhnya dengan membaca preferensi `useDataset`, `selectedDatasetId`, dan `simSettings` dari `localStorage` proyek bersangkutan agar menghasilkan perilaku yang konsisten dengan halaman detail proyek.
 - Engine (**Golang Simulation Manager**) akan mulai melempar *payload* JSON secara *loop* asinkron melalui *Goroutines* hingga dihentikan (Stop) secara eksplisit oleh klien.
 - Engine dapat mengirim kumpulan data sekaligus (*Batch Size*) dalam satu interaksi per-goroutine.
 

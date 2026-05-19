@@ -49,7 +49,8 @@ Mencatat seluruh rekam jejak (*history*) dari data yang telah dikirim oleh siste
 - **payload** (String, Nullable)
 - **statusCode** (Int, Nullable), **latency** (Int, Nullable)
 - **timestamp** (DateTime)
-- **projectId** (UUID, FK) -> Project
+- **projectId** (UUID, FK) -> Project (Mendukung aksi pembersihan spesifik *Clean Project Logs* secara terpisah tanpa memutus data relasional lainnya)
+- *Catatan Histori:* Data log dengan tipe `webhook` tidak akan terhapus saat token dinonaktifkan (Disable Webhook), dan hanya terhapus permanen jika pengguna mengeksekusi operasi *Clear Logs* secara eksplisit.
 
 ## 6. ChatSession & ChatMessage
 Sistem *history* untuk asisten **AI Agent**.

@@ -8,14 +8,16 @@ Platform **IoTKit-Studio** mendukung penangkapan data luar (*Ingestion*) secara 
 
 ### 1. Webhook Lifecycle Management (Dasbor Internal)
 *   **Generate Endpoint:** Pengguna dapat men-generate URL unik per-proyek secara aman. Sistem akan menghasilkan UUID acak yang bertindak sebagai *public token*.
-*   **Disable/Clear Endpoint:** Pengguna dapat mematikan endpoint kapan saja. Sistem akan menghapus token dari database, sehingga request berikutnya ke URL tersebut akan ditolak (404 Not Found).
+*   **Regenerate Token (Pembaruan Seketika):** Tombol **Regenerate Token** akan *selalu* men-generate token UUID baru yang segar dan menggantikan token lama di database secara instan. URL webhook yang lama langsung ditolak dengan status *404 Not Found* demi alasan keamanan jika terjadi kebocoran token.
+*   **Disable Webhook (Tanpa Kehilangan Data):** Menonaktifkan webhook akan menghapus token aktif dari database (mematikan URL cURL), tetapi **tidak akan menghapus riwayat log masuk** (logs bertipe `"webhook"`) agar pengguna tetap dapat menganalisis data historis sebelumnya di layar.
+*   **Clear Logs (Pembersihan Permanen):** Tombol **Clear** di panel *Incoming Requests* memicu pembersihan permanen khusus data log bertipe `"webhook"` milik proyek tersebut dari database PostgreSQL melalui endpoint `DELETE /api/logs/project/:projectId/clear`.
 *   **Security Model:** Endpoint publik dapat diakses tanpa JWT auth, namun dilindungi oleh token UUID acak yang panjang dan aman.
 
 ### 2. Public Endpoint Ingestion (`POST /api/webhook/:token`)
 *   Menerima HTTP request dengan method `POST` (dan method relevan lainnya) tanpa membutuhkan session/cookie.
 *   **Data Parsing:** Mengurai parameter kueri, header HTTP, dan payload body JSON.
 *   **Persistence:** Setiap request dicatat di tabel `Log` dengan tipe `"webhook"`, merekam alamat IP pengirim, timestamp, ukuran payload, header, dan isi body JSON.
-*   **Real-time Streaming:** Backend memancarkan data masuk via **Go WebSocket Hub** ke room `webhook:${token}` dan `project:${projectId}` agar halaman log ter-update seketika tanpa refresh.
+*   **Real-time Streaming via Intelligent Polling:** Karena adanya migrasi ke backend Go berkecepatan tinggi dengan native WebSocket, frontend menyinkronkan daftar request webhook yang masuk menggunakan mekanisme **Polling HTTP Cerdas** berdurasi dipercepat (**1 detik**) ke endpoint `GET /api/webhook-manage/history/:projectId`. Hal ini memberikan efek pembaruan antarmuka instan (*near real-time*) sekaligus menghindari ketidakcocokan protokol library Socket.IO client dengan native Go WebSocket.
 
 ### 3. Visual Instruction Selector (Client Guide)
 Dasbor menyediakan panduan pengiriman data cepat yang interaktif dengan tiga opsi tab bahasa:

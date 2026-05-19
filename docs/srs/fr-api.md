@@ -28,17 +28,25 @@ IoTKit Studio mengadopsi arsitektur **Paralel Dual-Backend (Node.js & Go)** yang
 - `GET /status/:projectId`: Polling endpoint untuk mengecek status mesin dan statistik (`totalSent`, `successCount`, `errorCount`).
 
 ### 5. Log & Analytics Service (`/api/logs`)
-- `GET /`: Mengambil *history logs* proyek (dilengkapi filter limit dan pencarian).
-- `DELETE /`: Menghapus seluruh log proyek.
+- `GET /`: Mengambil *history logs* global (dilengkapi filter limit dan pencarian).
+- `GET /project/:projectId`: Mengambil riwayat log aktivitas khusus untuk proyek tertentu (digunakan untuk visualisasi analitik detail proyek).
+- `DELETE /`: Menghapus seluruh log global proyek.
+- `DELETE /project/:projectId/clear`: Menghapus secara permanen seluruh riwayat log yang terkait dengan proyek tertentu (termasuk log webhook).
 
-### 6. AI Agent Service (`/api/ai-agent`)
+### 6. Dataset Service (`/api/datasets`)
+- `POST /upload`: Mengunggah file dataset CSV terstruktur berbasis payload JSON mentah.
+- `GET /`: Mengambil daftar seluruh dataset yang tersedia di sistem.
+- `PUT /:id/name`: Mengubah nama visual/alias dari file dataset terpilih.
+- `DELETE /:id`: Menghapus data dataset fisik dan metadatanya dari sistem.
+
+### 7. AI Agent Service (`/api/ai-agent`)
 - `GET /chat`: Menampilkan daftar sesi *chat* sebelumnya.
 - `POST /chat`: Berkomunikasi dengan *LLM Agent* menggunakan pesan teks. Agent dapat membaca *tool metadata* untuk melangsungkan aksi administratif di backend.
 
-### 7. Webhook & Ingestion Service (`/api/webhook-manage` & `/api/webhook`)
+### 8. Webhook & Ingestion Service (`/api/webhook-manage` & `/api/webhook`)
 - `GET /webhook-manage/info/:projectId` (Auth required): Mengambil detail konfigurasi webhook aktif dan token proyek.
-- `POST /webhook-manage/generate/:projectId` (Auth required): Menghasilkan token UUID baru acak untuk mengaktifkan listener webhook unik proyek.
-- `DELETE /webhook-manage/clear/:projectId` (Auth required): Menghapus token dan menonaktifkan endpoint listener webhook proyek.
+- `POST /webhook-manage/generate/:projectId` (Auth required): Selalu menghasilkan token UUID baru yang segar (menghapus token lama dari database) untuk mengaktifkan/me-regenerasi listener webhook unik proyek.
+- `DELETE /webhook-manage/clear/:projectId` (Auth required): Menonaktifkan endpoint listener webhook proyek (menghapus token aktif), tetapi **tetap mempertahankan** riwayat log masuk yang sudah terekam di database.
 - `GET /webhook-manage/history/:projectId` (Auth required): Mengambil riwayat log request webhook masuk khusus untuk proyek terkait.
 - `ALL /api/webhook/:token` (PUBLIC, Tanpa Auth): Endpoint publik tempat perangkat fisik IoT atau client eksternal mengirim payload data secara real-time.
 
