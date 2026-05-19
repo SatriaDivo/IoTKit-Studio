@@ -1,0 +1,74 @@
+package controllers
+
+import (
+	"github.com/gofiber/fiber/v2"
+
+	"iotkit-studio-go/internal/database"
+)
+
+func GetPayloadsByProject(c *fiber.Ctx) error {
+	projectID := c.Params("projectId")
+
+	var payloads []database.Payload
+	database.DB.Where("\"projectId\" = ?", projectID).Order("\"createdAt\" DESC").Find(&payloads)
+
+	return c.JSON(payloads)
+}
+
+type PayloadInput struct {
+	Name      string `json:"name"`
+	Structure string `json:"structure"`
+	ProjectID string `json:"projectId"`
+}
+
+func CreatePayload(c *fiber.Ctx) error {
+	var input PayloadInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	payload := database.Payload{
+		Name:      input.Name,
+		Structure: input.Structure,
+		ProjectID: input.ProjectID,
+	}
+
+	if err := database.DB.Create(&payload).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to create payload"})
+	}
+
+	return c.Status(201).JSON(payload)
+}
+
+func UpdatePayload(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var payload database.Payload
+	if err := database.DB.First(&payload, "id = ?", id).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Payload not found"})
+	}
+
+	var input PayloadInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	database.DB.Model(&payload).Updates(map[string]interface{}{
+		"name":      input.Name,
+		"structure": input.Structure,
+	})
+
+	database.DB.First(&payload, "id = ?", id)
+	return c.JSON(payload)
+}
+
+func DeletePayload(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	result := database.DB.Delete(&database.Payload{}, "id = ?", id)
+	if result.RowsAffected == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "Payload not found"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Payload deleted"})
+}
