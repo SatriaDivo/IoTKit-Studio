@@ -21,23 +21,49 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
+  # Node.js Express Backend (Commented out - not started by default)
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: iotkit-backend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "4001:4000"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=4000
+  #     - DATABASE_URL=postgresql://iotkit:iotkit123@postgres:5432/iotkit_studio?schema=public
+  #     - JWT_SECRET=your-super-secret-jwt-key-change-this
+  #     - CORS_ORIGIN=http://localhost:3000
+  #   volumes:
+  #     - ./backend:/app
+  #     - /app/node_modules
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - iotkit-network
+
+  # Go Fiber Backend (Primary Active Backend - Exposed on 4000)
+  backend-go:
     build:
-      context: ./backend
+      context: ./backend-go
       dockerfile: Dockerfile
-    container_name: iotkit-backend
+    container_name: iotkit-backend-go
     restart: unless-stopped
     ports:
       - "4000:4000"
     environment:
-      - NODE_ENV=development
       - PORT=4000
-      - DATABASE_URL=postgresql://iotkit:iotkit123@postgres:5432/iotkit_studio?schema=public
-      - JWT_SECRET=your-super-secret-jwt-key-change-this
+      - HOST=0.0.0.0
+      - DATABASE_URL=host=postgres user=iotkit password=iotkit123 dbname=iotkit_studio port=5432 sslmode=disable
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
       - CORS_ORIGIN=http://localhost:3000
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=openai/gpt-oss-120b:free
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - ./backend-go:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,13 +79,13 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:4000
+      - NEXT_PUBLIC_API_URL=http://localhost:4000 # Points to Go Backend on 4000
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
     depends_on:
-      - backend
+      - backend-go
     networks:
       - iotkit-network
 
