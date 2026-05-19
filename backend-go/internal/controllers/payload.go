@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"encoding/json"
+
 	"github.com/gofiber/fiber/v2"
 
 	"iotkit-studio-go/internal/database"
@@ -16,9 +18,9 @@ func GetPayloadsByProject(c *fiber.Ctx) error {
 }
 
 type PayloadInput struct {
-	Name      string `json:"name"`
-	Structure string `json:"structure"`
-	ProjectID string `json:"projectId"`
+	Name      string      `json:"name"`
+	Structure interface{} `json:"structure"`
+	ProjectID string      `json:"projectId"`
 }
 
 func CreatePayload(c *fiber.Ctx) error {
@@ -27,9 +29,21 @@ func CreatePayload(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
+	var structureStr string
+	switch v := input.Structure.(type) {
+	case string:
+		structureStr = v
+	default:
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid payload structure format"})
+		}
+		structureStr = string(bytes)
+	}
+
 	payload := database.Payload{
 		Name:      input.Name,
-		Structure: input.Structure,
+		Structure: structureStr,
 		ProjectID: input.ProjectID,
 	}
 
@@ -53,9 +67,21 @@ func UpdatePayload(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
+	var structureStr string
+	switch v := input.Structure.(type) {
+	case string:
+		structureStr = v
+	default:
+		bytes, err := json.Marshal(v)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid payload structure format"})
+		}
+		structureStr = string(bytes)
+	}
+
 	database.DB.Model(&payload).Updates(map[string]interface{}{
 		"name":      input.Name,
-		"structure": input.Structure,
+		"structure": structureStr,
 	})
 
 	database.DB.First(&payload, "id = ?", id)
