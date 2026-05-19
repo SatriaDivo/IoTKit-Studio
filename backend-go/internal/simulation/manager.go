@@ -619,63 +619,179 @@ func mergeDeep(base, overlay map[string]interface{}) map[string]interface{} {
 	return result
 }
 
+func generateFieldValue(f PayloadField, chaosMode bool, chaosProbability float64, chaosFields []string) interface{} {
+	fieldType := strings.ToLower(f.Type)
+	fieldMode := strings.ToLower(f.Mode)
+
+	switch fieldType {
+	case "string":
+		switch fieldMode {
+		case "static":
+			if f.Value == nil {
+				return ""
+			}
+			return fmt.Sprintf("%v", f.Value)
+		case "timestamp":
+			return time.Now().Format(time.RFC3339)
+		case "random":
+			return fmt.Sprintf("value_%d", rand.Intn(1000000))
+		case "incremental":
+			return fmt.Sprintf("%v_%d", f.Value, rand.Intn(1000000))
+		default:
+			return ""
+		}
+
+	case "number":
+		minV := 0.0
+		maxV := 100.0
+		if f.Min != nil {
+			minV = *f.Min
+		}
+		if f.Max != nil {
+			maxV = *f.Max
+		}
+		
+		var result float64
+		switch fieldMode {
+		case "static":
+			if f.Value != nil {
+				switch typedVal := f.Value.(type) {
+				case float64:
+					result = typedVal
+				case float32:
+					result = float64(typedVal)
+				case int:
+					result = float64(typedVal)
+				case int64:
+					result = float64(typedVal)
+				case string:
+					if pf, err := strconv.ParseFloat(typedVal, 64); err == nil {
+						result = pf
+					}
+				}
+			}
+		case "random":
+			result = minV + rand.Float64()*(maxV-minV)
+		case "incremental":
+			result = minV + rand.Float64()*(maxV-minV)
+		case "timestamp":
+			result = float64(time.Now().UnixMilli())
+		default:
+			result = 0
+		}
+
+		// Chaos Injector: Anomaly Spike (only for random mode fields)
+		isChaosField := len(chaosFields) == 0
+		for _, cf := range chaosFields {
+			if cf == f.Name {
+				isChaosField = true
+				break
+			}
+		}
+		if chaosMode && isChaosField && fieldMode == "random" && rand.Float64()*100 < chaosProbability {
+			spikeFactor := 10.0
+			if rand.Float64() > 0.5 {
+				spikeFactor = -10.0
+			}
+			maxVal := maxV
+			if maxVal == 0 {
+				maxVal = 100.0
+			}
+			result = maxVal * spikeFactor
+		}
+
+		return math.Round(result*100) / 100
+
+	case "boolean":
+		var result bool
+		switch fieldMode {
+		case "static":
+			if f.Value != nil {
+				if valBool, ok := f.Value.(bool); ok {
+					result = valBool
+				} else if valStr, ok := f.Value.(string); ok {
+					result = valStr == "true"
+				}
+			}
+		case "random":
+			result = rand.Float64() > 0.5
+		default:
+			result = false
+		}
+
+		// Chaos Injector: Boolean Inversion (only for random mode fields)
+		isChaosField := len(chaosFields) == 0
+		for _, cf := range chaosFields {
+			if cf == f.Name {
+				isChaosField = true
+				break
+			}
+		}
+		if chaosMode && isChaosField && fieldMode == "random" && rand.Float64()*100 < chaosProbability {
+			result = !result
+		}
+
+		return result
+
+	case "object":
+		if len(f.Children) == 0 {
+			return make(map[string]interface{})
+		}
+		obj := make(map[string]interface{})
+		for _, child := range f.Children {
+			obj[child.Name] = generateFieldValue(child, chaosMode, chaosProbability, chaosFields)
+		}
+		return obj
+
+	case "array":
+		length := 3
+		if f.Value != nil {
+			switch typedLen := f.Value.(type) {
+			case float64:
+				length = int(typedLen)
+			case int:
+				length = typedLen
+			}
+		}
+		arr := make([]interface{}, 0)
+		if len(f.Children) > 0 {
+			for i := 0; i < length; i++ {
+				item := make(map[string]interface{})
+				for _, child := range f.Children {
+					item[child.Name] = generateFieldValue(child, chaosMode, chaosProbability, chaosFields)
+				}
+				arr = append(arr, item)
+			}
+		} else {
+			for i := 0; i < length; i++ {
+				arr = append(arr, i)
+			}
+		}
+		return arr
+
+	default:
+		return nil
+	}
+}
+
 func generatePayload(fields []PayloadField, chaosMode bool, chaosProbability float64, chaosFields []string) map[string]interface{} {
 	result := make(map[string]interface{})
 	for _, f := range fields {
-		if f.Type == "object" && len(f.Children) > 0 {
-			result[f.Name] = generatePayload(f.Children, chaosMode, chaosProbability, chaosFields)
-			continue
-		}
-
-		var val interface{}
-		switch f.Mode {
-		case "static":
-			val = f.Value
-		case "random":
-			minV := 0.0
-			maxV := 100.0
-			if f.Min != nil {
-				minV = *f.Min
-			}
-			if f.Max != nil {
-				maxV = *f.Max
-			}
-			switch f.Type {
-			case "Number":
-				val = math.Round((minV+rand.Float64()*(maxV-minV))*100) / 100
-			case "Boolean":
-				val = rand.Float64() > 0.5
-			default:
-				val = fmt.Sprintf("random_%d", rand.Intn(10000))
-			}
-		case "timestamp":
-			val = time.Now().Format(time.RFC3339)
-		case "incremental":
-			val = time.Now().UnixMilli()
-		default:
-			val = f.Value
-		}
-
-		// Apply chaos
-		if chaosMode && rand.Float64() < chaosProbability {
-			isChaosField := len(chaosFields) == 0
-			for _, cf := range chaosFields {
-				if cf == f.Name {
-					isChaosField = true
-					break
+		val := generateFieldValue(f, chaosMode, chaosProbability, chaosFields)
+		parts := strings.Split(f.Name, ".")
+		current := result
+		for i, part := range parts {
+			if i == len(parts)-1 {
+				current[part] = val
+			} else {
+				if _, ok := current[part]; !ok {
+					current[part] = make(map[string]interface{})
 				}
-			}
-			if isChaosField {
-				switch v := val.(type) {
-				case float64:
-					val = v * (5 + rand.Float64()*10) // spike
-				case bool:
-					val = !v // invert
+				if m, ok := current[part].(map[string]interface{}); ok {
+					current = m
 				}
 			}
 		}
-
-		result[f.Name] = val
 	}
 	return result
 }
