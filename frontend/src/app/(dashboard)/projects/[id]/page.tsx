@@ -68,16 +68,29 @@ export default function ProjectDetailPage() {
     },
   ]);
 
-  const [simulationSettings, setSimulationSettings] = useState({
-    interval: 1000,
-    batchSize: 1,
-    duration: 0,
-    swarmMode: false,
-    swarmCount: 100,
-    stages: [{ duration: 30, target: 100 }], // default k6-like stage
-    chaosMode: false,
-    chaosProbability: 5,
-    chaosFields: [] as string[],
+  const [simulationSettings, setSimulationSettings] = useState(() => {
+    const defaultSettings = {
+      interval: 1000,
+      batchSize: 1,
+      duration: 0,
+      swarmMode: false,
+      swarmCount: 100,
+      stages: [{ duration: 30, target: 100 }], // default k6-like stage
+      chaosMode: false,
+      chaosProbability: 5,
+      chaosFields: [] as string[],
+    };
+
+    if (typeof window !== "undefined") {
+      // params.id is available from useParams() synchronously
+      const saved = localStorage.getItem(`simSettings_${params?.id}`);
+      if (saved) {
+        try {
+          return { ...defaultSettings, ...JSON.parse(saved) };
+        } catch (e) {}
+      }
+    }
+    return defaultSettings;
   });
 
   // Ref-based interval — immune to stale closures
@@ -114,6 +127,14 @@ export default function ProjectDetailPage() {
   };
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
+
+  // Save simulation settings to localStorage
+
+  useEffect(() => {
+    if (params.id && simulationSettings) {
+      localStorage.setItem(`simSettings_${params.id}`, JSON.stringify(simulationSettings));
+    }
+  }, [simulationSettings, params.id]);
 
   useEffect(() => {
     const id = params.id as string;
@@ -379,6 +400,7 @@ export default function ProjectDetailPage() {
     try {
       const structure = useDataset
         ? [
+            ...(Array.isArray(payloadFields) ? payloadFields : []),
             {
               name: "__dataset_mode__",
               type: "string",
@@ -946,7 +968,7 @@ export default function ProjectDetailPage() {
                   <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
                     <h3 className="font-medium text-blue-900 mb-1">Dataset Playback Mode</h3>
                     <p className="text-sm text-blue-700">
-                      In this mode, the simulation will ignore the payload builder and instead read your selected CSV dataset row by row, sending each row as a JSON object.
+                      In this mode, the simulation will read your selected CSV dataset row by row, sending each row as a JSON object.
                     </p>
                   </div>
                   <div className="space-y-2">
@@ -1123,33 +1145,35 @@ export default function ProjectDetailPage() {
                       </div>
                     ))}
                   </div>
-                  <div className="border-t pt-3">
-                    <h4 className="text-xs font-semibold mb-2">
-                      JSON Preview:
-                    </h4>
-                    <pre className="bg-muted p-2 rounded-md text-xs overflow-x-auto max-h-[120px] overflow-y-auto">
-                      {JSON.stringify(
-                        payloadFields.reduce(
-                          (acc, f) => {
-                            acc[f.name] =
-                              f.mode === "static"
-                                ? f.value
-                                : f.mode === "random" && f.type === "number"
-                                  ? `<random ${f.min}-${f.max}>`
-                                  : f.mode === "incremental"
-                                    ? "<incremental>"
-                                    : f.mode === "timestamp"
-                                      ? "<timestamp>"
-                                      : `<${f.mode}>`;
-                            return acc;
-                          },
-                          {} as Record<string, any>,
-                        ),
-                        null,
-                        2,
-                      )}
-                    </pre>
-                  </div>
+                  {!useDataset && (
+                    <div className="border-t pt-3">
+                      <h4 className="text-xs font-semibold mb-2">
+                        JSON Preview:
+                      </h4>
+                      <pre className="bg-muted p-2 rounded-md text-xs overflow-x-auto max-h-[120px] overflow-y-auto">
+                        {JSON.stringify(
+                          payloadFields.reduce(
+                            (acc, f) => {
+                              acc[f.name] =
+                                f.mode === "static"
+                                  ? f.value
+                                  : f.mode === "random" && f.type === "number"
+                                    ? `<random ${f.min}-${f.max}>`
+                                    : f.mode === "incremental"
+                                      ? "<incremental>"
+                                      : f.mode === "timestamp"
+                                        ? "<timestamp>"
+                                        : `<${f.mode}>`;
+                              return acc;
+                            },
+                            {} as Record<string, any>,
+                          ),
+                          null,
+                          2,
+                        )}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

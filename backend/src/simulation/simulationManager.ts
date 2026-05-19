@@ -246,32 +246,39 @@ export class SimulationManager extends EventEmitter {
     for (let i = 0; i < config.batchSize; i++) {
       let payload: any;
       
+      // Generate base payload (evaluates static, random, timestamps, etc.)
+      const actualStructure = config.payloadStructure.filter(f => f.name !== '__dataset_mode__');
+      let basePayload = actualStructure.length > 0 ? generator.generatePayload(actualStructure) : {};
+      
       if (datasetState) {
         if (datasetState.rows.length === 0) return;
         if (datasetState.currentIndex >= datasetState.rows.length) {
           datasetState.currentIndex = 0;
         }
-        payload = datasetState.rows[datasetState.currentIndex++];
-      } else {
-        payload = generator.generatePayload(config.payloadStructure);
+        const rowPayload = datasetState.rows[datasetState.currentIndex++];
         
-        // Inject VU ID if swarmMode
-        if (config.swarmMode) {
-          const injectSwarmId = (obj: any) => {
-            if (!obj || typeof obj !== 'object') return;
-            for (const key in obj) {
-              if (key.toLowerCase() === 'device_id' || key.toLowerCase() === 'deviceid' || key.toLowerCase() === 'id') {
-                if (typeof obj[key] === 'string') {
-                  obj[key] = `${obj[key]}-VU-${vuId}`;
-                }
-              } else if (typeof obj[key] === 'object') {
-                injectSwarmId(obj[key]);
+        // Merge base generated payload with dataset row
+        payload = { ...basePayload, ...rowPayload };
+      } else {
+        payload = basePayload;
+      }
+      
+      // Inject VU ID if swarmMode
+      if (config.swarmMode) {
+        const injectSwarmId = (obj: any) => {
+          if (!obj || typeof obj !== 'object') return;
+          for (const key in obj) {
+            if (key.toLowerCase() === 'device_id' || key.toLowerCase() === 'deviceid' || key.toLowerCase() === 'id') {
+              if (typeof obj[key] === 'string') {
+                obj[key] = `${obj[key]}-VU-${vuId}`;
               }
+            } else if (typeof obj[key] === 'object') {
+              injectSwarmId(obj[key]);
             }
-          };
-          payload = JSON.parse(JSON.stringify(payload));
-          injectSwarmId(payload);
-        }
+          }
+        };
+        payload = JSON.parse(JSON.stringify(payload));
+        injectSwarmId(payload);
       }
 
       try {
