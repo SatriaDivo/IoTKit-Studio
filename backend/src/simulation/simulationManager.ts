@@ -90,15 +90,17 @@ export class SimulationManager extends EventEmitter {
     }
 
     let datasetState = undefined;
-    if (config.payloadStructure && config.payloadStructure.length === 1 && config.payloadStructure[0].name === "__dataset_mode__") {
-      const datasetId = config.payloadStructure[0].value;
+    const datasetModeField = config.payloadStructure?.find(f => f.name === "__dataset_mode__");
+    
+    if (datasetModeField) {
+      const datasetId = datasetModeField.value;
       const dataset = await prisma.dataset.findUnique({ where: { id: datasetId } });
       
       if (!dataset || !fs.existsSync(dataset.filePath)) {
         throw new Error("Dataset not found or file missing");
       }
 
-      const rows: any[] = [];
+      let rows: any[] = [];
       await new Promise((resolve, reject) => {
         fs.createReadStream(dataset.filePath)
           .pipe(csvParser())
@@ -106,6 +108,16 @@ export class SimulationManager extends EventEmitter {
           .on("end", resolve)
           .on("error", reject);
       });
+
+      // Filter dataset by device_id if explicitly set to Static in the configuration
+      const deviceIdField = config.payloadStructure?.find(f => (f.name === 'device_id' || f.name === 'deviceId') && f.mode === 'static');
+      if (deviceIdField && deviceIdField.value) {
+        const filteredRows = rows.filter(r => r.device_id === deviceIdField.value || r.deviceId === deviceIdField.value);
+        if (filteredRows.length > 0) {
+          rows = filteredRows;
+        }
+      }
+
       datasetState = { rows, currentIndex: 0 };
     }
 
@@ -257,8 +269,40 @@ export class SimulationManager extends EventEmitter {
         }
         const rowPayload = datasetState.rows[datasetState.currentIndex++];
         
-        // Merge base generated payload with dataset row
-        payload = { ...basePayload, ...rowPayload };
+        // Un-flatten dataset row so "location.latitude" becomes { location: { latitude: ... } }
+        const unflattenedRow: any = {};
+        for (const [flatKey, val] of Object.entries(rowPayload)) {
+          let parsedVal: any = val;
+          if (typeof val === 'string') {
+            if (!isNaN(Number(val)) && val.trim() !== '') parsedVal = Number(val);
+            else if (val.toLowerCase() === 'true') parsedVal = true;
+            else if (val.toLowerCase() === 'false') parsedVal = false;
+          }
+
+          const keys = flatKey.split('.');
+          let current = unflattenedRow;
+          for (let k = 0; k < keys.length - 1; k++) {
+            const key = keys[k];
+            if (!current[key] || typeof current[key] !== 'object') {
+              current[key] = {};
+            }
+            current = current[key];
+          }
+          current[keys[keys.length - 1]] = parsedVal;
+        }
+        
+        // Deep merge unflattenedRow into basePayload
+        const mergeDeep = (target: any, source: any) => {
+          for (const key in source) {
+            if (source[key] instanceof Object && !Array.isArray(source[key]) && key in target) {
+              Object.assign(source[key], mergeDeep(target[key], source[key]));
+            }
+          }
+          Object.assign(target || {}, source);
+          return target;
+        };
+        
+        payload = mergeDeep(JSON.parse(JSON.stringify(basePayload)), unflattenedRow);
       } else {
         payload = basePayload;
       }

@@ -216,7 +216,12 @@ export default function ProjectDetailPage() {
     api
       .get("/datasets")
       .then(({ data }) => {
-        setDatasets(data.datasets || []);
+        const loadedDatasets = data.datasets || [];
+        setDatasets(loadedDatasets);
+        setSelectedDatasetId((prev) => {
+          if (prev && !loadedDatasets.find((x: any) => x.id === prev)) return "";
+          return prev;
+        });
       })
       .catch(() => {});
 
@@ -424,7 +429,7 @@ export default function ProjectDetailPage() {
     try {
       const structure = useDataset
         ? [
-            ...(Array.isArray(payloadFields) ? payloadFields : []),
+            ...(Array.isArray(payloadFields) ? payloadFields.filter(f => f.mode === "static") : []),
             {
               name: "__dataset_mode__",
               type: "string",
