@@ -1,62 +1,48 @@
-# Future Features (Advanced Simulation & Monitoring Capabilities)
+# Future Features & Industrial IoT Roadmap
 
-Mengingat **IoTKit-Studio** dirancang sebagai platform simulasi IoT sekelas industri (*Industrial IoT Simulation Platform*), fondasi utamanya saat ini sudah sangat solid (meliputi *Payload Builder*, multi-protokol, analitik, agen AI, dan penangkap data luar). 
+Mengingat **IoTKit-Studio** dirancang sebagai platform simulasi IoT sekelas industri (*Industrial IoT Simulation Platform*), seluruh fitur inti dari fase sebelumnya (seperti *Payload Builder*, Swarm Mode, Webhook Listener, Chaos Injector, Dataset Replay, MQTT Inspector, Dynamic Auth, Webhook Schema Mapper, dan Exportable PDF Reports) kini telah **100% selesai diimplementasikan**.
 
-Berikut adalah daftar fitur tingkat lanjut (*advanced features*) yang direkomendasikan untuk pengembangan di masa depan guna meningkatkan skalabilitas, nilai komersial, dan kegunaan platform ini:
+Berikut adalah daftar **Fitur Tingkat Lanjut Baru (Next-Gen Industrial Features)** yang direncanakan untuk pengembangan di masa depan guna meningkatkan skalabilitas, nilai komersial, keamanan, dan kegunaan platform ini:
 
 ---
 
-## 📊 Tabel Analisis Prioritas & Rekomendasi Roadmap
+## 📊 Tabel Analisis Prioritas & Rekomendasi Roadmap Baru
 
-Berikut adalah rasio nilai kegunaan industri, tingkat kesulitan pengembangan (*effort*), keselarasan visi, dan status penyelesaian fitur di IoTKit-Studio:
+Berikut adalah rasio nilai kegunaan industri, tingkat kesulitan pengembangan (*effort*), keselarasan visi, dan status penyelesaian fitur generasi berikutnya di IoTKit-Studio:
 
 | Prioritas | Nama Fitur | Kompleksitas (*Effort*) | Nilai Jual (*Impact*) | Persentase Rekomendasi | Alasan Utama Mengapa Ini Penting | Status |
 | :---: | :--- | :---: | :---: | :---: | :--- | :---: |
-| **1** | 🚨 **Alert & Rule Engine** | Sedang | Sangat Tinggi | **95%** | Mendeteksi anomali/threshold secara mandiri dan memicu notifikasi real-time tanpa bergantung pada server luar. | 📅 *Roadmap* |
-| **2** | 🎛️ **Embedded MQTT Inspector** | Sedang | Tinggi | **88%** | Bertindak sebagai MQTT Explorer internal untuk berlangganan dan memantau lalu lintas topik broker dari dasbor. | 📅 *Roadmap* |
-| **3** | 🔐 **Dynamic Auth & Headers** | Mudah | Tinggi | **85%** | Injeksi token otentikasi JWT/API Key dinamis dengan auto-refresh untuk simulasi non-stop 24/7 di server aman. | 📅 *Roadmap* |
-| **4** | 🗺️ **Webhook Schema Mapper** | Sedang | Tinggi | **82%** | Memetakan field payload webhook luar ke variabel internal IoTKit untuk divisualisasikan langsung pada chart. | 📅 *Roadmap* |
-| **5** | 📊 **Exportable PDF Reports** | Mudah | Tinggi | **80%** | Ekspor seluruh visualisasi chart, latensi, dan statistik simulasi ke PDF laporan profesional berstempel industri. | 📅 *Roadmap* |
-| **6** | 🌙 **Gorgeous Dark Mode** | Mudah | Tinggi | **78%** | Transisi UI estetika Stormy Morning ke nuansa stasiun ruang kontrol neon gelap malam hari. | 📅 *Roadmap* |
-| **-** | 🌪️ **Chaos / Anomaly Injector** | Sedang | Tinggi | **100%** | Memanipulasi payload angka ekstrim (10x lipat) & membalik boolean acak untuk edge-case testing. | **✓ SELESAI** |
-| **-** | 🪝 **Webhook Listener** | Tinggi | Sedang | **100%** | Endpoint publik unik per-proyek dengan penanggap data luar, multi-shell tab (PS, curl, py) & log real-time. | **✓ SELESAI** |
-| **-** | 🚀 **Dataset Replay (Data Historis)** | Sedang | Sangat Tinggi | **100%** | Memutar kembali data historis riil (CSV) dengan streaming memory-efficient dan filtrasi device_id. | **✓ SELESAI** |
-| **-** | 🐝 **Swarm Mode (Load Testing)** | Mudah - Sedang | Sangat Tinggi | **100%** | Goroutine-based VU simulation untuk load/stress testing hingga ribuan perangkat secara paralel. | **✓ SELESAI** |
+| **1** | 🤖 **Edge AI Model Co-Processor** | Tinggi | Sangat Tinggi | **93%** | Memungkinkan deployment model ML ringan (TensorFlow Lite/ONNX) langsung di sisi virtual edge untuk deteksi anomali mandiri. | 📅 *Roadmap* |
+| **2** | 👓 **Digital Twin 3D Dashboard** | Tinggi | Sangat Tinggi | **91%** | Integrasi visualisasi WebGL 3D (Three.js) model mesin/pabrik fisik yang bergerak dinamis mengikuti data payload sensor. | 📅 *Roadmap* |
+| **3** | 📡 **QoS & Network Latency Simulator** | Sedang | Tinggi | **88%** | Mensimulasikan loss rate paket (up to 50%), jitter, dan bandwidth throttling untuk menguji ketahanan di jaringan buruk. | 📅 *Roadmap* |
+| **4** | 🎚️ **SCADA HMI Panel Builder** | Sedang | Tinggi | **87%** | Kanvas drag-and-drop kontrol industri kustom (analog dial, slide katup, emergency switch) untuk memanipulasi simulasi. | 📅 *Roadmap* |
+| **5** | 🏦 **IIoT Blockchain Ledger** | Sedang - Tinggi | Sedang | **84%** | Penjangkaran (*anchoring*) otomatis hash payload sensor ke Blockchain terdistribusi (Hyperledger) untuk kebutuhan audit & integritas data. | 📅 *Roadmap* |
 
 ---
 
 ## 🔍 Penjelasan Detail Rekomendasi Fitur Baru
 
-### 1. Alert & Rule Engine (Sistem Peringatan Mandiri)
-Memungkinkan pengguna mendefinisikan aturan ambang batas sensor langsung di IoTKit-Studio.
-*   **Logika Aturan:** Contoh: `Jika variabel "temperature" > 85` atau `Jika "valve_status" === false`.
-*   **Pemicu:** Sistem akan memantau payload simulasi dan data masuk dari webhook. Begitu aturan terlanggar, platform langsung membunyikan sirine halus dan menyuntikkan *Alert Notification* ke header bell.
+### 1. Edge AI Model Co-Processor (TFLite/ONNX Edge Virtual)
+Memungkinkan simulasi kecerdasan buatan langsung di sisi pemrosesan lokal sebelum dikirim ke pusat data.
+*   **Model Deployment:** Unggah model ML terekspor (.tflite atau .onnx) langsung ke virtual edge device di IoTKit-Studio.
+*   **Edge Inference:** Simulator akan mengevaluasi payload data mentah sensor ke model ML tersebut untuk mendeteksi anomali bentuk gelombang secara lokal (*edge computing inference*) dan menyematkan hasil diagnosis ke dalam metadata payload keluar.
 
-### 2. Dataset Replay (Playback Data Historis)
-Selain menggunakan generator dinamis, pengguna dapat mengunggah berkas `CSV` atau `JSON` data lapangan nyata.
-*   **Replay:** IoTKit-Studio memutar ulang baris-baris data tersebut ke endpoint target.
-*   **Speed Control:** Kontrol kecepatan putar ulang (misalnya *10x speed* atau *100x speed*) untuk merampungkan simulasi log data bulanan dalam beberapa menit.
+### 2. Digital Twin 3D Dashboard Integration (Three.js WebGL Viewer)
+Menghubungkan visualisasi data sensor langsung ke representasi aset fisik 3 dimensi.
+*   **3D Assets Loading:** Pengguna dapat mengunggah model 3D (CAD/glTF/GLB) dari aset industri (seperti pompa hidrolik, lengan robotik pabrik, turbin angin, atau pipa kilang).
+*   **Dynamic Animation:** Model 3D akan berputar, berosilasi, berguncang, atau berubah gradasi warnanya secara *real-time* di dasbor mengikuti perubahan angka frekuensi getaran, temperatur, atau tekanan sensor tiruan.
 
-### 3. Swarm Mode (Stress Testing Pararel)
-Membantu IoT Engineer menguji kapasitas tampung server mereka di bawah beban stres tinggi.
-*   **Load Simulation:** Mensimulasikan `N` perangkat (misal: 500 node sensor) mengirimkan data secara simultan ke broker MQTT atau HTTP REST server dengan UUID acak.
+### 3. QoS & Network Latency Simulator (Link Loss & Bandwidth Throttling)
+Membantu simulasi IoT dalam skenario lapangan dengan koneksi seluler/satelit yang buruk dan tidak menentu.
+*   **Dynamic Jitter & Latency:** Menyuntikkan delay dinamis pada pengiriman paket untuk memantau performa penanganan antrean target API.
+*   **Packet Loss Rate:** Mensimulasikan kegagalan kirim paket data acak hingga persentase tertentu (misal 10% - 50% packet drop) untuk menguji keandalan mekanisme *retry/caching* target server.
 
-### 4. Embedded MQTT Inspector (Broker Explorer)
-Menyediakan modul dasbor mirip *MQTT Explorer* untuk mempermudah debugging antrean topik broker luar.
-*   **Topic Subscription:** Berlangganan ke topik wildcard (`device/+/status`) eksternal dan menampilkan visualisasi paket data masuk yang mengalir di broker target.
+### 4. SCADA HMI Panel Builder (Industrial Drag & Drop Controls)
+Memberikan kendali visual langsung yang interaktif bagi operator simulasi.
+*   **HMI Components:** Kanvas kustom yang berisi widget kontrol fisik seperti slider katup aliran (*flow valve slider*), kenop putar manual (*rotary encoder knob*), tombol darurat (*emergency stop switch*), dan visualisator tingkat cairan tangki.
+*   **Simulation Interactivity:** Operator dapat menggeser slider atau menekan tombol darurat tersebut untuk menyuntikkan perintah kontrol langsung ke payload simulasi yang sedang berjalan.
 
-### 5. Dynamic Auth & Header Injection
-Mendukung otentikasi REST API modern berkeamanan tinggi.
-*   **Auto-Refresh Token:** Melakukan refresh token OAuth / Bearer JWT secara berkala ke API auth pelanggan agar simulator dapat terus berjalan non-stop tanpa terputus masalah token kedaluwarsa.
-
-### 6. Webhook Schema Mapper
-Membuat data masuk dari webhook eksternal menjadi dinamis dan bermakna.
-*   **Mapping:** Memetakan field kustom seperti `temp_celcius` dari webhook pihak ketiga ke variabel internal proyek (`temperature`) agar bisa disalurkan ke mesin visualisasi chart dasbor utama.
-
-### 7. Exportable PDF Reports
-Membantu audit performa server dan presentasi laporan sensor fisik.
-*   **PDF Compiler:** Mengunduh ringkasan statis statistik simulasi, persentase keandalan koneksi, rata-rata latensi, dan gambar grafik Recharts menjadi file PDF berstempel kontrol panel resmi yang menawan.
-
-### 8. Gorgeous Dark Mode
-Membawa estetika kontrol stasiun ruang kemudi malam hari.
-*   **UI Transition:** Beralih ke skema warna abu-abu arang pekat industrial dengan pendar lampu neon biru es (`#BDDDFC`) dan merah alarm yang tajam agar tidak melelahkan mata saat pengujian simulator dalam durasi lama.
+### 5. IIoT Blockchain Ledger Integration (Integritas Data Tak Terbantahkan)
+Menjamin keaslian dan keabsahan rekaman riwayat simulasi untuk keperluan audit kepatuhan industri.
+*   **Telemetry Anchoring:** Secara berkala, platform akan menghitung hash kriptografis dari kumpulan log payload simulasi dan mencatatnya ke dalam buku besar Blockchain terdistribusi (seperti Hyperledger Fabric atau Ethereum Mainnet).
+*   **Audit Verification:** Pengguna luar dapat memverifikasi bahwa log data yang diekspor di masa depan belum pernah dimanipulasi atau diubah setelah simulasi selesai dijalankan.
