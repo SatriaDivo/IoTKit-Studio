@@ -3,10 +3,10 @@ package controllers
 import (
 	"crypto/sha256"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -18,67 +18,73 @@ import (
 func GetDatasets(c *fiber.Ctx) error {
 	var datasets []database.Dataset
 	database.DB.Order("\"createdAt\" DESC").Find(&datasets)
-	return c.JSON(datasets)
+	return c.JSON(fiber.Map{"datasets": datasets})
 }
 
 func UploadDataset(c *fiber.Ctx) error {
-	file, err := c.FormFile("file")
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "No file uploaded"})
+	// Frontend sends JSON body: { fileName, moduleName, content, name }
+	var body struct {
+		FileName   string `json:"fileName"`
+		ModuleName string `json:"moduleName"`
+		Content    string `json:"content"`
+		Name       string `json:"name"`
 	}
 
-	name := c.FormValue("name", file.Filename)
-	moduleName := c.FormValue("moduleName", "custom")
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
 
-	// Generate unique filename
-	ext := filepath.Ext(file.Filename)
-	newFileName := uuid.New().String() + ext
+	if body.FileName == "" || body.ModuleName == "" || body.Content == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "fileName, moduleName, and content are required"})
+	}
+
+	finalName := body.FileName
+	if body.Name != "" && strings.TrimSpace(body.Name) != "" {
+		finalName = strings.TrimSpace(body.Name)
+	}
+
+	// Calculate SHA256 checksum
+	h := sha256.New()
+	h.Write([]byte(body.Content))
+	checksum := fmt.Sprintf("%x", h.Sum(nil))
+
+	// Count rows (lines minus header)
+	lines := strings.Split(body.Content, "\n")
+	nonEmpty := 0
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			nonEmpty++
+		}
+	}
+	loadedRows := 0
+	if nonEmpty > 1 {
+		loadedRows = nonEmpty - 1 // subtract header
+	}
+
+	fileSizeBytes := int64(len(body.Content))
+
+	// Write file to disk
+	fileID := uuid.New().String()
 	uploadDir := config.AppConfig.UploadDir
 	os.MkdirAll(uploadDir, 0755)
-	destPath := filepath.Join(uploadDir, newFileName)
+	destPath := filepath.Join(uploadDir, fileID+".csv")
 
-	// Save file
-	if err := c.SaveFile(file, destPath); err != nil {
+	if err := os.WriteFile(destPath, []byte(body.Content), 0644); err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to save file"})
 	}
 
-	// Calculate checksum
-	f, _ := os.Open(destPath)
-	defer f.Close()
-	h := sha256.New()
-	io.Copy(h, f)
-	checksum := fmt.Sprintf("%x", h.Sum(nil))
-
-	// Count rows
-	f.Seek(0, 0)
-	rowCount := 0
-	buf := make([]byte, 32*1024)
-	for {
-		n, err := f.Read(buf)
-		for i := 0; i < n; i++ {
-			if buf[i] == '\n' {
-				rowCount++
-			}
-		}
-		if err != nil {
-			break
-		}
-	}
-	if rowCount > 0 {
-		rowCount-- // subtract header
-	}
-
-	relPath := filepath.Join("uploads/datasets", newFileName)
+	relPath := fmt.Sprintf("uploads/datasets/%s.csv", fileID)
 
 	dataset := database.Dataset{
-		Name:             name,
-		ModuleName:       moduleName,
-		FileName:         file.Filename,
+		Name:             finalName,
+		ModuleName:       body.ModuleName,
+		FileName:         body.FileName,
 		FilePath:         destPath,
 		FilePathRelative: &relPath,
-		FileSizeBytes:    file.Size,
+		FileSizeBytes:    fileSizeBytes,
 		ChecksumSha256:   checksum,
-		LoadedRows:       rowCount,
+		LoadedRows:       loadedRows,
+		IsActive:         true,
 	}
 
 	if err := database.DB.Create(&dataset).Error; err != nil {
@@ -86,7 +92,10 @@ func UploadDataset(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to save dataset record"})
 	}
 
-	return c.Status(201).JSON(dataset)
+	return c.Status(201).JSON(fiber.Map{
+		"dataset": dataset,
+		"message": "Dataset uploaded successfully",
+	})
 }
 
 func DeleteDataset(c *fiber.Ctx) error {
@@ -100,7 +109,34 @@ func DeleteDataset(c *fiber.Ctx) error {
 	os.Remove(dataset.FilePath)
 	database.DB.Delete(&dataset)
 
-	return c.JSON(fiber.Map{"message": "Dataset deleted"})
+	return c.JSON(fiber.Map{"message": "Dataset deleted successfully"})
+}
+
+func UpdateDatasetName(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	if body.Name == "" || strings.TrimSpace(body.Name) == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Name is required"})
+	}
+
+	var dataset database.Dataset
+	if err := database.DB.First(&dataset, "id = ?", id).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Dataset not found"})
+	}
+
+	database.DB.Model(&dataset).Update("name", strings.TrimSpace(body.Name))
+
+	return c.JSON(fiber.Map{
+		"dataset": dataset,
+		"message": "Dataset renamed successfully",
+	})
 }
 
 func GetDatasetPreview(c *fiber.Ctx) error {
@@ -112,51 +148,18 @@ func GetDatasetPreview(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Dataset not found"})
 	}
 
-	f, err := os.Open(dataset.FilePath)
+	data, err := os.ReadFile(dataset.FilePath)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to open file"})
 	}
-	defer f.Close()
 
-	// Read limited lines
-	var lines []string
-	buf := make([]byte, 0, 64*1024)
-	remaining := make([]byte, 0)
-	readBuf := make([]byte, 4096)
-	lineCount := 0
-
-	for lineCount <= limit {
-		n, err := f.Read(readBuf)
-		if n > 0 {
-			remaining = append(remaining, readBuf[:n]...)
-			for {
-				idx := -1
-				for i, b := range remaining {
-					if b == '\n' {
-						idx = i
-						break
-					}
-				}
-				if idx == -1 {
-					break
-				}
-				line := string(remaining[:idx])
-				remaining = remaining[idx+1:]
-				lines = append(lines, line)
-				lineCount++
-				if lineCount > limit {
-					break
-				}
-			}
-		}
-		if err != nil {
-			if len(remaining) > 0 {
-				lines = append(lines, string(remaining))
-			}
-			break
-		}
+	allLines := strings.Split(string(data), "\n")
+	maxLines := limit + 1 // include header
+	if maxLines > len(allLines) {
+		maxLines = len(allLines)
 	}
-	_ = buf
+
+	lines := allLines[:maxLines]
 
 	return c.JSON(fiber.Map{
 		"rows":      lines,

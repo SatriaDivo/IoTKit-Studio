@@ -42,6 +42,7 @@ func Setup(app *fiber.App) {
 	datasets.Get("/", controllers.GetDatasets)
 	datasets.Post("/upload", controllers.UploadDataset)
 	datasets.Get("/:id/preview", controllers.GetDatasetPreview)
+	datasets.Put("/:id/name", controllers.UpdateDatasetName)
 	datasets.Delete("/:id", controllers.DeleteDataset)
 
 	// Logs
