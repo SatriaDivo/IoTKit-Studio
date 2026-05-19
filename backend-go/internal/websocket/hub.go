@@ -4,10 +4,34 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 )
+
+type ActiveInspector struct {
+	Client mqtt.Client
+	Conn   *websocket.Conn
+	ConnMu *sync.Mutex
+}
+
+var inspectorClients = make(map[*websocket.Conn]*ActiveInspector)
+var inspectorClientsMu sync.Mutex
+
+func sendEvent(conn *websocket.Conn, connMu *sync.Mutex, event string, data interface{}) {
+	msg, err := json.Marshal(map[string]interface{}{
+		"event": event,
+		"data":  data,
+	})
+	if err != nil {
+		return
+	}
+	connMu.Lock()
+	defer connMu.Unlock()
+	_ = conn.WriteMessage(1, msg)
+}
 
 // Hub manages WebSocket connections and broadcasting
 type Hub struct {
@@ -95,8 +119,21 @@ func SetupWebSocket(app *fiber.App) {
 	})
 
 	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
+		connMu := &sync.Mutex{}
+
 		defer func() {
 			HubInstance.UnsubscribeAll(c)
+			
+			// Clean up any active inspector client associated with this connection
+			inspectorClientsMu.Lock()
+			if active, exists := inspectorClients[c]; exists {
+				if active.Client != nil && active.Client.IsConnected() {
+					active.Client.Disconnect(250)
+				}
+				delete(inspectorClients, c)
+			}
+			inspectorClientsMu.Unlock()
+
 			c.Close()
 			log.Println("[WS-Hub] Client disconnected")
 		}()
@@ -110,9 +147,16 @@ func SetupWebSocket(app *fiber.App) {
 			}
 
 			var payload struct {
-				Action    string `json:"action"`
-				Room      string `json:"room"`
-				ProjectID string `json:"projectId"`
+				Action    string   `json:"action"`
+				Room      string   `json:"room"`
+				ProjectID string   `json:"projectId"`
+				Broker    string   `json:"broker"`
+				ClientID  string   `json:"clientId"`
+				Username  string   `json:"username"`
+				Password  string   `json:"password"`
+				Topics    []string `json:"topics"`
+				Topic     string   `json:"topic"`
+				Message   string   `json:"message"`
 			}
 
 			if err := json.Unmarshal(msg, &payload); err != nil {
@@ -136,6 +180,105 @@ func SetupWebSocket(app *fiber.App) {
 				if room != "" {
 					HubInstance.Unsubscribe(room, c)
 				}
+
+			case "mqtt_connect":
+				// Disconnect any existing inspector for this connection first
+				inspectorClientsMu.Lock()
+				if active, exists := inspectorClients[c]; exists {
+					if active.Client != nil && active.Client.IsConnected() {
+						active.Client.Disconnect(250)
+					}
+					delete(inspectorClients, c)
+				}
+				inspectorClientsMu.Unlock()
+
+				opts := mqtt.NewClientOptions().
+					AddBroker(payload.Broker).
+					SetClientID(payload.ClientID).
+					SetCleanSession(true).
+					SetConnectTimeout(5 * time.Second)
+
+				if payload.Username != "" {
+					opts.SetUsername(payload.Username)
+				}
+				if payload.Password != "" {
+					opts.SetPassword(payload.Password)
+				}
+
+				client := mqtt.NewClient(opts)
+				token := client.Connect()
+				token.Wait()
+				if token.Error() != nil {
+					sendEvent(c, connMu, "mqtt_error", map[string]string{"message": token.Error().Error()})
+					continue
+				}
+
+				// Subscribe to topics
+				for _, t := range payload.Topics {
+					if t != "" {
+						client.Subscribe(t, 1, func(cli mqtt.Client, msg mqtt.Message) {
+							sendEvent(c, connMu, "mqtt_message", map[string]interface{}{
+								"topic":     msg.Topic(),
+								"payload":   string(msg.Payload()),
+								"qos":       msg.Qos(),
+								"retained":  msg.Retained(),
+								"timestamp": time.Now().Format(time.RFC3339),
+							})
+						})
+					}
+				}
+
+				inspectorClientsMu.Lock()
+				inspectorClients[c] = &ActiveInspector{
+					Client: client,
+					Conn:   c,
+					ConnMu: connMu,
+				}
+				inspectorClientsMu.Unlock()
+
+				sendEvent(c, connMu, "mqtt_connected", map[string]string{"broker": payload.Broker})
+
+			case "mqtt_subscribe":
+				inspectorClientsMu.Lock()
+				active, exists := inspectorClients[c]
+				inspectorClientsMu.Unlock()
+
+				if exists && active.Client != nil && active.Client.IsConnected() {
+					for _, t := range payload.Topics {
+						if t != "" {
+							active.Client.Subscribe(t, 1, func(cli mqtt.Client, msg mqtt.Message) {
+								sendEvent(c, connMu, "mqtt_message", map[string]interface{}{
+									"topic":     msg.Topic(),
+									"payload":   string(msg.Payload()),
+									"qos":       msg.Qos(),
+									"retained":  msg.Retained(),
+									"timestamp": time.Now().Format(time.RFC3339),
+								})
+							})
+						}
+					}
+				}
+
+			case "mqtt_publish":
+				inspectorClientsMu.Lock()
+				active, exists := inspectorClients[c]
+				inspectorClientsMu.Unlock()
+
+				if exists && active.Client != nil && active.Client.IsConnected() {
+					token := active.Client.Publish(payload.Topic, 1, false, []byte(payload.Message))
+					token.Wait()
+				}
+
+			case "mqtt_disconnect":
+				inspectorClientsMu.Lock()
+				if active, exists := inspectorClients[c]; exists {
+					if active.Client != nil && active.Client.IsConnected() {
+						active.Client.Disconnect(250)
+					}
+					delete(inspectorClients, c)
+				}
+				inspectorClientsMu.Unlock()
+				sendEvent(c, connMu, "mqtt_disconnected", nil)
 			}
 		}
 	}))

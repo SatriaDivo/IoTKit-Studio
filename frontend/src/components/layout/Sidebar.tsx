@@ -17,6 +17,7 @@ import {
   Database,
   Webhook,
   AlertTriangle,
+  Radio,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -49,6 +50,7 @@ const navigation: NavGroup[] = [
       { name: "Projects", href: "/projects", icon: FolderKanban },
       { name: "Datasets", href: "/datasets", icon: Database },
       { name: "Webhook", href: "/webhook", icon: Webhook },
+      { name: "MQTT Inspector", href: "/mqtt-inspector", icon: Radio },
       { name: "Alerts", href: "/alerts", icon: AlertTriangle },
       { name: "Logs", href: "/logs", icon: ScrollText },
     ],

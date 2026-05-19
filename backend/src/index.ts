@@ -7,6 +7,7 @@ import { Server } from "socket.io";
 import { errorHandler } from "./middleware/errorHandler";
 import { rateLimiter } from "./middleware/rateLimiter";
 import { Logger } from "./utils/logger";
+import * as mqtt from "mqtt";
 
 // Import services
 import { schedulerManager } from "./services/scheduler";
@@ -73,11 +74,19 @@ app.use("/api/alerts", alertRoutes);
 app.use(errorHandler);
 
 // Socket.IO connection
+// Socket.IO connection
+const inspectorClients = new Map<string, any>();
+
 io.on("connection", (socket) => {
   Logger.info(`Client connected: ${socket.id}`);
 
   socket.on("disconnect", () => {
     Logger.info(`Client disconnected: ${socket.id}`);
+    const client = inspectorClients.get(socket.id);
+    if (client) {
+      client.end(true);
+      inspectorClients.delete(socket.id);
+    }
   });
 
   socket.on("subscribe", (projectId: string) => {
@@ -97,6 +106,87 @@ io.on("connection", (socket) => {
   socket.on("unsubscribe", (projectId: string) => {
     socket.leave(`project:${projectId}`);
     Logger.info(`Client ${socket.id} unsubscribed from project ${projectId}`);
+  });
+
+  // MQTT Inspector listeners
+  socket.on("mqtt-inspector:connect", (config: any) => {
+    // Disconnect any existing inspector for this socket first
+    const existing = inspectorClients.get(socket.id);
+    if (existing) {
+      existing.end(true);
+      inspectorClients.delete(socket.id);
+    }
+
+    try {
+      const { broker, clientId, username, password, topics } = config;
+      
+      const client = mqtt.connect(broker, {
+        clientId: clientId || `iotkit_${Math.random().toString(16).substring(2, 10)}`,
+        username: username || undefined,
+        password: password || undefined,
+        clean: true,
+        connectTimeout: 5000,
+        reconnectPeriod: 0
+      });
+
+      client.on("connect", () => {
+        Logger.info(`[MQTT-Inspector] Connected to ${broker} on socket ${socket.id}`);
+        socket.emit("mqtt-inspector:connected", { broker });
+
+        if (Array.isArray(topics)) {
+          topics.forEach((topic: string) => {
+            if (topic) {
+              client.subscribe(topic, { qos: 1 });
+            }
+          });
+        }
+      });
+
+      client.on("message", (topic, message, packet) => {
+        socket.emit("mqtt-inspector:message", {
+          topic,
+          payload: message.toString(),
+          qos: packet.qos,
+          retained: packet.retain,
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      client.on("error", (err) => {
+        Logger.error(`[MQTT-Inspector] Connection error: ${err.message}`);
+        socket.emit("mqtt-inspector:error", { message: err.message });
+      });
+
+      inspectorClients.set(socket.id, client);
+    } catch (err: any) {
+      socket.emit("mqtt-inspector:error", { message: err.message || "Failed to initiate connection" });
+    }
+  });
+
+  socket.on("mqtt-inspector:subscribe", (topics: string[]) => {
+    const client = inspectorClients.get(socket.id);
+    if (client && client.connected && Array.isArray(topics)) {
+      topics.forEach((topic) => {
+        if (topic) client.subscribe(topic, { qos: 1 });
+      });
+    }
+  });
+
+  socket.on("mqtt-inspector:publish", (data: any) => {
+    const client = inspectorClients.get(socket.id);
+    const { topic, message } = data;
+    if (client && client.connected && topic) {
+      client.publish(topic, message, { qos: 1 });
+    }
+  });
+
+  socket.on("mqtt-inspector:disconnect", () => {
+    const client = inspectorClients.get(socket.id);
+    if (client) {
+      client.end(true);
+      inspectorClients.delete(socket.id);
+    }
+    socket.emit("mqtt-inspector:disconnected");
   });
 });
 
