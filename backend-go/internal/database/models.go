@@ -55,6 +55,7 @@ type Project struct {
 	Payloads       []Payload    `gorm:"foreignKey:ProjectID" json:"payloads,omitempty"`
 	Logs           []Log        `gorm:"foreignKey:ProjectID" json:"logs,omitempty"`
 	Simulations    []Simulation `gorm:"foreignKey:ProjectID" json:"simulations,omitempty"`
+	WebhookMap     *WebhookMap  `gorm:"foreignKey:ProjectID" json:"webhookMap,omitempty"`
 }
 
 func (Project) TableName() string { return "Project" }
@@ -315,5 +316,29 @@ func (rl *RefreshLog) BeforeCreate(tx *gorm.DB) error {
 	if rl.CreatedAt.IsZero() {
 		rl.CreatedAt = time.Now()
 	}
+	return nil
+}
+
+type WebhookMap struct {
+	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
+	ProjectID string    `gorm:"column:projectId;uniqueIndex;not null" json:"projectId"`
+	Project   Project   `gorm:"foreignKey:ProjectID" json:"-"`
+	Mappings  string    `gorm:"not null" json:"mappings"` // JSON string
+	Active    bool      `gorm:"default:true" json:"active"`
+	CreatedAt time.Time `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"column:updatedAt" json:"updatedAt"`
+}
+
+func (WebhookMap) TableName() string { return "WebhookMap" }
+func (wm *WebhookMap) BeforeCreate(tx *gorm.DB) error {
+	if wm.ID == "" {
+		wm.ID = uuid.New().String()
+	}
+	wm.CreatedAt = time.Now()
+	wm.UpdatedAt = time.Now()
+	return nil
+}
+func (wm *WebhookMap) BeforeUpdate(tx *gorm.DB) error {
+	wm.UpdatedAt = time.Now()
 	return nil
 }

@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { io } from "../index";
 import { Logger } from "../utils/logger";
 import { AlertEngine } from "../services/alertEngine";
+import { MappingEngine } from "../services/mappingEngine";
 
 const prisma = new PrismaClient();
 
@@ -114,7 +115,7 @@ export class WebhookController {
       const payloadStr = JSON.stringify(body);
       const byteSize = Buffer.byteLength(payloadStr, "utf8");
 
-      // Save to Log
+      // Save to Log (original incoming webhook payload)
       const log = await prisma.log.create({
         data: {
           type: "webhook",
@@ -127,15 +128,45 @@ export class WebhookController {
         },
       });
 
-      // Evaluate alert rules for incoming webhook payload
-      await AlertEngine.evaluatePayloadRules(project.id, body);
+      // Check for Webhook Map configuration
+      const webhookMap = await prisma.webhookMap.findUnique({
+        where: { projectId: project.id },
+      });
+
+      let targetPayload = body;
+      let isMapped = false;
+
+      if (webhookMap && webhookMap.active && webhookMap.mappings) {
+        const mappedData = MappingEngine.transformPayload(body, webhookMap.mappings);
+        if (mappedData && mappedData !== body) {
+          targetPayload = mappedData;
+          isMapped = true;
+
+          // Save standard response telemetry log for mapped data
+          await prisma.log.create({
+            data: {
+              type: "response",
+              protocol: "HTTP",
+              message: `[Mapped Webhook] Telemetry mapped variables captured`,
+              payload: JSON.stringify(mappedData),
+              statusCode: 200,
+              latency: 0,
+              projectId: project.id,
+            },
+          });
+        }
+      }
+
+      // Evaluate alert rules for incoming webhook payload (using mapped payload if active)
+      await AlertEngine.evaluatePayloadRules(project.id, targetPayload);
 
       // Emit real-time event to dashboard
       io.to(`project:${project.id}`).emit("webhookReceived", {
         projectId: project.id,
         log: {
           ...log,
-          parsedPayload: body,
+          parsedPayload: targetPayload,
+          isMapped,
         },
       });
 
@@ -144,12 +175,13 @@ export class WebhookController {
         projectId: project.id,
         log: {
           ...log,
-          parsedPayload: body,
+          parsedPayload: targetPayload,
+          isMapped,
         },
       });
 
-      Logger.info(`Webhook received for project ${project.id} from ${ip}`);
-      res.status(200).json({ received: true, timestamp: log.timestamp });
+      Logger.info(`Webhook received for project ${project.id} from ${ip} ${isMapped ? '(Mapped)' : ''}`);
+      res.status(200).json({ received: true, timestamp: log.timestamp, mapped: isMapped });
     } catch (error: any) {
       Logger.error("Webhook receive error:", error);
       res.status(500).json({ error: error.message });

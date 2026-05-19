@@ -49,8 +49,8 @@ func Connect() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// AutoMigrate new AlertRule and AlertLog tables
-	err = DB.AutoMigrate(&AlertRule{}, &AlertLog{})
+	// AutoMigrate new AlertRule, AlertLog and WebhookMap tables
+	err = DB.AutoMigrate(&AlertRule{}, &AlertLog{}, &WebhookMap{})
 	if err != nil {
 		log.Printf("Failed to run GORM auto-migration for Alert tables: %v", err)
 	}

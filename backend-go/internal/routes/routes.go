@@ -84,6 +84,9 @@ func Setup(app *fiber.App) {
 	webhookManage.Delete("/clear/:projectId", controllers.WebhookClear)
 	webhookManage.Get("/history/:projectId", controllers.WebhookGetHistory)
 	webhookManage.Get("/info/:projectId", controllers.WebhookGetInfo)
+	webhookManage.Get("/mapping/:projectId", controllers.WebhookGetMapping)
+	webhookManage.Post("/mapping/:projectId", controllers.WebhookSaveMapping)
+	webhookManage.Delete("/mapping/:projectId", controllers.WebhookDeleteMapping)
 
 	// AI Agent (auth required)
 	aiAgent := protected.Group("/ai-agent")

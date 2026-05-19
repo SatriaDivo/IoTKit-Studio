@@ -47,6 +47,7 @@ model Project {
   alertRules      AlertRule[]
   alertLogs       AlertLog[]
   authConfig      AuthConfig?
+  webhookMap      WebhookMap?
 }
 
 model Payload {
@@ -235,4 +236,14 @@ model RefreshLog {
   createdAt       DateTime   @default(now())
   
   @@index([authConfigId, createdAt])
+}
+
+model WebhookMap {
+  id          String   @id @default(uuid())
+  projectId   String   @unique
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mappings    String   // JSON string of array of: { externalPath: string, internalKey: string, dataType: string }
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
