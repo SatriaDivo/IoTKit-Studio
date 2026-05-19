@@ -366,6 +366,11 @@ func (m *SimulationManager) executeIteration(projectID string, vuID int) {
 			injectSwarmID(payload, vuID)
 		}
 
+		orderedPayload := OrderedPayload{
+			Payload: payload,
+			Fields:  actualFields,
+		}
+
 		// Send via protocol
 		reqStart := time.Now()
 		var statusCode int
@@ -376,20 +381,20 @@ func (m *SimulationManager) executeIteration(projectID string, vuID int) {
 		switch {
 		case proto == "MQTT" || proto == "MQTTS":
 			if job.mqttClient != nil {
-				success, err = job.mqttClient.Publish(payload)
+				success, err = job.mqttClient.Publish(orderedPayload)
 				if success {
 					statusCode = 200
 				}
 			}
 		case proto == "WS" || proto == "WSS":
 			if job.wsClient != nil {
-				success, err = job.wsClient.Send(payload)
+				success, err = job.wsClient.Send(orderedPayload)
 				if success {
 					statusCode = 200
 				}
 			}
 		default:
-			statusCode, success, err = sendHTTP(job.project, payload)
+			statusCode, success, err = sendHTTP(job.project, orderedPayload)
 		}
 		latency := float64(time.Since(reqStart).Milliseconds())
 
@@ -410,7 +415,7 @@ func (m *SimulationManager) executeIteration(projectID string, vuID int) {
 		m.updateLatency(projectID, latency)
 
 		// Run rule evaluation on every simulated payload
-		payloadJSON, _ := json.Marshal(payload)
+		payloadJSON, _ := json.Marshal(orderedPayload)
 		payloadStr := string(payloadJSON)
 		rules.EvaluatePayloadRules(projectID, payloadStr)
 
@@ -440,7 +445,7 @@ func (m *SimulationManager) executeIteration(projectID string, vuID int) {
 		// Broadcast real-time stats via WebSocket
 		ws.HubInstance.BroadcastToProject(projectID, "payloadSent", map[string]interface{}{
 			"projectId": projectID,
-			"payload":   payload,
+			"payload":   orderedPayload,
 			"stats":     job.stats,
 		})
 
@@ -809,7 +814,79 @@ func injectSwarmID(payload map[string]interface{}, vuID int) {
 	}
 }
 
-func sendHTTP(project *database.Project, payload map[string]interface{}) (int, bool, error) {
+type OrderedPayload struct {
+	Payload map[string]interface{}
+	Fields  []PayloadField
+}
+
+func (op OrderedPayload) MarshalJSON() ([]byte, error) {
+	return marshalPayloadOrdered(op.Payload, op.Fields)
+}
+
+func marshalPayloadOrdered(payload map[string]interface{}, fields []PayloadField) ([]byte, error) {
+	fieldOrder := make(map[string]int)
+	fieldMap := make(map[string]PayloadField)
+	for idx, f := range fields {
+		topKey := strings.Split(f.Name, ".")[0]
+		if _, exists := fieldOrder[topKey]; !exists {
+			fieldOrder[topKey] = idx
+			fieldMap[topKey] = f
+		}
+	}
+
+	keys := make([]string, 0, len(payload))
+	for k := range payload {
+		keys = append(keys, k)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		idxI, hasI := fieldOrder[keys[i]]
+		idxJ, hasJ := fieldOrder[keys[j]]
+		if hasI && hasJ {
+			return idxI < idxJ
+		}
+		if hasI {
+			return true
+		}
+		if hasJ {
+			return false
+		}
+		return keys[i] < keys[j]
+	})
+
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	for idx, k := range keys {
+		if idx > 0 {
+			buf.WriteByte(',')
+		}
+		keyBytes, _ := json.Marshal(k)
+		buf.Write(keyBytes)
+		buf.WriteByte(':')
+
+		val := payload[k]
+		if childMap, ok := val.(map[string]interface{}); ok {
+			if f, hasField := fieldMap[k]; hasField && len(f.Children) > 0 {
+				childBytes, err := marshalPayloadOrdered(childMap, f.Children)
+				if err != nil {
+					return nil, err
+				}
+				buf.Write(childBytes)
+				continue
+			}
+		}
+
+		valBytes, err := json.Marshal(val)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(valBytes)
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+func sendHTTP(project *database.Project, payload interface{}) (int, bool, error) {
 	body, _ := json.Marshal(payload)
 
 	scheme := "http"

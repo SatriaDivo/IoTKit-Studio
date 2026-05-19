@@ -12,16 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import toast from "react-hot-toast";
-import { io } from "socket.io-client";
-
-interface MQTTMessage {
-  id: string;
-  topic: string;
-  payload: string;
-  qos: number;
-  retained: boolean;
-  timestamp: string;
-}
+import { useMQTTStore, MQTTMessage } from "@/store/mqttStore";
 
 export default function MQTTInspectorPage() {
   const { projects, fetchProjects } = useProjectStore();
@@ -41,30 +32,87 @@ export default function MQTTInspectorPage() {
     JSON.stringify({ status: "active", temperature: 24.5, humidity: 60 }, null, 2)
   );
 
-  // Connection & Stream State
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [messages, setMessages] = useState<MQTTMessage[]>([]);
-  const [isPaused, setIsPaused] = useState(false);
+  // Global MQTT Store Connection & Stream State
+  const {
+    isConnected,
+    isConnecting,
+    messages,
+    isPaused,
+    setIsPaused,
+    clearMessages,
+    connectMqtt,
+    disconnectMqtt,
+    subscribeTopic,
+    publishMessage,
+  } = useMQTTStore();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<MQTTMessage | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Refs for WebSockets / Socket.IO
-  const wsRef = useRef<WebSocket | null>(null);
-  const socketRef = useRef<any>(null);
-  const isGoRef = useRef(false);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     fetchProjects().finally(() => setProjectsLoading(false));
     
-    // Generate a random client ID on load
-    setClientId(`iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`);
+    // Load config from localStorage if present
+    try {
+      if (typeof window !== "undefined") {
+        const savedBrokerUrl = localStorage.getItem("mqtt_inspector_brokerUrl");
+        if (savedBrokerUrl) setBrokerUrl(savedBrokerUrl);
+
+        const savedClientId = localStorage.getItem("mqtt_inspector_clientId");
+        if (savedClientId) {
+          setClientId(savedClientId);
+        } else {
+          setClientId(`iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`);
+        }
+
+        const savedUsername = localStorage.getItem("mqtt_inspector_username");
+        if (savedUsername) setUsername(savedUsername);
+
+        const savedPassword = localStorage.getItem("mqtt_inspector_password");
+        if (savedPassword) setPassword(savedPassword);
+
+        const savedTopics = localStorage.getItem("mqtt_inspector_subscribedTopics");
+        if (savedTopics) {
+          setSubscribedTopics(JSON.parse(savedTopics));
+        }
+
+        const savedPublishTopic = localStorage.getItem("mqtt_inspector_publishTopic");
+        if (savedPublishTopic) setPublishTopic(savedPublishTopic);
+
+        const savedPublishPayload = localStorage.getItem("mqtt_inspector_publishPayload");
+        if (savedPublishPayload) setPublishPayload(savedPublishPayload);
+      } else {
+        setClientId(`iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`);
+      }
+    } catch (e) {
+      setClientId(`iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`);
+    } finally {
+      setIsLoaded(true);
+    }
 
     return () => {
       disconnectMqtt();
     };
   }, []);
+
+  // Auto-persist inputs to localStorage on change
+  useEffect(() => {
+    if (!isLoaded) return;
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("mqtt_inspector_brokerUrl", brokerUrl);
+        localStorage.setItem("mqtt_inspector_clientId", clientId);
+        localStorage.setItem("mqtt_inspector_username", username);
+        localStorage.setItem("mqtt_inspector_password", password);
+        localStorage.setItem("mqtt_inspector_subscribedTopics", JSON.stringify(subscribedTopics));
+        localStorage.setItem("mqtt_inspector_publishTopic", publishTopic);
+        localStorage.setItem("mqtt_inspector_publishPayload", publishPayload);
+      }
+    } catch (e) {}
+  }, [isLoaded, brokerUrl, clientId, username, password, subscribedTopics, publishTopic, publishPayload]);
 
   const handleProjectSelect = (projectId: string) => {
     if (!projectId) return;
@@ -101,18 +149,8 @@ export default function MQTTInspectorPage() {
     setSubscribedTopics(newTopics);
     setTopicInput("");
 
-    // If already connected, tell the backend to subscribe
     if (isConnected) {
-      if (isGoRef.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({
-            action: "mqtt_subscribe",
-            topics: [topicInput.trim()],
-          })
-        );
-      } else if (!isGoRef.current && socketRef.current) {
-        socketRef.current.emit("mqtt-inspector:subscribe", [topicInput.trim()]);
-      }
+      subscribeTopic(topicInput.trim());
       toast.success(`Subscribed to: ${topicInput.trim()}`);
     }
   };
@@ -121,181 +159,21 @@ export default function MQTTInspectorPage() {
     setSubscribedTopics(subscribedTopics.filter((t) => t !== topicToRemove));
   };
 
-  const connectMqtt = async () => {
-    if (subscribedTopics.length === 0) {
-      toast.error("Please add at least one topic to subscribe to.");
-      return;
-    }
-
-    setIsConnecting(true);
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
-    try {
-      const healthRes = await fetch(`${API_URL}/health`)
-        .then((res) => res.json())
-        .catch(() => ({}));
-      
-      const isGo = healthRes.engine === "Go/Fiber";
-      isGoRef.current = isGo;
-
-      if (isGo) {
-        // Connect via Go WebSocket Proxy
-        const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          ws.send(
-            JSON.stringify({
-              action: "mqtt_connect",
-              broker: brokerUrl,
-              clientId: clientId,
-              username: username,
-              password: password,
-              topics: subscribedTopics,
-            })
-          );
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.event === "mqtt_connected") {
-              setIsConnected(true);
-              setIsConnecting(false);
-              toast.success("Connected to MQTT Broker via Go Proxy!");
-            } else if (msg.event === "mqtt_error") {
-              setIsConnecting(false);
-              setIsConnected(false);
-              toast.error(`MQTT Error: ${msg.data.message}`);
-              disconnectMqtt();
-            } else if (msg.event === "mqtt_message") {
-              if (isPaused) return;
-              const newMsg: MQTTMessage = {
-                id: Math.random().toString(),
-                topic: msg.data.topic,
-                payload: msg.data.payload,
-                qos: msg.data.qos,
-                retained: msg.data.retained,
-                timestamp: msg.data.timestamp,
-              };
-              setMessages((prev) => [newMsg, ...prev].slice(0, 200));
-            } else if (msg.event === "mqtt_disconnected") {
-              setIsConnected(false);
-              setIsConnecting(false);
-              toast.error("MQTT Inspector Disconnected");
-            }
-          } catch (e) {}
-        };
-
-        ws.onclose = () => {
-          setIsConnected(false);
-          setIsConnecting(false);
-        };
-      } else {
-        // Connect via Node.js Socket.IO Proxy
-        const socket = io(API_URL);
-        socketRef.current = socket;
-
-        socket.on("connect", () => {
-          socket.emit("mqtt-inspector:connect", {
-            broker: brokerUrl,
-            clientId: clientId,
-            username: username,
-            password: password,
-            topics: subscribedTopics,
-          });
-        });
-
-        socket.on("mqtt-inspector:connected", () => {
-          setIsConnected(true);
-          setIsConnecting(false);
-          toast.success("Connected to MQTT Broker via Node Proxy!");
-        });
-
-        socket.on("mqtt-inspector:error", (data: any) => {
-          setIsConnecting(false);
-          setIsConnected(false);
-          toast.error(`MQTT Error: ${data.message}`);
-          disconnectMqtt();
-        });
-
-        socket.on("mqtt-inspector:message", (data: any) => {
-          if (isPaused) return;
-          const newMsg: MQTTMessage = {
-            id: Math.random().toString(),
-            topic: data.topic,
-            payload: data.payload,
-            qos: data.qos,
-            retained: data.retained,
-            timestamp: data.timestamp,
-          };
-          setMessages((prev) => [newMsg, ...prev].slice(0, 200));
-        });
-
-        socket.on("mqtt-inspector:disconnected", () => {
-          setIsConnected(false);
-          setIsConnecting(false);
-        });
-
-        socket.on("disconnect", () => {
-          setIsConnected(false);
-          setIsConnecting(false);
-        });
-      }
-    } catch (err: any) {
-      setIsConnecting(false);
-      setIsConnected(false);
-      toast.error(`Failed to establish websocket proxy connection: ${err.message}`);
-    }
-  };
-
-  const disconnectMqtt = () => {
-    if (isGoRef.current && wsRef.current) {
-      if (wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ action: "mqtt_disconnect" }));
-      }
-      wsRef.current.close();
-      wsRef.current = null;
-    } else if (!isGoRef.current && socketRef.current) {
-      socketRef.current.emit("mqtt-inspector:disconnect");
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-    setIsConnected(false);
-    setIsConnecting(false);
-  };
-
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!publishTopic.trim()) {
       toast.error("Please enter a topic to publish to");
       return;
     }
 
-    // Try validation of payload JSON
     try {
       JSON.parse(publishPayload);
     } catch {
-      // Just warn, allow plain text
+      // allow plain text
     }
 
-    if (isGoRef.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(
-        JSON.stringify({
-          action: "mqtt_publish",
-          topic: publishTopic.trim(),
-          message: publishPayload,
-        })
-      );
+    const success = await publishMessage(publishTopic.trim(), publishPayload);
+    if (success) {
       toast.success("Published message!");
-    } else if (!isGoRef.current && socketRef.current && isConnected) {
-      socketRef.current.emit("mqtt-inspector:publish", {
-        topic: publishTopic.trim(),
-        message: publishPayload,
-      });
-      toast.success("Published message!");
-    } else {
-      toast.error("Not connected to MQTT broker");
     }
   };
 
@@ -474,7 +352,7 @@ export default function MQTTInspectorPage() {
 
               {/* Toggle Connection Button */}
               <Button
-                onClick={isConnected ? disconnectMqtt : connectMqtt}
+                onClick={isConnected ? disconnectMqtt : () => connectMqtt({ brokerUrl, clientId, username, password, subscribedTopics })}
                 disabled={isConnecting}
                 className={`w-full h-11 mt-4 font-semibold text-sm shadow-md transition-all ${
                   isConnected 
@@ -591,7 +469,7 @@ export default function MQTTInspectorPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setMessages([])}
+                  onClick={clearMessages}
                   className="h-9 text-xs text-red-500 border-[#D1DBE5] hover:bg-red-50"
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear

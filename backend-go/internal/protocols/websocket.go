@@ -74,7 +74,7 @@ func (w *WSClient) Connect() error {
 	return nil
 }
 
-func (w *WSClient) Send(payload map[string]interface{}) (bool, error) {
+func (w *WSClient) Send(payload interface{}) (bool, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

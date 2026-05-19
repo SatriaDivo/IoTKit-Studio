@@ -81,7 +81,7 @@ func (m *MQTTClient) Connect() error {
 	return nil
 }
 
-func (m *MQTTClient) Publish(payload map[string]interface{}) (bool, error) {
+func (m *MQTTClient) Publish(payload interface{}) (bool, error) {
 	m.mu.Lock()
 	connected := m.connected
 	m.mu.Unlock()
