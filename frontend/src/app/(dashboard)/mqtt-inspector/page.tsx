@@ -2,15 +2,33 @@
 
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Radio, Play, Square, Plus, X, Send, Trash2, 
-  Pause, Wifi, WifiOff, Copy, Check, Search, Info 
+import {
+  Radio,
+  Play,
+  Square,
+  Plus,
+  X,
+  Send,
+  Trash2,
+  Pause,
+  Wifi,
+  WifiOff,
+  Copy,
+  Check,
+  Search,
+  Info,
 } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import toast from "react-hot-toast";
 import { useMQTTStore, MQTTMessage } from "@/store/mqttStore";
 
@@ -24,12 +42,18 @@ export default function MQTTInspectorPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [topicInput, setTopicInput] = useState("");
-  const [subscribedTopics, setSubscribedTopics] = useState<string[]>(["iotkit/test/#"]);
+  const [subscribedTopics, setSubscribedTopics] = useState<string[]>([
+    "iotkit/test/#",
+  ]);
 
   // Publisher State
   const [publishTopic, setPublishTopic] = useState("iotkit/test/data");
   const [publishPayload, setPublishPayload] = useState(
-    JSON.stringify({ status: "active", temperature: 24.5, humidity: 60 }, null, 2)
+    JSON.stringify(
+      { status: "active", temperature: 24.5, humidity: 60 },
+      null,
+      2,
+    ),
   );
 
   // Global MQTT Store Connection & Stream State
@@ -47,14 +71,16 @@ export default function MQTTInspectorPage() {
   } = useMQTTStore();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMessage, setSelectedMessage] = useState<MQTTMessage | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<MQTTMessage | null>(
+    null,
+  );
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     fetchProjects().finally(() => setProjectsLoading(false));
-    
+
     // Load config from localStorage if present
     try {
       if (typeof window !== "undefined") {
@@ -65,7 +91,9 @@ export default function MQTTInspectorPage() {
         if (savedClientId) {
           setClientId(savedClientId);
         } else {
-          setClientId(`iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`);
+          setClientId(
+            `iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`,
+          );
         }
 
         const savedUsername = localStorage.getItem("mqtt_inspector_username");
@@ -74,27 +102,56 @@ export default function MQTTInspectorPage() {
         const savedPassword = localStorage.getItem("mqtt_inspector_password");
         if (savedPassword) setPassword(savedPassword);
 
-        const savedTopics = localStorage.getItem("mqtt_inspector_subscribedTopics");
+        const savedTopics = localStorage.getItem(
+          "mqtt_inspector_subscribedTopics",
+        );
         if (savedTopics) {
           setSubscribedTopics(JSON.parse(savedTopics));
         }
 
-        const savedPublishTopic = localStorage.getItem("mqtt_inspector_publishTopic");
+        const savedPublishTopic = localStorage.getItem(
+          "mqtt_inspector_publishTopic",
+        );
         if (savedPublishTopic) setPublishTopic(savedPublishTopic);
 
-        const savedPublishPayload = localStorage.getItem("mqtt_inspector_publishPayload");
+        const savedPublishPayload = localStorage.getItem(
+          "mqtt_inspector_publishPayload",
+        );
         if (savedPublishPayload) setPublishPayload(savedPublishPayload);
+
+        // Check if was previously connected and auto-reconnect
+        const wasConnected = localStorage.getItem(
+          "mqtt_inspector_wasConnected",
+        );
+        if (wasConnected === "true" && savedBrokerUrl && savedClientId) {
+          const topics = savedTopics ? JSON.parse(savedTopics) : [];
+          // Auto-reconnect after a short delay to ensure state is loaded
+          setTimeout(() => {
+            connectMqtt({
+              brokerUrl: savedBrokerUrl,
+              clientId: savedClientId,
+              username: savedUsername || "",
+              password: savedPassword || "",
+              subscribedTopics: topics,
+            });
+          }, 500);
+        }
       } else {
-        setClientId(`iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`);
+        setClientId(
+          `iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`,
+        );
       }
     } catch (e) {
-      setClientId(`iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`);
+      setClientId(
+        `iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`,
+      );
     } finally {
       setIsLoaded(true);
     }
 
     return () => {
-      disconnectMqtt();
+      // Don't disconnect on unmount, keep connection alive
+      // disconnectMqtt();
     };
   }, []);
 
@@ -107,12 +164,37 @@ export default function MQTTInspectorPage() {
         localStorage.setItem("mqtt_inspector_clientId", clientId);
         localStorage.setItem("mqtt_inspector_username", username);
         localStorage.setItem("mqtt_inspector_password", password);
-        localStorage.setItem("mqtt_inspector_subscribedTopics", JSON.stringify(subscribedTopics));
+        localStorage.setItem(
+          "mqtt_inspector_subscribedTopics",
+          JSON.stringify(subscribedTopics),
+        );
         localStorage.setItem("mqtt_inspector_publishTopic", publishTopic);
         localStorage.setItem("mqtt_inspector_publishPayload", publishPayload);
       }
     } catch (e) {}
-  }, [isLoaded, brokerUrl, clientId, username, password, subscribedTopics, publishTopic, publishPayload]);
+  }, [
+    isLoaded,
+    brokerUrl,
+    clientId,
+    username,
+    password,
+    subscribedTopics,
+    publishTopic,
+    publishPayload,
+  ]);
+
+  // Save connection state
+  useEffect(() => {
+    if (!isLoaded) return;
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          "mqtt_inspector_wasConnected",
+          isConnected ? "true" : "false",
+        );
+      }
+    } catch (e) {}
+  }, [isLoaded, isConnected]);
 
   const handleProjectSelect = (projectId: string) => {
     if (!projectId) return;
@@ -125,7 +207,7 @@ export default function MQTTInspectorPage() {
       protocol = "ssl";
     }
 
-    const port = project.port ? project.port : (protocol === "ssl" ? 8883 : 1883);
+    const port = project.port ? project.port : protocol === "ssl" ? 8883 : 1883;
     setBrokerUrl(`${protocol}://${project.host}:${port}`);
     setUsername(project.username || "");
     setPassword(project.password || "");
@@ -197,7 +279,7 @@ export default function MQTTInspectorPage() {
   const filteredMessages = messages.filter(
     (m) =>
       m.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.payload.toLowerCase().includes(searchQuery.toLowerCase())
+      m.payload.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -240,7 +322,9 @@ export default function MQTTInspectorPage() {
             <CardContent className="pt-4 space-y-4">
               {/* Load Configuration from Existing Project */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">Load Config from Project</Label>
+                <Label className="text-xs font-semibold text-[#5A6C7D]">
+                  Load Config from Project
+                </Label>
                 <select
                   onChange={(e) => handleProjectSelect(e.target.value)}
                   disabled={isConnected || isConnecting || projectsLoading}
@@ -262,7 +346,9 @@ export default function MQTTInspectorPage() {
 
               {/* Broker URL */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">Broker URL</Label>
+                <Label className="text-xs font-semibold text-[#5A6C7D]">
+                  Broker URL
+                </Label>
                 <Input
                   placeholder="e.g. tcp://localhost:1883"
                   value={brokerUrl}
@@ -274,7 +360,9 @@ export default function MQTTInspectorPage() {
 
               {/* Client ID */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">Client ID</Label>
+                <Label className="text-xs font-semibold text-[#5A6C7D]">
+                  Client ID
+                </Label>
                 <Input
                   placeholder="Inspector Client ID"
                   value={clientId}
@@ -287,7 +375,9 @@ export default function MQTTInspectorPage() {
               {/* Auth Credentials */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">Username</Label>
+                  <Label className="text-xs font-semibold text-[#5A6C7D]">
+                    Username
+                  </Label>
                   <Input
                     placeholder="Optional"
                     value={username}
@@ -297,7 +387,9 @@ export default function MQTTInspectorPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">Password</Label>
+                  <Label className="text-xs font-semibold text-[#5A6C7D]">
+                    Password
+                  </Label>
                   <Input
                     type="password"
                     placeholder="Optional"
@@ -311,7 +403,9 @@ export default function MQTTInspectorPage() {
 
               {/* Subscription Topics */}
               <div className="space-y-1.5 pt-2 border-t border-[#E8EDF2]">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">Subscribe to Topics</Label>
+                <Label className="text-xs font-semibold text-[#5A6C7D]">
+                  Subscribe to Topics
+                </Label>
                 <div className="flex gap-2">
                   <Input
                     placeholder="e.g. telemetry/#"
@@ -320,7 +414,7 @@ export default function MQTTInspectorPage() {
                     onKeyDown={(e) => e.key === "Enter" && handleAddTopic()}
                     className="bg-white border-[#D1DBE5] text-xs"
                   />
-                  <Button 
+                  <Button
                     onClick={handleAddTopic}
                     className="btn-secondary h-10 px-3 bg-[#E8EDF2] border border-[#D1DBE5] hover:bg-[#D1DBE5]"
                   >
@@ -331,12 +425,12 @@ export default function MQTTInspectorPage() {
                 {/* Subscribed Badges List */}
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {subscribedTopics.map((topic) => (
-                    <span 
-                      key={topic} 
+                    <span
+                      key={topic}
                       className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#E8EDF2] text-[#2C3E50] border border-[#D1DBE5]"
                     >
                       {topic}
-                      <button 
+                      <button
                         onClick={() => handleRemoveTopic(topic)}
                         className="text-[#8B9AA8] hover:text-red-500 font-bold transition-colors"
                       >
@@ -345,18 +439,31 @@ export default function MQTTInspectorPage() {
                     </span>
                   ))}
                   {subscribedTopics.length === 0 && (
-                    <span className="text-xs text-[#8B9AA8] italic">No active subscriptions.</span>
+                    <span className="text-xs text-[#8B9AA8] italic">
+                      No active subscriptions.
+                    </span>
                   )}
                 </div>
               </div>
 
               {/* Toggle Connection Button */}
               <Button
-                onClick={isConnected ? disconnectMqtt : () => connectMqtt({ brokerUrl, clientId, username, password, subscribedTopics })}
+                onClick={
+                  isConnected
+                    ? disconnectMqtt
+                    : () =>
+                        connectMqtt({
+                          brokerUrl,
+                          clientId,
+                          username,
+                          password,
+                          subscribedTopics,
+                        })
+                }
                 disabled={isConnecting}
                 className={`w-full h-11 mt-4 font-semibold text-sm shadow-md transition-all ${
-                  isConnected 
-                    ? "bg-red-500 hover:bg-red-600 text-white" 
+                  isConnected
+                    ? "bg-red-500 hover:bg-red-600 text-white"
                     : "bg-[#6A89A7] hover:bg-[#5a7997] text-white"
                 }`}
               >
@@ -392,7 +499,9 @@ export default function MQTTInspectorPage() {
             <CardContent className="pt-4 space-y-4">
               {/* Target Topic */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-[#5A6C7D]">Topic</Label>
+                <Label className="text-xs font-semibold text-[#5A6C7D]">
+                  Topic
+                </Label>
                 <Input
                   placeholder="e.g. iotkit/test/data"
                   value={publishTopic}
@@ -405,8 +514,10 @@ export default function MQTTInspectorPage() {
               {/* Payload Data */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">Payload (JSON / Text)</Label>
-                  <button 
+                  <Label className="text-xs font-semibold text-[#5A6C7D]">
+                    Payload (JSON / Text)
+                  </Label>
+                  <button
                     onClick={handleFormatJson}
                     disabled={!isConnected}
                     className="text-xs text-[#6A89A7] hover:text-[#5a7997] hover:underline font-medium transition-colors"
@@ -439,8 +550,12 @@ export default function MQTTInspectorPage() {
           <Card className="card-industrial h-full shadow-md flex flex-col min-h-[500px]">
             <CardHeader className="pb-3 border-b border-[#D1DBE5] flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <CardTitle className="text-lg text-[#2C3E50]">Live Traffic Console</CardTitle>
-                <CardDescription>Real-time incoming broker traffic log stream</CardDescription>
+                <CardTitle className="text-lg text-[#2C3E50]">
+                  Live Traffic Console
+                </CardTitle>
+                <CardDescription>
+                  Real-time incoming broker traffic log stream
+                </CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 {/* Search query */}
@@ -453,7 +568,7 @@ export default function MQTTInspectorPage() {
                     className="pl-9 h-9 w-44 md:w-56 text-xs bg-white border-[#D1DBE5]"
                   />
                 </div>
-                
+
                 {/* Pause Stream */}
                 <Button
                   variant="outline"
@@ -481,9 +596,12 @@ export default function MQTTInspectorPage() {
                 {filteredMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-32 text-center text-muted-foreground p-6">
                     <Radio className="h-12 w-12 text-[#8B9AA8] opacity-25 mb-3" />
-                    <p className="text-sm font-medium text-[#5A6C7D]">No MQTT traffic monitored</p>
+                    <p className="text-sm font-medium text-[#5A6C7D]">
+                      No MQTT traffic monitored
+                    </p>
                     <p className="text-xs text-[#8B9AA8] mt-1 max-w-sm">
-                      Connect to an MQTT broker and verify your subscription topics to stream real-time broker traffic logs here.
+                      Connect to an MQTT broker and verify your subscription
+                      topics to stream real-time broker traffic logs here.
                     </p>
                   </div>
                 ) : (
@@ -494,24 +612,31 @@ export default function MQTTInspectorPage() {
                           <th className="px-4 py-3 font-medium">Timestamp</th>
                           <th className="px-4 py-3 font-medium">Topic</th>
                           <th className="px-4 py-3 font-medium">Payload</th>
-                          <th className="px-4 py-3 text-center font-medium">QoS</th>
-                          <th className="px-4 py-3 text-center font-medium">Retained</th>
+                          <th className="px-4 py-3 text-center font-medium">
+                            QoS
+                          </th>
+                          <th className="px-4 py-3 text-center font-medium">
+                            Retained
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredMessages.map((msg) => (
-                          <tr 
+                          <tr
                             key={msg.id}
                             onClick={() => setSelectedMessage(msg)}
                             className="hover:bg-[#E8EDF2]/30 cursor-pointer transition-colors text-xs border-b border-[#E8EDF2]"
                           >
                             <td className="px-4 py-3 text-[#8B9AA8] font-mono whitespace-nowrap">
-                              {new Date(msg.timestamp).toLocaleTimeString("id-ID", {
-                                hour12: false,
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                              })}
+                              {new Date(msg.timestamp).toLocaleTimeString(
+                                "id-ID",
+                                {
+                                  hour12: false,
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                                },
+                              )}
                             </td>
                             <td className="px-4 py-3 font-semibold text-[#2C3E50] max-w-[150px] truncate">
                               {msg.topic}
@@ -558,8 +683,12 @@ export default function MQTTInspectorPage() {
               {/* Header */}
               <div className="flex justify-between items-center pb-4 border-b border-[#E8EDF2] mb-6">
                 <div>
-                  <h3 className="text-lg font-bold text-[#2C3E50]">Message Details</h3>
-                  <p className="text-xs text-[#8B9AA8] mt-0.5">Inspecting received MQTT topic packet</p>
+                  <h3 className="text-lg font-bold text-[#2C3E50]">
+                    Message Details
+                  </h3>
+                  <p className="text-xs text-[#8B9AA8] mt-0.5">
+                    Inspecting received MQTT topic packet
+                  </p>
                 </div>
                 <Button
                   variant="ghost"
@@ -575,7 +704,9 @@ export default function MQTTInspectorPage() {
               <div className="space-y-4 flex-1">
                 {/* Topic info */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">Topic</Label>
+                  <Label className="text-xs font-semibold text-[#5A6C7D]">
+                    Topic
+                  </Label>
                   <div className="p-3 bg-[#E8EDF2]/40 border border-[#D1DBE5] rounded-lg font-mono text-xs text-[#2C3E50] break-all select-all">
                     {selectedMessage.topic}
                   </div>
@@ -584,13 +715,17 @@ export default function MQTTInspectorPage() {
                 {/* Packet parameters */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-[#5A6C7D]">Quality of Service (QoS)</Label>
+                    <Label className="text-xs font-semibold text-[#5A6C7D]">
+                      Quality of Service (QoS)
+                    </Label>
                     <div className="p-2.5 bg-white border border-[#D1DBE5] rounded-lg text-sm text-[#2C3E50] font-semibold text-center">
                       QoS {selectedMessage.qos}
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-[#5A6C7D]">Retained Flag</Label>
+                    <Label className="text-xs font-semibold text-[#5A6C7D]">
+                      Retained Flag
+                    </Label>
                     <div className="p-2.5 bg-white border border-[#D1DBE5] rounded-lg text-sm text-[#2C3E50] font-semibold text-center">
                       {selectedMessage.retained ? "Yes" : "No"}
                     </div>
@@ -599,20 +734,31 @@ export default function MQTTInspectorPage() {
 
                 {/* Timestamp */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">Timestamp</Label>
+                  <Label className="text-xs font-semibold text-[#5A6C7D]">
+                    Timestamp
+                  </Label>
                   <div className="p-2.5 bg-white border border-[#D1DBE5] rounded-lg text-xs text-[#5A6C7D] font-mono">
-                    {new Date(selectedMessage.timestamp).toLocaleString("id-ID")}
+                    {new Date(selectedMessage.timestamp).toLocaleString(
+                      "id-ID",
+                    )}
                   </div>
                 </div>
 
                 {/* Payload rendering */}
                 <div className="space-y-1.5 flex-1 flex flex-col">
                   <div className="flex justify-between items-center">
-                    <Label className="text-xs font-semibold text-[#5A6C7D]">Payload</Label>
+                    <Label className="text-xs font-semibold text-[#5A6C7D]">
+                      Payload
+                    </Label>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => copyToClipboard(selectedMessage.payload, selectedMessage.id)}
+                      onClick={() =>
+                        copyToClipboard(
+                          selectedMessage.payload,
+                          selectedMessage.id,
+                        )
+                      }
                       className="h-8 text-xs text-[#6A89A7] hover:text-[#5a7997]"
                     >
                       {copiedId === selectedMessage.id ? (
