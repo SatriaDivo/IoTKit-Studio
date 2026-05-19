@@ -59,6 +59,9 @@ func WebhookClear(c *fiber.Ctx) error {
 		"webhookEnabled": false,
 	})
 
+	// Also delete webhook logs for this project
+	database.DB.Where("\"projectId\" = ? AND type = ?", projectID, "webhook").Delete(&database.Log{})
+
 	return c.JSON(fiber.Map{"message": "Webhook disabled successfully"})
 }
 

@@ -42,44 +42,73 @@ export default function WebhookListenerPage() {
   const [generating, setGenerating] = useState(false);
   const [liveCount, setLiveCount] = useState(0);
   const [shellTab, setShellTab] = useState<'powershell' | 'curl' | 'python'>('powershell');
-  const socketRef = useRef<Socket | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLogIdRef = useRef<string>("");
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchProjects();
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
   }, []);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
 
-  // Socket.IO connection for real-time webhook events
-  useEffect(() => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    const socket = io(API_URL);
-    socketRef.current = socket;
+  // Polling-based real-time webhook events
+  const startPolling = (projectId: string) => {
+    if (pollingRef.current) clearInterval(pollingRef.current);
 
-    socket.on("webhookReceived", (data) => {
-      const newLog: WebhookLog = {
-        ...data.log,
-        parsedPayload: data.log.parsedPayload,
-      };
-      setLogs((prev) => [newLog, ...prev].slice(0, 100));
-      setLiveCount((c) => c + 1);
-      toast.success("📥 Incoming webhook request!", { duration: 2000 });
-    });
+    pollingRef.current = setInterval(async () => {
+      try {
+        const { data } = await api.get(`/webhook-manage/history/${projectId}`);
+        const newLogs: WebhookLog[] = data.logs || [];
 
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
+        if (newLogs.length > 0 && newLogs[0].id !== lastLogIdRef.current) {
+          // Count how many new logs arrived
+          const prevId = lastLogIdRef.current;
+          let newCount = 0;
+          if (prevId) {
+            for (const log of newLogs) {
+              if (log.id === prevId) break;
+              newCount++;
+            }
+          } else {
+            // First load, don't count as "live" 
+            newCount = 0;
+          }
 
-  // When project changes, fetch info and subscribe to its webhook room
+          lastLogIdRef.current = newLogs[0].id;
+          setLogs(newLogs);
+
+          if (newCount > 0) {
+            setLiveCount((c) => c + newCount);
+            toast.success(`📥 ${newCount} new webhook request${newCount > 1 ? 's' : ''}!`, { duration: 2000 });
+          }
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 1000);
+  };
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  // When project changes, fetch info and start polling
   const handleProjectChange = async (projectId: string) => {
     setSelectedProjectId(projectId);
     setLogs([]);
     setWebhookInfo(null);
     setLiveCount(0);
+    lastLogIdRef.current = "";
+    stopPolling();
     if (!projectId) return;
 
     setLoading(true);
@@ -87,14 +116,18 @@ export default function WebhookListenerPage() {
       const { data } = await api.get(`/webhook-manage/info/${projectId}`);
       setWebhookInfo(data);
 
-      // Subscribe to webhook socket room
-      if (data.webhookToken && socketRef.current) {
-        socketRef.current.emit("subscribeWebhook", data.webhookToken);
-      }
-
       // Load history
       const { data: historyData } = await api.get(`/webhook-manage/history/${projectId}`);
-      setLogs(historyData.logs || []);
+      const initialLogs = historyData.logs || [];
+      setLogs(initialLogs);
+      if (initialLogs.length > 0) {
+        lastLogIdRef.current = initialLogs[0].id;
+      }
+
+      // Start polling for real-time updates
+      if (data.webhookEnabled) {
+        startPolling(projectId);
+      }
     } catch {
       toast.error("Failed to load webhook info");
     } finally {
@@ -113,10 +146,8 @@ export default function WebhookListenerPage() {
         webhookEnabled: true,
         webhookUrl: data.webhookUrl,
       }));
-      // Subscribe to the new token room
-      if (socketRef.current) {
-        socketRef.current.emit("subscribeWebhook", data.token);
-      }
+      // Start polling for incoming webhooks
+      startPolling(selectedProjectId);
       toast.success("Webhook endpoint generated!");
     } catch {
       toast.error("Failed to generate webhook");
@@ -129,9 +160,7 @@ export default function WebhookListenerPage() {
     if (!selectedProjectId) return;
     try {
       await api.delete(`/webhook-manage/clear/${selectedProjectId}`);
-      if (webhookInfo?.webhookToken && socketRef.current) {
-        socketRef.current.emit("unsubscribeWebhook", webhookInfo.webhookToken);
-      }
+      stopPolling();
       setWebhookInfo((prev) => prev ? { ...prev, webhookToken: null, webhookEnabled: false, webhookUrl: null } : null);
       setLogs([]);
       toast.success("Webhook disabled");
