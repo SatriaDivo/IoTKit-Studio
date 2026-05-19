@@ -1,30 +1,67 @@
-# IoTKit Studio - Gemini AI Agent Configuration
+# IoTKit Studio - Claude AI Agent Configuration
 
 ## 📋 Project Overview
 
 **IoTKit Studio** is an industrial IoT simulation platform with a modern dashboard for creating, managing, and sending IoT sensor payloads without coding.
 
-### Key Features
+### ✨ Key Features (Updated 2026)
 
-- **Project Management**: Create and manage multiple IoT projects
-- **Multi-Protocol Support**: HTTP/HTTPS, MQTT/MQTTS, WebSocket/WSS
-- **Visual Payload Builder**: Build JSON payload structures visually
-- **Real-time Simulation**: Run sensor data simulations in real-time
-- **Chaos Engineering (Anomaly Injector)**: Inject data spikes and invert booleans to test client alerting systems
-- **Webhook Ingestion Engine**: Dynamically capture external device requests (cURL, ESP32) with live logging
-- **Interactive Notification Bell**: Real-time Socket.IO header alerts with redirect & auto-dismiss
-- **Analytics Dashboard**: Real-time charts, metrics, and performance insights
-- **AI Agent**: Autonomous project creation with natural language
-- **Monitoring & Logs**: Real-time activity monitoring and logging
-- **Modern UI**: Stormy Morning design system (industrial IoT theme)
+#### Core Features
 
-### Tech Stack
+- **Project Management**: Create and manage multiple IoT projects with full CRUD operations
+- **Multi-Protocol Support**: HTTP/HTTPS, MQTT/MQTTS, WebSocket/WSS with SSL/TLS
+- **Visual Payload Builder**: Build JSON payload structures visually without coding
+- **Real-time Simulation**: Run sensor data simulations with configurable intervals
+- **Swarm Mode**: Simulate multiple devices simultaneously
+- **Webhook Support**: Public webhook endpoints for each project
 
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Recharts, Framer Motion
-- **Backend**: Node.js, Express, TypeScript, Prisma ORM
-- **Database**: PostgreSQL
-- **Real-time**: Socket.IO
-- **Protocols**: MQTT.js, Axios (HTTP), WebSocket
+#### Analytics & Monitoring
+
+- **Analytics Dashboard** ✅ **NEW**: Real-time charts with time range selection (1h, 24h, 7d, 30d)
+  - Area Chart: Payload trends over time
+  - Line Chart: Success rate tracking
+  - Pie Chart: Protocol distribution
+  - Bar Chart: Latency analysis
+  - Performance summary with success/failed breakdown
+  - **Uses REAL data from logs** (no dummy data)
+- **Real-time Monitoring**: Live activity feed with WebSocket updates
+- **Comprehensive Logging**: Request/response logs with latency tracking
+- **Alert System**: AlertRule and AlertLog models for threshold-based alerts
+
+#### AI & Automation
+
+- **AI Agent**: Autonomous project creation using natural language (Indonesian & English)
+- **Chat History**: Persistent chat sessions with PostgreSQL storage
+- **Auto-cleanup**: Daily chat cleanup at 00:00
+
+#### UI/UX
+
+- **Stormy Morning Design System**: Industrial IoT theme (NOT chatbot-like)
+- **Responsive Layout**: Mobile, tablet, and desktop optimized
+- **Dark Sidebar**: Professional industrial control panel aesthetic
+
+### 🛠️ Tech Stack
+
+**Frontend:**
+
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- Recharts (for Analytics charts)
+- Framer Motion (animations)
+- Zustand (state management)
+- Socket.IO Client
+
+**Backend:**
+
+- Node.js + Express
+- TypeScript
+- Prisma ORM
+- PostgreSQL
+- Socket.IO
+- MQTT.js, Axios, WebSocket
+- JWT Authentication
+- node-cron (scheduled tasks)
 
 ---
 
@@ -36,33 +73,54 @@ This project uses an **industrial IoT design system**, NOT a chatbot interface.
 
 **Color Palette:**
 
-- Primary: `#6A89A7` (Slate Blue)
-- Accent: `#BDDDFC` (Light Blue)
-- Highlight: `#88BDF2` (Sky Blue)
-- Secondary: `#384959` (Dark Slate)
+```css
+Primary:   #6A89A7  (Slate Blue)
+Accent:    #BDDDFC  (Light Blue)
+Highlight: #88BDF2  (Sky Blue)
+Secondary: #384959  (Dark Slate)
+
+Success:   #4CAF50  (Green)
+Error:     #F44336  (Red)
+Warning:   #FF9800  (Orange)
+Info:      #2196F3  (Blue)
+```
 
 **Design Philosophy:**
 
 - ✅ Industrial control panel aesthetic
 - ✅ Data-focused with clear hierarchy
 - ✅ Professional and clean
+- ✅ Real data visualization
 - ❌ NO chat bubbles, bot avatars, or conversational UI
 - ❌ NO bright blue/cyan colors
+- ❌ NO dummy/mock data
 
 **Reference**: See `DESIGN.md` for complete design system documentation.
 
-### Project Structure
+---
+
+## 📁 Project Structure
 
 ```
 iotkit-studio/
 ├── backend/
 │   ├── src/
-│   │   ├── controllers/      # API controllers (webhook, project, ai)
+│   │   ├── controllers/      # API controllers
+│   │   │   ├── authController.ts
+│   │   │   ├── projectController.ts
+│   │   │   ├── payloadController.ts
+│   │   │   ├── simulationController.ts
+│   │   │   ├── logController.ts
+│   │   │   └── aiAgentController.ts
 │   │   ├── routes/           # Express routes
-│   │   ├── middleware/       # Auth, error handling
+│   │   ├── middleware/       # Auth, error handling, rate limiting
 │   │   ├── modules/          # IoT modules (hera, drone, carbon)
 │   │   ├── protocols/        # MQTT, HTTP, WebSocket clients
 │   │   ├── services/         # Business logic
+│   │   │   ├── jobManager.ts
+│   │   │   ├── scheduler.ts
+│   │   │   ├── chatCleanupScheduler.ts
+│   │   │   └── transportRouter.ts
 │   │   ├── simulation/       # Simulation manager
 │   │   └── types/            # TypeScript types
 │   ├── prisma/
@@ -71,109 +129,200 @@ iotkit-studio/
 ├── frontend/
 │   ├── src/
 │   │   ├── app/              # Next.js app router
-│   │   │   ├── (dashboard)/  # Dashboard pages (webhook, analytics, etc)
-│   │   │   │   ├── dashboard/
-│   │   │   │   ├── projects/
-│   │   │   │   ├── analytics/
-│   │   │   │   ├── ai-agent/
-│   │   │   │   ├── webhook/
-│   │   │   │   └── logs/
-│   │   │   └── (auth)/       # Auth pages
+│   │   │   ├── (dashboard)/  # Dashboard pages
+│   │   │   │   ├── dashboard/      # Main dashboard
+│   │   │   │   ├── projects/       # Project management
+│   │   │   │   ├── analytics/      # ✅ NEW Analytics page
+│   │   │   │   ├── ai-agent/       # AI Agent chat
+│   │   │   │   ├── payload-builder/
+│   │   │   │   ├── logs/
+│   │   │   │   └── settings/
+│   │   │   └── (auth)/       # Auth pages (login, register)
 │   │   ├── components/       # React components
-│   │   ├── lib/              # Utilities
-│   │   └── store/            # Zustand stores
+│   │   │   ├── layout/       # SidebarV2, HeaderV2
+│   │   │   └── ui/           # Reusable UI components
+│   │   ├── lib/              # Utilities (api, utils)
+│   │   ├── store/            # Zustand stores
+│   │   └── app/globals.css   # Stormy Morning theme styles
 │   └── package.json
 ├── docs/                     # Documentation
+│   ├── GET_STARTED.md
+│   ├── API.md
+│   ├── DEVELOPMENT.md
+│   └── ...
+├── DESIGN.md                 # Design system documentation
 └── docker-compose.yml
 ```
 
-### Key Files to Know
+---
 
-**Backend:**
+## 🗄️ Database Schema (Prisma)
 
-- `backend/src/index.ts` - Main server entry
-- `backend/src/routes/` - API endpoints
-- `backend/src/controllers/` - Request handlers
-- `backend/prisma/schema.prisma` - Database models
+### Main Models
 
-**Frontend:**
+**User**
 
-- `frontend/src/app/(dashboard)/` - Main app pages
-- `frontend/src/components/layout/` - Layout components (Header, Sidebar)
-- `frontend/src/store/` - State management
-- `frontend/src/app/globals.css` - Global styles with Stormy Morning theme
+- Authentication and user management
+- Relations: projects, chatSessions
 
-### Database Schema (Prisma)
+**Project**
 
-**Main Models:**
+- IoT project configuration
+- Fields: name, description, protocol, host, port, endpoint, topic
+- Auth: authToken, username, password, headers
+- Features: webhookToken, webhookEnabled, sslEnabled
+- Relations: payloads, logs, simulations, alertRules, alertLogs
 
-- `User` - User accounts
-- `Project` - IoT projects (webhookToken, webhookEnabled added)
-- `Payload` - Payload structures
-- `Simulation` - Simulation configurations and stats
-- `Log` - Activity logs (supports type: 'webhook')
-- `Dataset` - Module datasets (HERA, Drone, Carbon)
-- `ChatSession` & `ChatMessage` - AI Agent chat history
+**Payload**
 
-### API Endpoints
+- Payload structure definitions
+- JSON structure with field types and generation modes
+- Template support
 
-**Base URL**: `http://localhost:4000/api`
+**Simulation**
 
-**Key Routes:**
+- Simulation configuration and execution
+- Modes: interval, manual, scenario
+- Features: swarmMode, swarmCount, stages
+- Stats: totalSent, successCount, errorCount
+- Tracking: lastRunAt, lastPayload, lastResponse
 
-- `/auth/*` - Authentication (register, login)
-- `/projects/*` - Project CRUD operations
-- `/payloads/*` - Payload management
-- `/simulations/*` - Start/stop simulations
-- `/logs/*` - Activity logs
-- `/webhook-manage/*` - Webhook endpoints lifecycle configuration
-- `/webhook/*` - Public webhook ingestion receiver
-- `/ai-agent/*` - AI Agent chat
+**Log**
 
-**WebSocket**: Real-time updates via Socket.IO (channels: `project:id`, `webhook:token`)
+- Activity logging
+- Types: request, response, error, event
+- Metrics: latency, statusCode
+- Timestamp-based filtering
+
+**Dataset**
+
+- Module datasets (HERA, Drone, Carbon)
+- CSV file management
+- Active/inactive status
+
+**ChatSession & ChatMessage**
+
+- AI Agent chat history
+- Persistent storage in PostgreSQL
+- Auto-cleanup daily at 00:00
+
+**AlertRule** ✅ **NEW**
+
+- Threshold-based alert rules
+- Fields: field, operator, value, severity
+- Active/inactive status
+
+**AlertLog** ✅ **NEW**
+
+- Alert event logging
+- Severity levels
+- Read/unread status
 
 ---
 
-## 🛠️ Common Tasks
+## 🔌 API Endpoints
 
-### Adding a New Feature
+**Base URL**: `http://localhost:4000/api`
 
-1. **Backend**: Create controller → Add route → Update types
-2. **Frontend**: Create page/component → Add to router → Update store if needed
-3. **Database**: Update `schema.prisma` → Run migration
-4. **Styling**: Use Stormy Morning design system classes
+### Authentication
+
+- `POST /auth/register` - Register new user
+- `POST /auth/login` - Login user
+- `GET /auth/me` - Get current user
+
+### Projects
+
+- `GET /projects` - Get all projects
+- `GET /projects/:id` - Get project by ID
+- `POST /projects` - Create project
+- `PUT /projects/:id` - Update project
+- `DELETE /projects/:id` - Delete project
+- `POST /projects/:id/test-connection` - Test connection
+
+### Payloads
+
+- `GET /payloads/project/:projectId` - Get project payloads
+- `POST /payloads` - Create payload
+- `POST /payloads/generate` - Generate payload from structure
+
+### Simulations
+
+- `POST /simulations/start` - Start simulation
+- `POST /simulations/stop` - Stop simulation
+- `GET /simulations/:projectId/status` - Get simulation status
+- `GET /simulations/stats` - Get overall statistics
+
+### Logs
+
+- `GET /logs` - Get all logs (with pagination)
+- `GET /logs/project/:projectId` - Get project logs
+- `DELETE /logs/project/:projectId/clear` - Clear project logs
+
+### AI Agent
+
+- `POST /ai-agent/chat` - Send chat message
+- `GET /ai-agent/sessions` - Get chat sessions
+- `POST /ai-agent/sessions` - Create new session
+- `DELETE /ai-agent/sessions/:id` - Delete session
+
+**WebSocket**: Real-time updates via Socket.IO on port 4000
+
+---
+
+## 🛠️ Common Development Tasks
 
 ### Running the Project
 
 ```bash
 # Backend (Terminal 1)
 cd backend
-npm run dev
+npm run dev              # Starts on http://localhost:4000
 
 # Frontend (Terminal 2)
 cd frontend
-npm run dev
+npm run dev              # Starts on http://localhost:3000
 
-# Database GUI
+# Database GUI (Terminal 3)
 cd backend
-npm run prisma:studio
+npm run prisma:studio    # Opens on http://localhost:5555
 ```
 
-### Database Migrations
+### Database Operations
 
 ```bash
 cd backend
-npm run prisma:migrate dev --name your_migration_name
+
+# Generate Prisma Client
 npm run prisma:generate
+
+# Create migration
+npm run prisma:migrate dev --name migration_name
+
+# Reset database (⚠️ deletes all data)
+npm run prisma:migrate reset
+
+# View database
+npm run prisma:studio
 ```
 
-### Testing Endpoints
+### Adding a New Feature
 
-Use the API documentation in `docs/API.md` or test with:
+1. **Backend**:
+   - Create controller in `backend/src/controllers/`
+   - Add route in `backend/src/routes/`
+   - Update types in `backend/src/types/`
+   - If needed, update `schema.prisma` and run migration
 
-- Postman/Insomnia
-- `curl` commands
-- Frontend integration
+2. **Frontend**:
+   - Create page in `frontend/src/app/(dashboard)/`
+   - Add components in `frontend/src/components/`
+   - Update store if needed in `frontend/src/store/`
+   - Follow Stormy Morning design system
+
+3. **Styling**:
+   - Use utility classes: `.card-industrial`, `.btn-primary`, `.table-industrial`
+   - Follow color palette from `DESIGN.md`
+   - NO dummy data - always use real API data
 
 ---
 
@@ -181,25 +330,31 @@ Use the API documentation in `docs/API.md` or test with:
 
 ### Component Styling
 
-**Use these utility classes:**
+**Utility Classes:**
 
-- `.card-industrial` - Industrial-style cards
-- `.btn-primary` - Primary buttons (Slate Blue)
-- `.btn-secondary` - Secondary buttons (Light Blue)
-- `.table-industrial` - Data tables
-- `.sidebar-industrial` - Sidebar styling
+```css
+.card-industrial          /* Industrial-style cards */
+.btn-primary              /* Primary buttons (Slate Blue) */
+.btn-secondary            /* Secondary buttons (Light Blue) */
+.btn-outline              /* Outline buttons */
+.table-industrial         /* Data tables */
+.sidebar-industrial       /* Sidebar styling */
+.badge-active             /* Success badge */
+.badge-error              /* Error badge */
+```
 
-**Colors (Tailwind):**
+**Tailwind Colors:**
 
-- `bg-[#6A89A7]` - Primary background
-- `text-[#2C3E50]` - Primary text
-- `border-[#D1DBE5]` - Borders
-- `bg-[#4CAF50]` - Success
-- `bg-[#F44336]` - Error
+```tsx
+bg-[#6A89A7]     // Primary background
+text-[#2C3E50]   // Primary text
+border-[#D1DBE5] // Borders
+bg-[#4CAF50]     // Success
+bg-[#F44336]     // Error
+bg-[#88BDF2]     // Highlight
+```
 
-### Page Layout
-
-All dashboard pages should follow this structure:
+### Page Layout Template
 
 ```tsx
 <div className="space-y-6">
@@ -210,30 +365,70 @@ All dashboard pages should follow this structure:
       <p className="text-[#5A6C7D] mt-1">Description</p>
     </div>
     {/* Actions */}
+    <Button className="btn-primary">
+      <Icon className="h-4 w-4 mr-2" />
+      Action
+    </Button>
   </div>
 
   {/* Content */}
-  <Card className="card-industrial">{/* ... */}</Card>
+  <Card className="card-industrial">
+    <CardHeader className="border-b border-[#E8EDF2]">
+      <CardTitle className="text-lg text-[#2C3E50]">Section Title</CardTitle>
+    </CardHeader>
+    <CardContent className="pt-6">{/* Content here */}</CardContent>
+  </Card>
 </div>
 ```
 
 ---
 
-## 📊 Analytics Implementation
+## 📊 Analytics Implementation ✅ NEW
 
-The Analytics page uses **real data from logs**, not dummy data:
+The Analytics page (`frontend/src/app/(dashboard)/analytics/page.tsx`) uses **REAL data from logs**, not dummy data.
 
-- Fetches logs from `/api/logs` endpoint
-- Groups logs into time buckets (1h, 24h, 7d, 30d)
-- Calculates real metrics: payloads sent, success rate, latency
-- Uses Recharts for data visualization
+### Data Flow
 
-**Chart Types:**
+1. **Fetch Logs**: `GET /api/logs?limit=1000&sort=desc`
+2. **Filter by Time Range**: 1h, 24h, 7d, 30d
+3. **Group into Buckets**: Time-based bucketing
+4. **Calculate Metrics**:
+   - Payloads sent per interval
+   - Success rate from log status
+   - Average latency from log data
+5. **Update Charts**: Real-time updates every 5 seconds
 
-- Area Chart: Payload trends
-- Line Chart: Success rate over time
-- Pie Chart: Protocol distribution
-- Bar Chart: Latency trends
+### Chart Types
+
+**Area Chart** - Payload Trends
+
+- X-axis: Time intervals
+- Y-axis: Number of payloads sent
+- Data: Real log counts per time bucket
+
+**Line Chart** - Success Rate
+
+- X-axis: Time intervals
+- Y-axis: Success percentage (0-100%)
+- Data: Calculated from log status codes
+
+**Pie Chart** - Protocol Distribution
+
+- Data: Count of projects by protocol (MQTT, HTTP, WebSocket)
+
+**Bar Chart** - Latency Trends
+
+- X-axis: Time intervals
+- Y-axis: Average latency (ms)
+- Data: Real latency from logs
+
+### Empty States
+
+All charts show empty states when no data is available:
+
+- "No data available" message
+- Icon indicator
+- Call-to-action text
 
 ---
 
@@ -243,16 +438,22 @@ The AI Agent feature allows users to create projects using natural language.
 
 **Key Files:**
 
-- `backend/src/controllers/aiAgentController.ts` - Chat logic
+- `backend/src/controllers/aiAgentController.ts` - Chat logic with OpenRouter API
 - `backend/src/routes/aiAgent.ts` - API routes
-- `frontend/src/app/(dashboard)/ai-agent/page.tsx` - UI
+- `frontend/src/app/(dashboard)/ai-agent/page.tsx` - Chat UI
 
 **Features:**
 
 - Multi-language support (Indonesian & English)
 - Chat history persistence (PostgreSQL)
-- Auto-delete old chats (daily at 00:00)
+- Auto-delete old chats (daily at 00:00 via cron job)
 - Real-time task execution
+- Session management
+
+**Database Models:**
+
+- `ChatSession` - Chat sessions with title and timestamps
+- `ChatMessage` - Individual messages with role (user/assistant/system)
 
 ---
 
@@ -261,12 +462,14 @@ The AI Agent feature allows users to create projects using natural language.
 ### Before Committing
 
 1. ✅ Run TypeScript checks: `npm run build`
-2. ✅ Check for console errors
+2. ✅ Check for console errors in browser
 3. ✅ Test the feature manually
 4. ✅ Follow Stormy Morning design system
-5. ✅ Update documentation if needed
+5. ✅ Use REAL data, no dummy/mock data
+6. ✅ Update documentation if needed
+7. ✅ Check responsive design (mobile, tablet, desktop)
 
-### Commit Messages
+### Commit Message Format
 
 Follow conventional commits:
 
@@ -276,7 +479,21 @@ fix: Fix bug
 refactor: Refactor code
 docs: Update documentation
 style: Update styling
+perf: Performance improvement
+test: Add tests
+chore: Maintenance tasks
 ```
+
+### Code Style
+
+- Use TypeScript strict mode
+- Follow ESLint rules
+- Use Prettier for formatting
+- Prefer functional components (React)
+- Use async/await over promises
+- Handle errors properly with try-catch
+- Add loading states for async operations
+- Add empty states for no data scenarios
 
 ---
 
@@ -329,7 +546,33 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 - **Design System**: `DESIGN.md`
 - **Getting Started**: `docs/GET_STARTED.md`
 - **Development Guide**: `docs/DEVELOPMENT.md`
+- **Quick Reference**: `docs/QUICK_REFERENCE.md`
+
+---
+
+## 🚀 Recent Updates (2026)
+
+### ✅ Completed Features
+
+1. **Analytics Dashboard** - Real-time charts with Recharts
+2. **Stormy Morning Design System** - Industrial IoT theme applied
+3. **AI Agent Chat History** - PostgreSQL persistence with auto-cleanup
+4. **Alert System** - AlertRule and AlertLog models
+5. **Webhook Support** - Public webhook endpoints per project
+6. **Swarm Mode** - Multiple device simulation
+7. **Real Data Implementation** - Removed all dummy/mock data
+
+### 🎯 Next Priorities
+
+1. Alert notification system (email, webhook)
+2. Device management and grouping
+3. Advanced data processing pipeline
+4. Role-based access control (RBAC)
+5. API key management
+6. Reporting system
 
 ---
 
 **Happy Coding! 🚀**
+
+_Last Updated: 2026-05-19_
