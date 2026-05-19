@@ -39,8 +39,20 @@ export default function ProjectDetailPage() {
   const [importJson, setImportJson] = useState("");
   const [editingProject, setEditingProject] = useState(false);
   const [datasets, setDatasets] = useState<any[]>([]);
-  const [useDataset, setUseDataset] = useState(false);
-  const [selectedDatasetId, setSelectedDatasetId] = useState("");
+  const [useDataset, setUseDataset] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`useDataset_${params?.id}`);
+      if (saved) return saved === "true";
+    }
+    return false;
+  });
+  const [selectedDatasetId, setSelectedDatasetId] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`selectedDatasetId_${params?.id}`);
+      if (saved) return saved;
+    }
+    return "";
+  });
   const [projectData, setProjectData] = useState({
     name: "",
     description: "",
@@ -135,6 +147,18 @@ export default function ProjectDetailPage() {
       localStorage.setItem(`simSettings_${params.id}`, JSON.stringify(simulationSettings));
     }
   }, [simulationSettings, params.id]);
+
+  useEffect(() => {
+    if (params?.id) {
+      localStorage.setItem(`useDataset_${params.id}`, String(useDataset));
+    }
+  }, [useDataset, params?.id]);
+
+  useEffect(() => {
+    if (params?.id && selectedDatasetId) {
+      localStorage.setItem(`selectedDatasetId_${params.id}`, selectedDatasetId);
+    }
+  }, [selectedDatasetId, params?.id]);
 
   useEffect(() => {
     const id = params.id as string;
