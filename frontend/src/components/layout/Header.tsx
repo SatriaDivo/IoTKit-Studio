@@ -48,50 +48,114 @@ export default function Header({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Initialize with premium demo/system alerts
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: "1",
-      title: "System Online",
-      message: "IoTKit-Studio cluster services running smoothly.",
-      type: "success",
-      timestamp: new Date(Date.now() - 1000 * 60 * 12), // 12m ago
-      read: false,
-      link: "/dashboard",
-    },
-    {
-      id: "2",
-      title: "AI Agent Loaded",
-      message: "Natural language assistant initialized & ready.",
-      type: "info",
-      timestamp: new Date(Date.now() - 1000 * 60 * 45), // 45m ago
-      read: false,
-      link: "/ai-agent",
-    },
-  ]);
+  // Initialize empty notifications tray (no static dummy alerts)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
-  // Subscribe to real-time events for live header alerts
+  // Subscribe to real-time events for live header alerts (Go Native WebSocket or Node Socket.IO fallback)
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    const socket = io(API_URL);
+    let socket: any = null;
+    let ws: WebSocket | null = null;
+    let active = true;
 
-    socket.on("webhookReceived", (data) => {
-      const payloadBrief = data.log.message || "Incoming payload received";
-      const newNotif: NotificationItem = {
-        id: Math.random().toString(),
-        title: "Webhook Payload Received",
-        message: payloadBrief,
-        type: "success",
-        timestamp: new Date(),
-        read: false,
-        link: "/webhook",
-      };
-      // Limit to 5 notifications maximum
-      setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
-    });
+    const initConnection = async () => {
+      try {
+        // Go Backend uses native WebSockets. Try opening a connection directly.
+        const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          if (!active) return;
+          
+          // Get user's token for project retrieval
+          const token = localStorage.getItem("token") || "";
+          
+          // Retrieve user's projects to subscribe to their specific rooms
+          fetch(`${API_URL}/projects`, {
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          })
+          .then((res) => {
+            if (!res.ok) throw new Error("Unauthorized");
+            return res.json();
+          })
+          .then((projects) => {
+            if (Array.isArray(projects) && ws && ws.readyState === WebSocket.OPEN) {
+              projects.forEach((proj: any) => {
+                ws?.send(JSON.stringify({
+                  action: "subscribe",
+                  room: `project:${proj.id}`
+                }));
+              });
+            }
+          })
+          .catch(() => {
+            // If fetching projects fails, subscribe to default global notification rooms
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({
+                action: "subscribe",
+                room: "project:all"
+              }));
+            }
+          });
+        };
+
+        ws.onmessage = (event) => {
+          if (!active) return;
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.event === "webhookReceived" && msg.data) {
+              const payloadBrief = msg.data.log?.message || "Incoming payload received";
+              const newNotif: NotificationItem = {
+                id: Math.random().toString(),
+                title: "Webhook Payload Received",
+                message: payloadBrief,
+                type: "success",
+                timestamp: new Date(),
+                read: false,
+                link: "/webhook",
+              };
+              setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
+            }
+          } catch (e) {}
+        };
+
+        ws.onerror = () => {
+          // If native WebSocket connection fails, fallback to Socket.IO
+          connectSocketIO();
+        };
+      } catch (err) {
+        connectSocketIO();
+      }
+    };
+
+    const connectSocketIO = () => {
+      try {
+        socket = io(API_URL);
+        socket.on("webhookReceived", (data: any) => {
+          if (!active) return;
+          const payloadBrief = data.log?.message || "Incoming payload received";
+          const newNotif: NotificationItem = {
+            id: Math.random().toString(),
+            title: "Webhook Payload Received",
+            message: payloadBrief,
+            type: "success",
+            timestamp: new Date(),
+            read: false,
+            link: "/webhook",
+          };
+          setNotifications((prev) => [newNotif, ...prev].slice(0, 5));
+        });
+      } catch (e) {}
+    };
+
+    initConnection();
 
     return () => {
-      socket.disconnect();
+      active = false;
+      if (ws) ws.close();
+      if (socket) socket.disconnect();
     };
   }, []);
 

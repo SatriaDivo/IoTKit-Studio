@@ -260,45 +260,118 @@ export default function ProjectDetailPage() {
     if (!id) return;
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    const socket = io(API_URL);
+    let socket: any = null;
+    let ws: WebSocket | null = null;
+    let active = true;
 
-    socket.on("connect", () => {
-      socket.emit("subscribe", id);
-    });
+    const initConnection = () => {
+      try {
+        // Try opening Native WebSocket for Go backend support
+        const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
+        ws = new WebSocket(wsUrl);
 
-    socket.on("payloadSent", (data) => {
-      if (data.result) {
-        const isSuccess = data.result.success;
-        let responseData = data.result.data;
+        ws.onopen = () => {
+          if (!active) return;
+          ws?.send(JSON.stringify({
+            action: "subscribe",
+            projectId: id
+          }));
+        };
 
-        if (responseData === undefined) {
-          responseData = isSuccess
-            ? "Payload sent successfully (no response data)"
-            : data.result.error || "Request failed (no response data)";
-        }
+        ws.onmessage = (event) => {
+          if (!active) return;
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.event === "payloadSent" && msg.data) {
+              const data = msg.data;
+              if (data.result) {
+                const isSuccess = data.result.success;
+                let responseData = data.result.data;
 
-        setLastSentPayload(data.payload);
-        setLastResponse({
-          type: isSuccess ? "success" : "error",
-          data: responseData,
-          statusCode: data.result.statusCode,
-          latency: data.result.latency,
-          timestamp: new Date().toISOString(),
-        });
+                if (responseData === undefined) {
+                  responseData = isSuccess
+                    ? "Payload sent successfully (no response data)"
+                    : data.result.error || "Request failed (no response data)";
+                }
+
+                setLastSentPayload(data.payload);
+                setLastResponse({
+                  type: isSuccess ? "success" : "error",
+                  data: responseData,
+                  statusCode: data.result.statusCode,
+                  latency: data.result.latency,
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            } else if (msg.event === "payloadError" && msg.data) {
+              setLastResponse({
+                type: "error",
+                error: msg.data.error,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          } catch (e) {}
+        };
+
+        ws.onerror = () => {
+          connectSocketIO();
+        };
+      } catch (err) {
+        connectSocketIO();
       }
-    });
+    };
 
-    socket.on("payloadError", (data) => {
-      setLastResponse({
-        type: "error",
-        error: data.error,
-        timestamp: new Date().toISOString(),
-      });
-    });
+    const connectSocketIO = () => {
+      try {
+        socket = io(API_URL);
+
+        socket.on("connect", () => {
+          socket.emit("subscribe", id);
+        });
+
+        socket.on("payloadSent", (data) => {
+          if (!active) return;
+          if (data.result) {
+            const isSuccess = data.result.success;
+            let responseData = data.result.data;
+
+            if (responseData === undefined) {
+              responseData = isSuccess
+                ? "Payload sent successfully (no response data)"
+                : data.result.error || "Request failed (no response data)";
+            }
+
+            setLastSentPayload(data.payload);
+            setLastResponse({
+              type: isSuccess ? "success" : "error",
+              data: responseData,
+              statusCode: data.result.statusCode,
+              latency: data.result.latency,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        });
+
+        socket.on("payloadError", (data) => {
+          if (!active) return;
+          setLastResponse({
+            type: "error",
+            error: data.error,
+            timestamp: new Date().toISOString(),
+          });
+        });
+      } catch (e) {}
+    };
+
+    initConnection();
 
     return () => {
-      socket.emit("unsubscribe", id);
-      socket.disconnect();
+      active = false;
+      if (ws) ws.close();
+      if (socket) {
+        socket.emit("unsubscribe", id);
+        socket.disconnect();
+      }
     };
   }, [params.id]);
 
