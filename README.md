@@ -21,16 +21,23 @@ Platform simulasi IoT berbasis dashboard untuk membuat, mengelola, dan mengirim 
 - Tailwind CSS
 - Framer Motion
 - Zustand (State Management)
-- Socket.IO Client
+- Socket.IO Client / HTTP Polling
 
-### Backend
-- Node.js + Express
-- TypeScript
-- Prisma ORM
-- PostgreSQL Database
-- Socket.IO Engine
-- MQTT.js, WebSocket Client
-- JWT Authentication
+### Backend (Dual-Backend Architecture)
+IoTKit-Studio mendukung arsitektur paralel dual-backend dengan **100% kesamaan fitur (Feature Parity)**. Anda dapat memilih untuk menjalankan salah satu dari kedua backend di bawah secara mandiri:
+
+1. **Go Backend (`/backend-go`)** — *Sangat direkomendasikan untuk performa tinggi & hemat RAM*:
+   - Go (Golang)
+   - Go Fiber v2 (Web Framework)
+   - GORM (ORM)
+   - Go WebSocket Hub (`gofiber/contrib/websocket`)
+   - Eclipse Paho MQTT Go Client
+2. **Node.js Backend (`/backend`)**:
+   - Node.js & Express
+   - TypeScript
+   - Prisma ORM
+   - Socket.IO Engine
+   - MQTT.js & WS Client
 
 ---
 
@@ -47,8 +54,8 @@ Seluruh dokumentasi arsitektur sistem disimpan rapi dalam direktori `docs/`:
 
 ### ⚙️ Software Requirements Specification (SRS)
 *   **[docs/SRS.md](docs/SRS.md)** - Daftar isi Software Requirements Specification
-*   [Database Schema](docs/srs/database_schema.md) - Konseptual skema PostgreSQL & Prisma ORM
-*   [API & Backend Router](docs/srs/fr-api.md) - Daftar lengkap REST API & event Socket.IO
+*   [Database Schema](docs/srs/database_schema.md) - Konseptual skema PostgreSQL & GORM/Prisma
+*   [API & Backend Router](docs/srs/fr-api.md) - Daftar lengkap REST API & WebSocket Hub
 *   [FR Webhook Ingestion](docs/srs/fr-webhook.md) - Spesifikasi fungsionalitas penangkap data luar (Webhook)
 *   [FR Chaos Engineering](docs/srs/fr-chaos.md) - Logika dan mekanisme suntikan anomali
 *   [FR AI Agent](docs/srs/fr-ai-agent.md) - Spesifikasi agen asisten kecerdasan buatan
@@ -58,7 +65,8 @@ Seluruh dokumentasi arsitektur sistem disimpan rapi dalam direktori `docs/`:
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 18+ (Untuk Frontend & Node Backend)
+- Go 1.20+ (Untuk Go Backend)
 - Docker Desktop
 - npm atau yarn
 
@@ -69,34 +77,41 @@ Seluruh dokumentasi arsitektur sistem disimpan rapi dalam direktori `docs/`:
 git clone <repository-url>
 cd iotkit-studio
 
-# 2. Install dependencies
-cd backend && npm install
-cd ../frontend && npm install
-
-# 3. Setup environment
-cd backend && cp .env.example .env
-cd ../frontend && cp .env.local.example .env.local
-
-# 4. Start PostgreSQL (Docker)
-cd ..
+# 2. Start PostgreSQL (Docker)
 docker-compose up -d postgres
 
-# 5. Setup database
+# 3. Setup & Run Frontend
+cd frontend
+npm install
+cp .env.local.example .env.local
+npm run dev
+```
+
+### 4. Menjalankan Backend (Pilih Salah Satu)
+
+#### Opsi A: Backend Go (Sangat Ringan & Cepat)
+```bash
+cd backend-go
+# Run program secara langsung
+go run cmd/api/main.go
+# Atau build & run executable binary
+go build -o iotkit-studio.exe ./cmd/api/
+./iotkit-studio.exe
+```
+
+#### Opsi B: Backend Node.js
+```bash
 cd backend
+npm install
+cp .env.example .env
 npm run prisma:generate
 npm run prisma:migrate dev
-
-# 6. Start development
-# Terminal 1 (Backend)
-cd backend && npm run dev
-
-# Terminal 2 (Frontend)
-cd frontend && npm run dev
+npm run dev
 ```
 
 ### Access URL
 - **Frontend App**: http://localhost:3000
-- **Backend API**: http://localhost:4000
+- **Backend API (Go / Node.js)**: http://localhost:4000
 
 ---
 
