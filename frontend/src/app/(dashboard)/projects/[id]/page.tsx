@@ -82,7 +82,7 @@ export default function ProjectDetailPage() {
 
   const [simulationSettings, setSimulationSettings] = useState(() => {
     const defaultSettings = {
-      interval: 1000,
+      interval: 1,
       batchSize: 1,
       duration: 0,
       swarmMode: false,
@@ -443,7 +443,7 @@ export default function ProjectDetailPage() {
       await api.post("/simulations/start", {
         projectId: params.id,
         payloadStructure: structure,
-        interval: parseInt(simulationSettings.interval as any) || 1000,
+        interval: (parseFloat(simulationSettings.interval as any) || 1) * 1000,
         batchSize: parseInt(simulationSettings.batchSize as any) || 1,
         swarmMode: simulationSettings.swarmMode,
         swarmCount: simulationSettings.swarmCount,
@@ -1224,30 +1224,31 @@ export default function ProjectDetailPage() {
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="interval">Interval (ms)</Label>
+                <Label htmlFor="interval">Interval (s)</Label>
                 <Input
                   id="interval"
                   type="number"
+                  step="0.1"
                   value={simulationSettings.interval}
                   onChange={(e) =>
                     setSimulationSettings({
                       ...simulationSettings,
-                      interval: e.target.value === "" ? "" : (parseInt(e.target.value) || 0),
+                      interval: e.target.value === "" ? "" : (parseFloat(e.target.value) || 0),
                     })
                   }
                   onBlur={() => {
-                    if (simulationSettings.interval === "" || parseInt(simulationSettings.interval as any) < 100) {
+                    if (simulationSettings.interval === "" || parseFloat(simulationSettings.interval as any) < 0.1) {
                       setSimulationSettings({
                         ...simulationSettings,
-                        interval: 1000,
+                        interval: 1,
                       });
                     }
                   }}
-                  min={100}
+                  min={0.1}
                   disabled={isSimulationRunning}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Time between each payload send
+                  Time between each payload send (seconds)
                 </p>
               </div>
               <div className="space-y-2">
