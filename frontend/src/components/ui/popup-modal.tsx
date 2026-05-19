@@ -47,7 +47,7 @@ export default function PopupModal() {
     iconBg: "bg-slate-50 border border-slate-100",
     subtitle: "Please confirm your choice",
     actionBtnClass: "bg-[#6A89A7] hover:bg-[#5A7997] text-white focus:ring-[#6A89A7]/50",
-    actionIcon: null
+    actionIcon: null as React.ReactNode
   };
 
   if (isDelete) {
