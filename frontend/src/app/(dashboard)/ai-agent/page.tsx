@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
+import { usePopupStore } from "@/store/popupStore";
 
 interface Message {
   id: string;
@@ -73,6 +74,7 @@ export default function AIAgentPage() {
   const [usage, setUsage] = useState<{ limit: number; used: number; remaining: number } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isExhausted = usage !== null && usage.remaining <= 0;
+  const confirm = usePopupStore((state) => state.confirm);
 
   // Save and load loading state
   useEffect(() => {
@@ -191,7 +193,8 @@ export default function AIAgentPage() {
   };
 
   const deleteSession = async (sessionId: string) => {
-    if (!confirm("Are you sure you want to delete this chat?")) return;
+    const isConfirmed = await confirm("Are you sure you want to delete this chat?", "Delete Chat");
+    if (!isConfirmed) return;
 
     try {
       await api.delete(`/ai-agent/sessions/${sessionId}`);

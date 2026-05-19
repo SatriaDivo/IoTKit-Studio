@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
+import PopupModal from "@/components/ui/popup-modal";
 
 export default function DashboardLayout({
   children,
@@ -75,6 +76,7 @@ export default function DashboardLayout({
           <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
+      <PopupModal />
     </div>
   );
 }

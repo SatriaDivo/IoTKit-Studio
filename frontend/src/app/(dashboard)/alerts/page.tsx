@@ -19,6 +19,7 @@ import { toast } from "react-hot-toast";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { usePopupStore } from "@/store/popupStore";
 
 interface AlertRule {
   id: string;
@@ -50,6 +51,7 @@ export default function AlertsPage() {
   const [activeTab, setActiveTab] = useState<"rules" | "logs">("rules");
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [logs, setLogs] = useState<AlertLog[]>([]);
+  const confirm = usePopupStore((state) => state.confirm);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -167,7 +169,8 @@ export default function AlertsPage() {
   };
 
   const handleDeleteRule = async (ruleId: string) => {
-    if (!confirm("Are you sure you want to delete this alert rule?")) return;
+    const isConfirmed = await confirm("Are you sure you want to delete this alert rule?", "Delete Alert Rule");
+    if (!isConfirmed) return;
     try {
       await api.delete(`/alerts/rules/${ruleId}`);
       setRules(rules.filter(r => r.id !== ruleId));
@@ -178,7 +181,8 @@ export default function AlertsPage() {
   };
 
   const handleClearHistory = async () => {
-    if (!confirm("Are you sure you want to clear all alert logs for this project?")) return;
+    const isConfirmed = await confirm("Are you sure you want to clear all alert logs for this project?", "Clear Alert Logs");
+    if (!isConfirmed) return;
     try {
       await api.post(`/alerts/history/clear/${selectedProjectId}`);
       setLogs([]);

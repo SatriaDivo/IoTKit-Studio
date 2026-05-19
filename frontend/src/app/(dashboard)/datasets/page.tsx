@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Database, Upload, Trash2, FileText, Loader2 } from "lucide-react";
+import { usePopupStore } from "@/store/popupStore";
 
 export default function DatasetsPage() {
   const [datasets, setDatasets] = useState<any[]>([]);
@@ -15,6 +16,8 @@ export default function DatasetsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [moduleName, setModuleName] = useState("");
   const [datasetName, setDatasetName] = useState("");
+  const confirm = usePopupStore((state) => state.confirm);
+  const prompt = usePopupStore((state) => state.prompt);
 
   useEffect(() => {
     fetchDatasets();
@@ -65,7 +68,8 @@ export default function DatasetsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this dataset?")) return;
+    const isConfirmed = await confirm("Are you sure you want to delete this dataset?", "Delete Dataset");
+    if (!isConfirmed) return;
     
     try {
       await api.delete(`/datasets/${id}`);
@@ -77,7 +81,7 @@ export default function DatasetsPage() {
   };
 
   const handleRename = async (id: string, currentName: string) => {
-    const newName = window.prompt("Enter new dataset name:", currentName);
+    const newName = await prompt("Enter new dataset name:", currentName, "Rename Dataset");
     if (!newName || newName.trim() === "" || newName === currentName) return;
 
     try {

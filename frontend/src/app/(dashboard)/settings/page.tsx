@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/store/authStore";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
+import { usePopupStore } from "@/store/popupStore";
 
 interface UserProfile {
   name: string;
@@ -58,6 +59,7 @@ export default function SettingsPage() {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState("profile");
   const [saving, setSaving] = useState(false);
+  const confirm = usePopupStore((state) => state.confirm);
 
   // Profile state
   const [profile, setProfile] = useState<UserProfile>({
@@ -191,7 +193,8 @@ export default function SettingsPage() {
   };
 
   const handleDeleteApiKey = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this API key?")) return;
+    const isConfirmed = await confirm("Are you sure you want to delete this API key?", "Delete API Key");
+    if (!isConfirmed) return;
 
     try {
       await api.delete(`/settings/api-keys/${id}`);
