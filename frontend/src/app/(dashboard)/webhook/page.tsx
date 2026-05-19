@@ -162,7 +162,6 @@ export default function WebhookListenerPage() {
       await api.delete(`/webhook-manage/clear/${selectedProjectId}`);
       stopPolling();
       setWebhookInfo((prev) => prev ? { ...prev, webhookToken: null, webhookEnabled: false, webhookUrl: null } : null);
-      setLogs([]);
       toast.success("Webhook disabled");
     } catch {
       toast.error("Failed to disable webhook");
