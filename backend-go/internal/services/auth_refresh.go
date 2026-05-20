@@ -239,7 +239,7 @@ func StartTokenRefreshWorker() {
 
 func checkAndRefreshActiveTokens() {
 	var authConfigs []database.AuthConfig
-	err := database.DB.Where("refreshEnabled = ? AND active = ?", true, true).Find(&authConfigs).Error
+	err := database.DB.Where("\"refreshEnabled\" = ? AND active = ?", true, true).Find(&authConfigs).Error
 	if err != nil {
 		log.Printf("[Token Refresh Worker] Error checking auth configs: %v", err)
 		return

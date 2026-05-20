@@ -12,7 +12,7 @@ import (
 // Therefore we must generate UUIDs via BeforeCreate hooks in GORM.
 
 type User struct {
-	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
+	ID        string    `gorm:"primaryKey;type:text" json:"id"`
 	Email     string    `gorm:"uniqueIndex;not null" json:"email"`
 	Password  string    `gorm:"not null" json:"-"`
 	Name      *string   `json:"name"`
@@ -30,7 +30,7 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 }
 
 type Project struct {
-	ID             string       `gorm:"primaryKey;type:uuid" json:"id"`
+	ID             string       `gorm:"primaryKey;type:text" json:"id"`
 	Name           string       `gorm:"not null" json:"name"`
 	Description    *string      `json:"description"`
 	Protocol       string       `gorm:"not null" json:"protocol"`
@@ -50,7 +50,7 @@ type Project struct {
 	LastActivity   *time.Time   `json:"lastActivity"`
 	CreatedAt      time.Time    `json:"createdAt"`
 	UpdatedAt      time.Time    `json:"updatedAt"`
-	UserID         string       `gorm:"not null" json:"userId"`
+	UserID         string       `gorm:"not null;type:text" json:"userId"`
 	User           User         `gorm:"foreignKey:UserID" json:"-"`
 	Payloads       []Payload    `gorm:"foreignKey:ProjectID" json:"payloads,omitempty"`
 	Logs           []Log        `gorm:"foreignKey:ProjectID" json:"logs,omitempty"`
@@ -67,7 +67,7 @@ func (p *Project) BeforeCreate(tx *gorm.DB) error {
 }
 
 type Payload struct {
-	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
+	ID        string    `gorm:"primaryKey;type:text" json:"id"`
 	Name      string    `gorm:"not null" json:"name"`
 	Structure string    `gorm:"not null" json:"structure"`
 	Template  bool      `gorm:"default:false" json:"template"`
@@ -86,7 +86,7 @@ func (p *Payload) BeforeCreate(tx *gorm.DB) error {
 }
 
 type Simulation struct {
-	ID             string     `gorm:"primaryKey;type:uuid" json:"id"`
+	ID             string     `gorm:"primaryKey;type:text" json:"id"`
 	JobID          *string    `gorm:"uniqueIndex" json:"jobId"`
 	ModuleName     string     `gorm:"default:custom" json:"moduleName"`
 	Mode           string     `gorm:"default:interval" json:"mode"`
@@ -123,7 +123,7 @@ func (s *Simulation) BeforeCreate(tx *gorm.DB) error {
 }
 
 type Log struct {
-	ID         string    `gorm:"primaryKey;type:uuid" json:"id"`
+	ID         string    `gorm:"primaryKey;type:text" json:"id"`
 	Type       string    `gorm:"not null" json:"type"`
 	Protocol   string    `gorm:"not null" json:"protocol"`
 	Message    string    `gorm:"not null" json:"message"`
@@ -147,7 +147,7 @@ func (l *Log) BeforeCreate(tx *gorm.DB) error {
 }
 
 type Dataset struct {
-	ID               string     `gorm:"primaryKey;type:uuid" json:"id"`
+	ID               string     `gorm:"primaryKey;type:text" json:"id"`
 	Name             string     `gorm:"not null" json:"name"`
 	ModuleName       string     `gorm:"not null" json:"moduleName"`
 	FileName         string     `gorm:"not null" json:"fileName"`
@@ -173,7 +173,7 @@ func (d *Dataset) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ChatSession struct {
-	ID        string        `gorm:"primaryKey;type:uuid" json:"id"`
+	ID        string        `gorm:"primaryKey;type:text" json:"id"`
 	UserID    string        `gorm:"not null" json:"userId"`
 	User      User          `gorm:"foreignKey:UserID" json:"-"`
 	Title     string        `gorm:"default:New Conversation" json:"title"`
@@ -191,7 +191,7 @@ func (cs *ChatSession) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ChatMessage struct {
-	ID        string      `gorm:"primaryKey;type:uuid" json:"id"`
+	ID        string      `gorm:"primaryKey;type:text" json:"id"`
 	SessionID string      `gorm:"not null" json:"sessionId"`
 	Session   ChatSession `gorm:"foreignKey:SessionID" json:"-"`
 	Role      string      `gorm:"not null" json:"role"`
@@ -209,7 +209,7 @@ func (cm *ChatMessage) BeforeCreate(tx *gorm.DB) error {
 }
 
 type AlertRule struct {
-	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
+	ID        string    `gorm:"primaryKey;type:text" json:"id"`
 	Name      string    `gorm:"not null" json:"name"`
 	ProjectID string    `gorm:"column:projectId;not null" json:"projectId"`
 	Project   Project   `gorm:"foreignKey:ProjectID" json:"-"`
@@ -237,7 +237,7 @@ func (ar *AlertRule) BeforeUpdate(tx *gorm.DB) error {
 }
 
 type AlertLog struct {
-	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
+	ID        string    `gorm:"primaryKey;type:text" json:"id"`
 	RuleID    *string   `gorm:"column:ruleId" json:"ruleId"`
 	ProjectID string    `gorm:"column:projectId;not null" json:"projectId"`
 	Project   Project   `gorm:"foreignKey:ProjectID" json:"-"`
@@ -261,7 +261,7 @@ func (al *AlertLog) BeforeCreate(tx *gorm.DB) error {
 
 // AuthConfig - OAuth 2.0 authentication configuration
 type AuthConfig struct {
-	ID                  string     `gorm:"primaryKey;type:uuid" json:"id"`
+	ID                  string     `gorm:"primaryKey;type:text" json:"id"`
 	ProjectID           string     `gorm:"column:projectId;uniqueIndex;not null" json:"projectId"`
 	Project             Project    `gorm:"foreignKey:ProjectID" json:"-"`
 	Provider            string     `gorm:"not null" json:"provider"`
@@ -298,7 +298,7 @@ func (ac *AuthConfig) BeforeUpdate(tx *gorm.DB) error {
 
 // RefreshLog - Token refresh attempt log
 type RefreshLog struct {
-	ID             string     `gorm:"primaryKey;type:uuid" json:"id"`
+	ID             string     `gorm:"primaryKey;type:text" json:"id"`
 	AuthConfigID   string     `gorm:"column:authConfigId;not null" json:"authConfigId"`
 	AuthConfig     AuthConfig `gorm:"foreignKey:AuthConfigID" json:"-"`
 	Success        bool       `gorm:"not null" json:"success"`
@@ -320,7 +320,7 @@ func (rl *RefreshLog) BeforeCreate(tx *gorm.DB) error {
 }
 
 type WebhookMap struct {
-	ID        string    `gorm:"primaryKey;type:uuid" json:"id"`
+	ID        string    `gorm:"primaryKey;type:text" json:"id"`
 	ProjectID string    `gorm:"column:projectId;uniqueIndex;not null" json:"projectId"`
 	Project   Project   `gorm:"foreignKey:ProjectID" json:"-"`
 	Mappings  string    `gorm:"not null" json:"mappings"` // JSON string
@@ -342,3 +342,4 @@ func (wm *WebhookMap) BeforeUpdate(tx *gorm.DB) error {
 	wm.UpdatedAt = time.Now()
 	return nil
 }
+

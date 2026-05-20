@@ -1,12 +1,10 @@
-version: "3.8"
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: iotkit-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: iotkit
       POSTGRES_PASSWORD: iotkit123
@@ -46,6 +44,7 @@ services:
   #     - iotkit-network
 
   # Go Fiber Backend (Primary Active Backend - Exposed on 4000)
+
   backend-go:
     build:
       context: ./backend-go
@@ -53,17 +52,15 @@ services:
     container_name: iotkit-backend-go
     restart: unless-stopped
     ports:
-      - "4000:4000"
+      - "4001:4000"
     environment:
       - PORT=4000
       - HOST=0.0.0.0
       - DATABASE_URL=host=postgres user=iotkit password=iotkit123 dbname=iotkit_studio port=5432 sslmode=disable
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      - CORS_ORIGIN=http://localhost:3000
+      - CORS_ORIGIN=http://localhost:3001
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENROUTER_MODEL=openai/gpt-oss-120b:free
-    volumes:
-      - ./backend-go:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,16 +71,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4001
     container_name: iotkit-frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:4000 # Points to Go Backend on 4000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      - NEXT_PUBLIC_API_URL=http://localhost:4001
     depends_on:
       - backend-go
     networks:
