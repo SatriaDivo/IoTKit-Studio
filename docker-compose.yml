@@ -14,7 +14,7 @@ services:
     networks:
       - iotkit-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U iotkit"]
+      test: [ "CMD-SHELL", "pg_isready -U iotkit" ]
       interval: 10s
       timeout: 5s
       retries: 5
