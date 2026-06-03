@@ -27,10 +27,12 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Only redirect to login if it's not the checkAuth call itself
+    // Only redirect to login if it's not an auth endpoint
     if (
       error.response?.status === 401 &&
-      !error.config?.url?.includes("/auth/me")
+      !error.config?.url?.includes("/auth/me") &&
+      !error.config?.url?.includes("/auth/login") &&
+      !error.config?.url?.includes("/auth/register")
     ) {
       localStorage.removeItem("token");
       window.location.href = "/login";
