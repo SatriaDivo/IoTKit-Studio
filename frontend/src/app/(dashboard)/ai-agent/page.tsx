@@ -534,7 +534,7 @@ export default function AIAgentPage() {
                 Autonomous IoT Synthesis Agent
               </span>
               <span className="hidden md:inline font-mono text-[10px] text-[#64748B] ml-2">
-                // GO_FIBER_ORCHESTRATOR
+                {"// GO_FIBER_ORCHESTRATOR"}
               </span>
             </div>
           </div>
