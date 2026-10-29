@@ -81,6 +81,16 @@ export default function DashboardPage() {
       );
 
       setRunningCount(count);
+
+      // Complement with global stats if needed
+      try {
+        const statsRes = await api.get("/simulations/stats");
+        if (statsRes.data && statsRes.data.totalSent > totalSent) {
+          totalSent = statsRes.data.totalSent;
+          totalSuccess = statsRes.data.successCount;
+        }
+      } catch {}
+
       setTotalPayloadsSent(totalSent);
       if (totalSent > 0) {
         const rate = (totalSuccess / totalSent) * 100;

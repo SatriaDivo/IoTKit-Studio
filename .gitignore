@@ -39,5 +39,6 @@ Thumbs.db
 # Misc
 *.pem
 .vercel
+*.exe
 # Added by code-review-graph
 .code-review-graph/

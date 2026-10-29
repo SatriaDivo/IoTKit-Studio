@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 
 	"iotkit-studio-go/internal/database"
 	"iotkit-studio-go/internal/simulation"
@@ -108,15 +109,23 @@ func StopSimulation(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
 	}
 
+	finalStats := simulation.Manager.GetStats(body.ProjectID)
 	simulation.Manager.Stop(body.ProjectID)
 
 	now := time.Now()
+	updates := map[string]interface{}{
+		"status":    "idle",
+		"stoppedAt": &now,
+	}
+	if finalStats != nil {
+		updates["totalSent"] = gorm.Expr("\"totalSent\" + ?", finalStats.TotalSent)
+		updates["successCount"] = gorm.Expr("\"successCount\" + ?", finalStats.SuccessCount)
+		updates["errorCount"] = gorm.Expr("\"errorCount\" + ?", finalStats.ErrorCount)
+	}
+
 	database.DB.Model(&database.Simulation{}).
 		Where("\"projectId\" = ?", body.ProjectID).
-		Updates(map[string]interface{}{
-			"status":    "idle",
-			"stoppedAt": &now,
-		})
+		Updates(updates)
 
 	return c.JSON(fiber.Map{"message": "Simulation stopped"})
 }
@@ -141,11 +150,37 @@ func GetSimulationStatus(c *fiber.Ctx) error {
 		status = "running"
 	}
 
+	effectiveStats := stats
+	if effectiveStats == nil {
+		effectiveTotal := int64(sim.TotalSent)
+		effectiveSuccess := int64(sim.SuccessCount)
+		effectiveError := int64(sim.ErrorCount)
+
+		// Fallback to logged counts if simulation table hasn't accumulated numbers
+		if effectiveTotal == 0 {
+			var logCount int64
+			database.DB.Model(&database.Log{}).Where("\"projectId\" = ?", projectID).Count(&logCount)
+			if logCount > 0 {
+				var errCount int64
+				database.DB.Model(&database.Log{}).Where("\"projectId\" = ? AND (type = ? OR \"statusCode\" >= 400)", projectID, "error").Count(&errCount)
+				effectiveTotal = logCount
+				effectiveError = errCount
+				effectiveSuccess = logCount - errCount
+			}
+		}
+
+		effectiveStats = &simulation.SimulationStats{
+			TotalSent:    effectiveTotal,
+			SuccessCount: effectiveSuccess,
+			ErrorCount:   effectiveError,
+		}
+	}
+
 	return c.JSON(fiber.Map{
 		"status":    status,
 		"running":   running,
 		"isRunning": running,
-		"stats":     stats,
+		"stats":     effectiveStats,
 		"simulation": fiber.Map{
 			"totalSent":    sim.TotalSent,
 			"successCount": sim.SuccessCount,
@@ -173,6 +208,37 @@ func GetSimulationStats(c *fiber.Ctx) error {
 
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Also add stats of currently running in-memory simulations for this user's projects
+	var userProjects []database.Project
+	database.DB.Where("\"userId\" = ?", userID).Find(&userProjects)
+	for _, p := range userProjects {
+		if s := simulation.Manager.GetStats(p.ID); s != nil {
+			stats.TotalSent += s.TotalSent
+			stats.SuccessCount += s.SuccessCount
+			stats.ErrorCount += s.ErrorCount
+		}
+	}
+
+	// If totalSent is 0, fallback to counting actual telemetry logs for user's projects
+	if stats.TotalSent == 0 {
+		var logCount int64
+		database.DB.Model(&database.Log{}).
+			Joins("JOIN \"Project\" ON \"Log\".\"projectId\" = \"Project\".\"id\"").
+			Where("\"Project\".\"userId\" = ?", userID).
+			Count(&logCount)
+		if logCount > 0 {
+			var errLogCount int64
+			database.DB.Model(&database.Log{}).
+				Joins("JOIN \"Project\" ON \"Log\".\"projectId\" = \"Project\".\"id\"").
+				Where("\"Project\".\"userId\" = ? AND (\"Log\".\"type\" = ? OR \"Log\".\"statusCode\" >= 400)", userID, "error").
+				Count(&errLogCount)
+
+			stats.TotalSent = logCount
+			stats.ErrorCount = errLogCount
+			stats.SuccessCount = logCount - errLogCount
+		}
 	}
 
 	return c.JSON(stats)
