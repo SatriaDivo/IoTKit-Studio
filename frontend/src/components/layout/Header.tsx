@@ -14,7 +14,6 @@ import {
   Info,
   LogOut,
   User,
-  Plus,
   Radio,
   ExternalLink,
 } from "lucide-react";
@@ -243,15 +242,6 @@ export default function Header({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2.5">
-          {/* Quick Trigger Button */}
-          <button
-            onClick={() => router.push("/projects/new")}
-            className="hidden md:inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-[#0F172A] text-white hover:bg-[#1E293B] active:translate-y-[1px] transition-all shadow-sm"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>New Node</span>
-          </button>
-
           {/* Notifications Dropdown */}
           <div className="relative">
             <button
