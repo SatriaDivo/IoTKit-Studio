@@ -7,7 +7,7 @@ interface ProjectState {
   currentProject: Project | null;
   loading: boolean;
   fetchProjects: () => Promise<void>;
-  fetchProject: (id: string) => Promise<void>;
+  fetchProject: (id: string) => Promise<Project>;
   createProject: (data: Partial<Project>) => Promise<Project>;
   updateProject: (id: string, data: Partial<Project>) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
@@ -38,6 +38,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
     try {
       const response = await api.get(`/projects/${id}`);
       set({ currentProject: response.data, loading: false });
+      return response.data;
     } catch (error) {
       set({ loading: false });
       throw error;

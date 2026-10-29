@@ -2,19 +2,33 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { motion } from "framer-motion";
-import { ArrowLeft, Save, Play, Plus, X, Upload, Square, Trash2 } from "lucide-react";
-import { useProjectStore } from "@/store/projectStore";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  ArrowLeft,
+  Save,
+  Play,
+  Square,
+  Plus,
+  Trash2,
+  Upload,
+  Radio,
+  Globe,
+  Wifi,
+  Terminal,
+  Activity,
+  Zap,
+  Sliders,
+  Database,
+  FileCode,
+  Copy,
+  Check,
+  AlertTriangle,
+  Clock,
+  Send,
+  Cpu,
+  RefreshCw,
+  ExternalLink,
+} from "lucide-react";
+import { useProjectStore } from "@/store/projectStore";
 import { PayloadField } from "@/types";
 import toast from "react-hot-toast";
 import { api } from "@/lib/api";
@@ -40,7 +54,9 @@ export default function ProjectDetailPage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importJson, setImportJson] = useState("");
-  const [editingProject, setEditingProject] = useState(false);
+  const [activeTab, setActiveTab] = useState<"builder" | "simulation" | "config">("builder");
+  const [copiedPayload, setCopiedPayload] = useState(false);
+
   const [datasets, setDatasets] = useState<any[]>([]);
   const [useDataset, setUseDataset] = useState(() => {
     if (typeof window !== "undefined") {
@@ -49,6 +65,7 @@ export default function ProjectDetailPage() {
     }
     return false;
   });
+
   const [selectedDatasetId, setSelectedDatasetId] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(`selectedDatasetId_${params?.id}`);
@@ -56,6 +73,7 @@ export default function ProjectDetailPage() {
     }
     return "";
   });
+
   const [projectData, setProjectData] = useState({
     name: "",
     description: "",
@@ -69,7 +87,7 @@ export default function ProjectDetailPage() {
     password: "",
   });
 
-  const [headerItems, setHeaderItems] = useState<{key: string, value: string}[]>([]);
+  const [headerItems, setHeaderItems] = useState<{ key: string; value: string }[]>([]);
 
   const [payloadFields, setPayloadFields] = useState<PayloadField[]>([
     {
@@ -90,14 +108,13 @@ export default function ProjectDetailPage() {
       duration: 0,
       swarmMode: false,
       swarmCount: 100,
-      stages: [{ duration: 30, target: 100 }], // default k6-like stage
+      stages: [{ duration: 30, target: 100 }],
       chaosMode: false,
       chaosProbability: 5,
       chaosFields: [] as string[],
     };
 
     if (typeof window !== "undefined") {
-      // params.id is available from useParams() synchronously
       const saved = localStorage.getItem(`simSettings_${params?.id}`);
       if (saved) {
         try {
@@ -108,11 +125,8 @@ export default function ProjectDetailPage() {
     return defaultSettings;
   });
 
-  // Ref-based interval — immune to stale closures
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const projectIdRef = useRef<string>("");
-
-  // ─── Polling helpers ────────────────────────────────────────────────────────
 
   const clearPolling = () => {
     if (intervalRef.current) {
@@ -122,7 +136,7 @@ export default function ProjectDetailPage() {
   };
 
   const startPolling = (projectId: string) => {
-    clearPolling(); // ensure no duplicate
+    clearPolling();
     intervalRef.current = setInterval(async () => {
       try {
         const res = await api.get(`/simulations/status/${projectId}`);
@@ -138,12 +152,8 @@ export default function ProjectDetailPage() {
           clearPolling();
         }
       }
-    }, 5000);
+    }, 4000);
   };
-
-  // ─── Lifecycle ───────────────────────────────────────────────────────────────
-
-  // Save simulation settings to localStorage
 
   useEffect(() => {
     if (params.id && simulationSettings) {
@@ -168,38 +178,34 @@ export default function ProjectDetailPage() {
     if (!id) return;
 
     projectIdRef.current = id;
-    fetchProject(id).finally(() => setLoading(false));
+    fetchProject(id)
+      .then((proj) => {
+        if (proj) {
+          setProjectData({
+            name: proj.name || "",
+            description: proj.description || "",
+            protocol: proj.protocol || "",
+            host: proj.host || "",
+            port: proj.port?.toString() || "",
+            endpoint: proj.endpoint || "",
+            topic: proj.topic || "",
+            username: proj.username || "",
+            password: proj.password || "",
+            authToken: proj.authToken || "",
+          });
 
-    // Load project data for editing
-    fetchProject(id).then(() => {
-      if (currentProject) {
-        setProjectData({
-          name: currentProject.name || "",
-          description: currentProject.description || "",
-          protocol: currentProject.protocol || "",
-          host: currentProject.host || "",
-          port: currentProject.port?.toString() || "",
-          endpoint: currentProject.endpoint || "",
-          topic: currentProject.topic || "",
-          username: currentProject.username || "",
-          password: currentProject.password || "",
-          authToken: currentProject.authToken || "",
-        });
-        
-        if (currentProject.headers) {
-          try {
-            const parsed = JSON.parse(currentProject.headers);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setHeaderItems(parsed);
-            }
-          } catch(e) {
-            // ignore
+          if (proj.headers) {
+            try {
+              const parsed = JSON.parse(proj.headers);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setHeaderItems(parsed);
+              }
+            } catch (e) {}
           }
         }
-      }
-    });
+      })
+      .finally(() => setLoading(false));
 
-    // Load saved payload configuration
     api
       .get(`/payloads/project/${id}`)
       .then(({ data }) => {
@@ -213,9 +219,8 @@ export default function ProjectDetailPage() {
           } catch {}
         }
       })
-      .catch(() => {}); // No payload yet, use default
+      .catch(() => {});
 
-    // Load available datasets
     api
       .get("/datasets")
       .then(({ data }) => {
@@ -228,7 +233,6 @@ export default function ProjectDetailPage() {
       })
       .catch(() => {});
 
-    // Check if simulation is already running when entering the page
     api
       .get(`/simulations/status/${id}`)
       .then(({ data }) => {
@@ -236,25 +240,20 @@ export default function ProjectDetailPage() {
         if (data.stats) setSimulationStats(data.stats);
         if (data.isRunning) {
           startPolling(id);
-          // Resume countdown with current interval setting
           const intervalSec = parseFloat(simulationSettings.interval as any) || 1;
           startCountdown(intervalSec);
         }
       })
       .catch(() => {
-        // 404 = no simulation yet, that's fine
         setIsSimulationRunning(false);
       });
 
-    // Cleanup on unmount — guaranteed via ref
     return () => {
       clearPolling();
       stopCountdown();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
-  // ─── Socket Connection ───────────────────────────────────────────────────────
   useEffect(() => {
     const id = params.id as string;
     if (!id) return;
@@ -266,24 +265,24 @@ export default function ProjectDetailPage() {
 
     const initConnection = async () => {
       try {
-        // Query backend health to identify the running engine
         const healthRes = await fetch(`${API_URL}/health`)
           .then((res) => res.json())
           .catch(() => ({}));
-        
+
         const isGo = healthRes.engine === "Go/Fiber";
 
         if (isGo) {
-          // Go Backend uses native WebSockets.
           const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
           ws = new WebSocket(wsUrl);
 
           ws.onopen = () => {
             if (!active) return;
-            ws?.send(JSON.stringify({
-              action: "subscribe",
-              projectId: id
-            }));
+            ws?.send(
+              JSON.stringify({
+                action: "subscribe",
+                projectId: id,
+              })
+            );
           };
 
           ws.onmessage = (event) => {
@@ -321,54 +320,45 @@ export default function ProjectDetailPage() {
             } catch (e) {}
           };
         } else {
-          // Node.js Backend: Socket.IO
-          connectSocketIO();
-        }
-      } catch (err) {
-        connectSocketIO();
-      }
-    };
+          socket = io(API_URL);
 
-    const connectSocketIO = () => {
-      try {
-        socket = io(API_URL);
+          socket.on("connect", () => {
+            socket.emit("subscribe", id);
+          });
 
-        socket.on("connect", () => {
-          socket.emit("subscribe", id);
-        });
+          socket.on("payloadSent", (data: any) => {
+            if (!active) return;
+            if (data.result) {
+              const isSuccess = data.result.success;
+              let responseData = data.result.data;
 
-        socket.on("payloadSent", (data: any) => {
-          if (!active) return;
-          if (data.result) {
-            const isSuccess = data.result.success;
-            let responseData = data.result.data;
+              if (responseData === undefined) {
+                responseData = isSuccess
+                  ? "Payload sent successfully (no response data)"
+                  : data.result.error || "Request failed (no response data)";
+              }
 
-            if (responseData === undefined) {
-              responseData = isSuccess
-                ? "Payload sent successfully (no response data)"
-                : data.result.error || "Request failed (no response data)";
+              setLastSentPayload(data.payload);
+              setLastResponse({
+                type: isSuccess ? "success" : "error",
+                data: responseData,
+                statusCode: data.result.statusCode,
+                latency: data.result.latency,
+                timestamp: new Date().toISOString(),
+              });
             }
+          });
 
-            setLastSentPayload(data.payload);
+          socket.on("payloadError", (data: any) => {
+            if (!active) return;
             setLastResponse({
-              type: isSuccess ? "success" : "error",
-              data: responseData,
-              statusCode: data.result.statusCode,
-              latency: data.result.latency,
+              type: "error",
+              error: data.error,
               timestamp: new Date().toISOString(),
             });
-          }
-        });
-
-        socket.on("payloadError", (data: any) => {
-          if (!active) return;
-          setLastResponse({
-            type: "error",
-            error: data.error,
-            timestamp: new Date().toISOString(),
           });
-        });
-      } catch (e) {}
+        }
+      } catch (err) {}
     };
 
     initConnection();
@@ -383,15 +373,16 @@ export default function ProjectDetailPage() {
     };
   }, [params.id]);
 
-  // ─── Payload helpers ─────────────────────────────────────────────────────────
-
   const addPayloadField = () => {
     setPayloadFields([
       ...payloadFields,
       {
-        name: `field_${payloadFields.length + 1}`,
-        type: "string",
-        mode: "static",
+        name: `metric_${payloadFields.length + 1}`,
+        type: "number",
+        mode: "random",
+        min: 0,
+        max: 100,
+        unit: "",
         value: "",
         required: false,
       },
@@ -404,19 +395,15 @@ export default function ProjectDetailPage() {
     setHasUnsavedChanges(true);
   };
 
-  const updatePayloadField = (
-    index: number,
-    updates: Partial<PayloadField>,
-  ) => {
+  const updatePayloadField = (index: number, updates: Partial<PayloadField>) => {
     setPayloadFields(
-      payloadFields.map((f, i) => (i === index ? { ...f, ...updates } : f)),
+      payloadFields.map((f, i) => (i === index ? { ...f, ...updates } : f))
     );
     setHasUnsavedChanges(true);
   };
 
-  // ─── Save ────────────────────────────────────────────────────────────────────
-
-  const saveProject = async () => {
+  const saveProjectConfig = async () => {
+    setSaving(true);
     try {
       await api.put(`/projects/${params.id}`, {
         name: projectData.name,
@@ -427,21 +414,23 @@ export default function ProjectDetailPage() {
         endpoint: projectData.endpoint,
         topic: projectData.topic || null,
         authToken: projectData.authToken || null,
-        headers: headerItems.length > 0 ? JSON.stringify(headerItems.filter(h => h.key.trim() !== "")) : null,
+        headers:
+          headerItems.length > 0
+            ? JSON.stringify(headerItems.filter((h) => h.key.trim() !== ""))
+            : null,
         username: projectData.username || null,
         password: projectData.password || null,
       });
       await fetchProject(params.id as string);
-      setEditingProject(false);
-      toast.success("Project updated successfully!");
+      toast.success("Node configuration updated");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to update project");
-      throw err;
+      toast.error(err.response?.data?.error || "Failed to update node configuration");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const savePayload = async () => {
-    // Check if payload already exists for this project → update, else create
+  const savePayloadStructure = async () => {
     try {
       const existing = await api.get(`/payloads/project/${params.id}`);
       const payloads = existing.data;
@@ -460,7 +449,6 @@ export default function ProjectDetailPage() {
         });
       }
     } catch (err: any) {
-      // If GET fails (404), just create new
       if (err.response?.status === 404) {
         await api.post("/payloads", {
           name: `${currentProject?.name} Payload`,
@@ -475,23 +463,21 @@ export default function ProjectDetailPage() {
     setHasUnsavedChanges(false);
   };
 
-  const handleSave = async () => {
+  const handleSavePayload = async () => {
     if (payloadFields.length === 0) {
       toast.error("Add at least one payload field");
       return;
     }
     setSaving(true);
     try {
-      await savePayload();
-      toast.success("Configuration saved!");
+      await savePayloadStructure();
+      toast.success("Payload schema saved");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to save");
+      toast.error(err.response?.data?.error || "Failed to save schema");
     } finally {
       setSaving(false);
     }
   };
-
-  // ─── Simulation ──────────────────────────────────────────────────────────────
 
   const handleStartSimulation = async () => {
     if (useDataset && !selectedDatasetId) {
@@ -505,12 +491,11 @@ export default function ProjectDetailPage() {
     }
 
     if (!useDataset && hasUnsavedChanges) {
-      toast("Saving payload first...", { icon: "💾" });
       setSaving(true);
       try {
-        await savePayload();
+        await savePayloadStructure();
       } catch {
-        toast.error("Failed to save payload");
+        toast.error("Failed to save schema before starting");
         setSaving(false);
         return;
       }
@@ -521,7 +506,9 @@ export default function ProjectDetailPage() {
     try {
       const structure = useDataset
         ? [
-            ...(Array.isArray(payloadFields) ? payloadFields.filter(f => f.mode === "static") : []),
+            ...(Array.isArray(payloadFields)
+              ? payloadFields.filter((f) => f.mode === "static")
+              : []),
             {
               name: "__dataset_mode__",
               type: "string",
@@ -547,10 +534,11 @@ export default function ProjectDetailPage() {
         chaosProbability: parseInt(simulationSettings.chaosProbability as any) || 5,
         chaosFields: simulationSettings.chaosFields,
       });
+
       setIsSimulationRunning(true);
-      toast.success("Simulation started!");
+      toast.success("Simulation stream started");
       startPolling(params.id as string);
-      // Start countdown timer
+
       const intervalSec = parseFloat(simulationSettings.interval as any) || 1;
       lastTotalSentRef.current = 0;
       setCountdown(intervalSec);
@@ -591,15 +579,13 @@ export default function ProjectDetailPage() {
       setIsSimulationRunning(false);
       clearPolling();
       stopCountdown();
-      toast.success("Simulation stopped!");
+      toast.success("Simulation stream halted");
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to stop simulation");
     } finally {
       setStopping(false);
     }
   };
-
-  // ─── Import JSON ─────────────────────────────────────────────────────────────
 
   const handleImportPayload = () => {
     try {
@@ -643,244 +629,754 @@ export default function ProjectDetailPage() {
       setHasUnsavedChanges(true);
       setShowImportDialog(false);
       setImportJson("");
-      toast.success(`Imported ${fields.length} fields!`);
+      toast.success(`Imported ${fields.length} schema fields`);
     } catch {
-      toast.error("Invalid JSON format.");
+      toast.error("Invalid JSON format");
     }
   };
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedPayload(true);
+    setTimeout(() => setCopiedPayload(false), 2000);
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+          INITIALIZING_STUDIO...
+        </span>
       </div>
     );
   }
 
   if (!currentProject) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Project not found</h2>
-          <Button onClick={() => router.push("/projects")}>
-            Back to Projects
-          </Button>
-        </div>
+      <div className="p-12 text-center bg-white border border-[#E2E8F0] rounded-md">
+        <h2 className="font-mono text-base font-bold text-[#0F172A]">PROJECT_NOT_FOUND</h2>
+        <p className="text-xs text-slate-500 mt-1">
+          The requested node ID does not exist in local cluster.
+        </p>
+        <button
+          onClick={() => router.push("/projects")}
+          className="mt-4 px-4 py-2 text-xs font-semibold bg-[#0F172A] text-white rounded"
+        >
+          Return to Nodes List
+        </button>
       </div>
     );
   }
 
+  const protocol = currentProject.protocol?.toUpperCase() || "HTTP";
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push("/projects")}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">{currentProject.name}</h1>
-            <p className="text-muted-foreground">
-              {currentProject.description || "No description"}
-            </p>
+    <div className="space-y-4">
+      {/* Studio Command Header */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md p-4 shadow-hairline">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Left: Node Info & Status */}
+          <div className="flex items-start gap-3">
+            <button
+              onClick={() => router.push("/projects")}
+              className="p-1.5 rounded border border-[#CBD5E1] text-[#475569] hover:bg-[#F8FAFC] transition-colors mt-0.5"
+              title="Return to Projects"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg font-bold text-[#0F172A] tracking-tight">
+                  {currentProject.name}
+                </h1>
+                {/* Protocol Badge */}
+                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                  {protocol}
+                </span>
+
+                {/* Live Simulation Indicator */}
+                {isSimulationRunning ? (
+                  <div className="flex items-center gap-2 font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>TRANSMITTING</span>
+                    {countdown > 0 && (
+                      <span className="text-emerald-600 font-normal">
+                        ({countdown.toFixed(1)}s)
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="font-mono text-[10px] font-medium px-2 py-0.5 rounded bg-slate-50 text-slate-500 border border-slate-200">
+                    IDLE_STANDBY
+                  </span>
+                )}
+              </div>
+
+              {/* Endpoint Preview */}
+              <div className="flex items-center gap-2 mt-1 text-xs font-mono text-[#64748B]">
+                <span className="text-[#0F172A] font-semibold">{currentProject.host}</span>
+                {currentProject.port && <span>:{currentProject.port}</span>}
+                {currentProject.endpoint && (
+                  <span className="text-[#2563EB]">{currentProject.endpoint}</span>
+                )}
+                {currentProject.topic && (
+                  <span className="text-emerald-700 font-semibold">
+                    topic: {currentProject.topic}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={async () => {
-              if (editingProject) {
-                setSaving(true);
-                try {
-                  await saveProject();
-                } catch (err) {
-                  // Error already handled in saveProject
-                } finally {
-                  setSaving(false);
-                }
-              }
-            }}
-            disabled={saving || isSimulationRunning || !editingProject}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Update
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleSave}
-            disabled={saving || isSimulationRunning || !hasUnsavedChanges}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Save
-          </Button>
-          <Button
-            onClick={handleStartSimulation}
-            disabled={
-              starting || payloadFields.length === 0 || isSimulationRunning
-            }
-          >
-            <Play className="h-4 w-4 mr-2" />
-            Start
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleStopSimulation}
-            disabled={stopping || !isSimulationRunning}
-          >
-            <Square className="h-4 w-4 mr-2" />
-            Stop
-          </Button>
+
+          {/* Right: Master Control Actions */}
+          <div className="flex items-center gap-2 flex-wrap self-end lg:self-auto">
+            {hasUnsavedChanges && (
+              <button
+                onClick={handleSavePayload}
+                disabled={saving || isSimulationRunning}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium text-[#2563EB] bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>{saving ? "Saving..." : "Save Schema"}</span>
+              </button>
+            )}
+
+            {!isSimulationRunning ? (
+              <button
+                onClick={handleStartSimulation}
+                disabled={starting}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm disabled:opacity-50 transition-all"
+              >
+                <Play className="h-3.5 w-3.5 fill-current" />
+                <span>{starting ? "Starting..." : "Start Stream"}</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleStopSimulation}
+                disabled={stopping}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 shadow-sm disabled:opacity-50 transition-all"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+                <span>{stopping ? "Halting..." : "Halt Stream"}</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Project Info + Payload Config */}
-      <div className="grid gap-6 lg:grid-cols-3 items-start">
-        {/* Left: Project Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-1"
-        >
-          <Card className="glass h-[500px] flex flex-col">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Project Information</CardTitle>
-                  <CardDescription>Basic project configuration</CardDescription>
-                </div>
-                {!editingProject ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setProjectData({
-                        name: currentProject.name || "",
-                        description: currentProject.description || "",
-                        protocol: currentProject.protocol || "",
-                        host: currentProject.host || "",
-                        port: currentProject.port?.toString() || "",
-                        endpoint: currentProject.endpoint || "",
-                        topic: currentProject.topic || "",
-                        username: currentProject.username || "",
-                        password: currentProject.password || "",
-                        authToken: currentProject.authToken || "",
-                      });
-                      setEditingProject(true);
-                    }}
-                    disabled={isSimulationRunning}
+      {/* Split Cockpit Workspace */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+        {/* Left Column: Workbench Tabs (7 cols) */}
+        <div className="xl:col-span-7 space-y-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden">
+            {/* Workbench Navigation Header */}
+            <div className="px-4 py-2 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setActiveTab("builder")}
+                  className={`px-3 py-1.5 rounded text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 ${
+                    activeTab === "builder"
+                      ? "bg-white text-[#0F172A] shadow-hairline border border-[#CBD5E1]"
+                      : "text-[#64748B] hover:text-[#0F172A]"
+                  }`}
+                >
+                  <FileCode className="h-3.5 w-3.5" />
+                  <span>SCHEMA_BUILDER</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("simulation")}
+                  className={`px-3 py-1.5 rounded text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 ${
+                    activeTab === "simulation"
+                      ? "bg-white text-[#0F172A] shadow-hairline border border-[#CBD5E1]"
+                      : "text-[#64748B] hover:text-[#0F172A]"
+                  }`}
+                >
+                  <Sliders className="h-3.5 w-3.5" />
+                  <span>PROFILE_DYNAMICS</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("config")}
+                  className={`px-3 py-1.5 rounded text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 ${
+                    activeTab === "config"
+                      ? "bg-white text-[#0F172A] shadow-hairline border border-[#CBD5E1]"
+                      : "text-[#64748B] hover:text-[#0F172A]"
+                  }`}
+                >
+                  <Cpu className="h-3.5 w-3.5" />
+                  <span>NODE_CONFIG</span>
+                </button>
+              </div>
+
+              {activeTab === "builder" && !useDataset && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowImportDialog(true)}
+                    className="inline-flex items-center gap-1 text-[11px] font-mono font-medium px-2 py-1 rounded border border-[#CBD5E1] bg-white text-[#475569] hover:bg-[#F8FAFC]"
                   >
-                    Edit
-                  </Button>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setEditingProject(false)}
+                    <Upload className="h-3 w-3" />
+                    <span>IMPORT_JSON</span>
+                  </button>
+                  <button
+                    onClick={addPayloadField}
+                    className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold px-2 py-1 rounded bg-[#0F172A] text-white hover:bg-[#1E293B]"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>ADD_FIELD</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Tab 1: Schema Builder */}
+            {activeTab === "builder" && (
+              <div className="p-4 space-y-4">
+                {/* Generation Mode Selector */}
+                <div className="flex items-center justify-between p-2.5 rounded border border-[#E2E8F0] bg-[#F8FAFC]">
+                  <div className="flex items-center gap-2">
+                    <Database className="h-4 w-4 text-[#2563EB]" />
+                    <div>
+                      <span className="text-xs font-semibold text-[#0F172A]">
+                        Payload Generation Mode
+                      </span>
+                      <p className="text-[11px] text-[#64748B]">
+                        Synthesize dynamic telemetry or replay recorded industrial datasets
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center bg-white border border-[#CBD5E1] rounded p-0.5">
+                    <button
+                      onClick={() => setUseDataset(false)}
+                      className={`px-2.5 py-1 text-xs font-mono font-semibold rounded ${
+                        !useDataset
+                          ? "bg-[#0F172A] text-white"
+                          : "text-[#64748B] hover:text-[#0F172A]"
+                      }`}
                     >
-                      Cancel
-                    </Button>
-                    <Button size="sm" onClick={saveProject} disabled={saving}>
-                      {saving ? "Saving..." : "Save"}
-                    </Button>
+                      SYNTHETIC_BUILDER
+                    </button>
+                    <button
+                      onClick={() => setUseDataset(true)}
+                      className={`px-2.5 py-1 text-xs font-mono font-semibold rounded ${
+                        useDataset
+                          ? "bg-[#0F172A] text-white"
+                          : "text-[#64748B] hover:text-[#0F172A]"
+                      }`}
+                    >
+                      DATASET_REPLAY
+                    </button>
+                  </div>
+                </div>
+
+                {useDataset ? (
+                  /* Dataset Replay Selector */
+                  <div className="space-y-3 p-4 rounded border border-blue-200 bg-blue-50/40">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono font-bold text-blue-900 uppercase">
+                        DATASET_STREAM_SOURCE
+                      </span>
+                      <button
+                        onClick={() => router.push("/datasets")}
+                        className="text-[11px] font-mono text-[#2563EB] hover:underline flex items-center gap-1"
+                      >
+                        <span>Manage Datasets</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </button>
+                    </div>
+
+                    <select
+                      className="w-full h-9 px-3 rounded border border-[#CBD5E1] bg-white text-xs font-mono focus:border-[#2563EB] outline-none"
+                      value={selectedDatasetId}
+                      onChange={(e) => setSelectedDatasetId(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        -- Select CSV Dataset --
+                      </option>
+                      {datasets.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} ({d.loadedRows} rows) — Module: {d.moduleName || "General"}
+                        </option>
+                      ))}
+                    </select>
+
+                    <p className="text-[11px] text-blue-800 font-sans">
+                      The simulation engine will stream records sequentially from this CSV dataset, emitting one JSON object per interval tick.
+                    </p>
+                  </div>
+                ) : (
+                  /* Schema Fields Grid */
+                  <div className="space-y-2.5">
+                    {payloadFields.length === 0 ? (
+                      <div className="p-8 text-center text-[#94A3B8] font-mono text-xs border border-dashed border-[#CBD5E1] rounded">
+                        NO_FIELDS_DEFINED. Click &quot;ADD_FIELD&quot; above to synthesize a field.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {payloadFields.map((field, index) => (
+                          <div
+                            key={index}
+                            className="p-3 rounded border border-[#E2E8F0] hover:border-[#CBD5E1] bg-white shadow-hairline space-y-2.5 transition-colors"
+                          >
+                            <div className="grid grid-cols-12 gap-2 items-center">
+                              {/* Name */}
+                              <div className="col-span-4">
+                                <label className="text-[10px] font-mono text-[#64748B] uppercase block mb-1">
+                                  KEY_NAME
+                                </label>
+                                <input
+                                  type="text"
+                                  value={field.name}
+                                  onChange={(e) =>
+                                    updatePayloadField(index, { name: e.target.value })
+                                  }
+                                  placeholder="metric_name"
+                                  className="w-full h-8 px-2.5 text-xs font-mono font-semibold text-[#0F172A] border border-[#CBD5E1] rounded bg-white focus:border-[#2563EB] outline-none"
+                                />
+                              </div>
+
+                              {/* Type */}
+                              <div className="col-span-3">
+                                <label className="text-[10px] font-mono text-[#64748B] uppercase block mb-1">
+                                  DATA_TYPE
+                                </label>
+                                <select
+                                  value={field.type}
+                                  onChange={(e) =>
+                                    updatePayloadField(index, {
+                                      type: e.target.value as PayloadField["type"],
+                                    })
+                                  }
+                                  className="w-full h-8 px-2 text-xs font-mono border border-[#CBD5E1] rounded bg-white focus:border-[#2563EB] outline-none"
+                                >
+                                  <option value="number">Number</option>
+                                  <option value="string">String</option>
+                                  <option value="boolean">Boolean</option>
+                                </select>
+                              </div>
+
+                              {/* Mode */}
+                              <div className="col-span-4">
+                                <label className="text-[10px] font-mono text-[#64748B] uppercase block mb-1">
+                                  GENERATOR_MODE
+                                </label>
+                                <select
+                                  value={field.mode}
+                                  onChange={(e) =>
+                                    updatePayloadField(index, {
+                                      mode: e.target.value as PayloadField["mode"],
+                                    })
+                                  }
+                                  className="w-full h-8 px-2 text-xs font-mono border border-[#CBD5E1] rounded bg-white focus:border-[#2563EB] outline-none"
+                                >
+                                  <option value="random">Random Range</option>
+                                  <option value="static">Static Value</option>
+                                  <option value="incremental">Incremental Counter</option>
+                                  <option value="timestamp">Unix Timestamp</option>
+                                </select>
+                              </div>
+
+                              {/* Delete */}
+                              <div className="col-span-1 text-right pt-4">
+                                <button
+                                  onClick={() => removePayloadField(index)}
+                                  className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                  title="Remove Field"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Generator Parameters */}
+                            <div className="pt-2 border-t border-[#F1F5F9] grid grid-cols-12 gap-2 items-center text-xs">
+                              {field.mode === "random" && field.type === "number" && (
+                                <>
+                                  <div className="col-span-4 flex items-center gap-1.5">
+                                    <span className="text-[10px] font-mono text-[#64748B]">MIN:</span>
+                                    <input
+                                      type="number"
+                                      value={field.min ?? 0}
+                                      onChange={(e) =>
+                                        updatePayloadField(index, {
+                                          min: parseFloat(e.target.value) || 0,
+                                        })
+                                      }
+                                      className="w-full h-7 px-2 font-mono border border-[#CBD5E1] rounded text-xs"
+                                    />
+                                  </div>
+                                  <div className="col-span-4 flex items-center gap-1.5">
+                                    <span className="text-[10px] font-mono text-[#64748B]">MAX:</span>
+                                    <input
+                                      type="number"
+                                      value={field.max ?? 100}
+                                      onChange={(e) =>
+                                        updatePayloadField(index, {
+                                          max: parseFloat(e.target.value) || 0,
+                                        })
+                                      }
+                                      className="w-full h-7 px-2 font-mono border border-[#CBD5E1] rounded text-xs"
+                                    />
+                                  </div>
+                                  <div className="col-span-4 flex items-center gap-1.5">
+                                    <span className="text-[10px] font-mono text-[#64748B]">UNIT:</span>
+                                    <input
+                                      type="text"
+                                      value={field.unit || ""}
+                                      onChange={(e) =>
+                                        updatePayloadField(index, { unit: e.target.value })
+                                      }
+                                      placeholder="°C, %, bar"
+                                      className="w-full h-7 px-2 font-mono border border-[#CBD5E1] rounded text-xs"
+                                    />
+                                  </div>
+                                </>
+                              )}
+
+                              {field.mode === "static" && (
+                                <div className="col-span-8 flex items-center gap-1.5">
+                                  <span className="text-[10px] font-mono text-[#64748B]">LITERAL:</span>
+                                  <input
+                                    type="text"
+                                    value={field.value || ""}
+                                    onChange={(e) =>
+                                      updatePayloadField(index, { value: e.target.value })
+                                    }
+                                    placeholder="constant_value"
+                                    className="w-full h-7 px-2 font-mono border border-[#CBD5E1] rounded text-xs"
+                                  />
+                                </div>
+                              )}
+
+                              {field.mode === "incremental" && (
+                                <div className="col-span-6 flex items-center gap-1.5">
+                                  <span className="text-[10px] font-mono text-[#64748B]">SEED:</span>
+                                  <input
+                                    type="number"
+                                    value={field.value || 0}
+                                    onChange={(e) =>
+                                      updatePayloadField(index, {
+                                        value: parseFloat(e.target.value) || 0,
+                                      })
+                                    }
+                                    className="w-full h-7 px-2 font-mono border border-[#CBD5E1] rounded text-xs"
+                                  />
+                                </div>
+                              )}
+
+                              {field.mode === "timestamp" && (
+                                <div className="col-span-12 font-mono text-[11px] text-[#64748B]">
+                                  Current Epoch timestamp (millisecond resolution) injected at transmission.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto space-y-4">
-              {!editingProject ? (
-                <>
-                  <div className="space-y-2">
-                    <Label>Protocol</Label>
-                    <div className="text-lg font-semibold text-primary">
-                      {currentProject.protocol}
-                    </div>
+            )}
+
+            {/* Tab 2: Profile Dynamics (Interval, Swarm, Chaos) */}
+            {activeTab === "simulation" && (
+              <div className="p-4 space-y-5">
+                {/* Basic Transmission Rate */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 rounded border border-[#E2E8F0] bg-[#F8FAFC]">
+                    <label className="text-[11px] font-mono font-semibold text-[#0F172A] uppercase block mb-1">
+                      INTERVAL (SECONDS)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      disabled={isSimulationRunning}
+                      value={simulationSettings.interval}
+                      onChange={(e) =>
+                        setSimulationSettings({
+                          ...simulationSettings,
+                          interval:
+                            e.target.value === "" ? "" : parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full h-8 px-2 font-mono font-bold text-sm bg-white border border-[#CBD5E1] rounded focus:border-[#2563EB] outline-none"
+                    />
+                    <span className="text-[10px] text-[#64748B] mt-1 block">
+                      Transmission frequency
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Host</Label>
-                    <div className="font-mono text-sm">
-                      {currentProject.host}
-                    </div>
+
+                  <div className="p-3 rounded border border-[#E2E8F0] bg-[#F8FAFC]">
+                    <label className="text-[11px] font-mono font-semibold text-[#0F172A] uppercase block mb-1">
+                      BATCH SIZE
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      disabled={isSimulationRunning}
+                      value={simulationSettings.batchSize}
+                      onChange={(e) =>
+                        setSimulationSettings({
+                          ...simulationSettings,
+                          batchSize:
+                            e.target.value === "" ? "" : parseInt(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full h-8 px-2 font-mono font-bold text-sm bg-white border border-[#CBD5E1] rounded focus:border-[#2563EB] outline-none"
+                    />
+                    <span className="text-[10px] text-[#64748B] mt-1 block">
+                      Payloads per tick
+                    </span>
                   </div>
-                  {currentProject.port && (
-                    <div className="space-y-2">
-                      <Label>Port</Label>
-                      <div className="font-mono text-sm">
-                        {currentProject.port}
+
+                  <div className="p-3 rounded border border-[#E2E8F0] bg-[#F8FAFC]">
+                    <label className="text-[11px] font-mono font-semibold text-[#0F172A] uppercase block mb-1">
+                      DURATION (SEC)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      disabled={isSimulationRunning}
+                      value={simulationSettings.duration}
+                      onChange={(e) =>
+                        setSimulationSettings({
+                          ...simulationSettings,
+                          duration:
+                            e.target.value === "" ? "" : parseInt(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full h-8 px-2 font-mono font-bold text-sm bg-white border border-[#CBD5E1] rounded focus:border-[#2563EB] outline-none"
+                    />
+                    <span className="text-[10px] text-[#64748B] mt-1 block">
+                      0 = run indefinitely
+                    </span>
+                  </div>
+                </div>
+
+                {/* Swarm Mode (k6-style VUs) */}
+                <div className="p-3.5 rounded border border-[#E2E8F0] bg-white space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-mono font-bold text-[#0F172A] uppercase tracking-wider">
+                        SWARM_LOAD_PROFILE (VIRTUAL USERS)
+                      </span>
+                      <p className="text-[11px] text-[#64748B]">
+                        Stress test MQTT brokers and HTTP endpoints with ramp-up stages
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isSimulationRunning}
+                      onClick={() =>
+                        setSimulationSettings({
+                          ...simulationSettings,
+                          swarmMode: !simulationSettings.swarmMode,
+                        })
+                      }
+                      className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors ${
+                        simulationSettings.swarmMode
+                          ? "bg-emerald-600 text-white"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {simulationSettings.swarmMode ? "SWARM_ACTIVE" : "DISABLED"}
+                    </button>
+                  </div>
+
+                  {simulationSettings.swarmMode && (
+                    <div className="space-y-2 pt-2 border-t border-[#F1F5F9]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono text-[#64748B]">
+                          STAGES MATRIX (MAX 1000 VUs)
+                        </span>
+                        <button
+                          type="button"
+                          disabled={isSimulationRunning}
+                          onClick={() =>
+                            setSimulationSettings({
+                              ...simulationSettings,
+                              stages: [
+                                ...simulationSettings.stages,
+                                { duration: 30, target: 100 },
+                              ],
+                            })
+                          }
+                          className="text-[11px] font-mono font-semibold text-[#2563EB] hover:underline"
+                        >
+                          + Add Stage
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {simulationSettings.stages.map((stage: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2 p-2 rounded bg-[#F8FAFC] border border-[#E2E8F0] text-xs font-mono"
+                          >
+                            <span className="text-slate-400 text-[10px]">#{idx + 1}</span>
+                            <span className="text-[#64748B]">DURATION:</span>
+                            <input
+                              type="number"
+                              value={stage.duration}
+                              disabled={isSimulationRunning}
+                              onChange={(e) => {
+                                const newStages = [...simulationSettings.stages];
+                                newStages[idx].duration = parseInt(e.target.value) || 0;
+                                setSimulationSettings({
+                                  ...simulationSettings,
+                                  stages: newStages,
+                                });
+                              }}
+                              className="w-20 h-6 px-1.5 border border-[#CBD5E1] rounded bg-white text-xs"
+                            />
+                            <span className="text-[#64748B] ml-2">TARGET_VUS:</span>
+                            <input
+                              type="number"
+                              max="1000"
+                              value={stage.target}
+                              disabled={isSimulationRunning}
+                              onChange={(e) => {
+                                const newStages = [...simulationSettings.stages];
+                                newStages[idx].target = Math.min(
+                                  1000,
+                                  parseInt(e.target.value) || 0
+                                );
+                                setSimulationSettings({
+                                  ...simulationSettings,
+                                  stages: newStages,
+                                });
+                              }}
+                              className="w-20 h-6 px-1.5 border border-[#CBD5E1] rounded bg-white text-xs"
+                            />
+                            {simulationSettings.stages.length > 1 && (
+                              <button
+                                type="button"
+                                disabled={isSimulationRunning}
+                                onClick={() => {
+                                  const newStages = simulationSettings.stages.filter(
+                                    (_: any, i: number) => i !== idx
+                                  );
+                                  setSimulationSettings({
+                                    ...simulationSettings,
+                                    stages: newStages,
+                                  });
+                                }}
+                                className="ml-auto text-rose-500 hover:text-rose-700"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
-                  {currentProject.endpoint && (
-                    <div className="space-y-2">
-                      <Label>Endpoint</Label>
-                      <div className="font-mono text-sm">
-                        {currentProject.endpoint}
+                </div>
+
+                {/* Chaos Injection Engine */}
+                <div className="p-3.5 rounded border border-[#E2E8F0] bg-white space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-mono font-bold text-rose-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        CHAOS_ANOMALY_INJECTOR
+                      </span>
+                      <p className="text-[11px] text-[#64748B]">
+                        Simulate out-of-range sensor spikes and boolean reversals to test alarm rules
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={isSimulationRunning}
+                      onClick={() =>
+                        setSimulationSettings({
+                          ...simulationSettings,
+                          chaosMode: !simulationSettings.chaosMode,
+                        })
+                      }
+                      className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors ${
+                        simulationSettings.chaosMode
+                          ? "bg-rose-600 text-white"
+                          : "bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {simulationSettings.chaosMode ? "CHAOS_ACTIVE" : "DISABLED"}
+                    </button>
+                  </div>
+
+                  {simulationSettings.chaosMode && (
+                    <div className="space-y-3 pt-2 border-t border-[#F1F5F9]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono text-[#0F172A]">
+                          SPIKE PROBABILITY:
+                        </span>
+                        <div className="flex items-center gap-1 font-mono font-bold text-rose-700">
+                          <span>{simulationSettings.chaosProbability}%</span>
+                        </div>
                       </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="100"
+                        disabled={isSimulationRunning}
+                        value={simulationSettings.chaosProbability}
+                        onChange={(e) =>
+                          setSimulationSettings({
+                            ...simulationSettings,
+                            chaosProbability: parseInt(e.target.value) || 1,
+                          })
+                        }
+                        className="w-full accent-rose-600"
+                      />
                     </div>
                   )}
-                  {currentProject.topic && (
-                    <div className="space-y-2">
-                      <Label>Topic</Label>
-                      <div className="font-mono text-sm">
-                        {currentProject.topic}
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Project Name</Label>
-                    <Input
-                      id="name"
+                </div>
+              </div>
+            )}
+
+            {/* Tab 3: Node Config */}
+            {activeTab === "config" && (
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                      NODE_NAME
+                    </label>
+                    <input
+                      type="text"
                       value={projectData.name}
                       onChange={(e) =>
                         setProjectData({ ...projectData, name: e.target.value })
                       }
-                      placeholder="My IoT Project"
+                      className="w-full h-8 px-2.5 font-sans border border-[#CBD5E1] rounded bg-white"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Input
-                      id="description"
-                      value={projectData.description}
-                      onChange={(e) =>
-                        setProjectData({
-                          ...projectData,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="Project description"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="protocol">Protocol</Label>
+
+                  <div>
+                    <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                      PROTOCOL
+                    </label>
                     <select
-                      id="protocol"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       value={projectData.protocol}
                       onChange={(e) => {
-                        const protocol = e.target.value;
+                        const proto = e.target.value;
                         let defaultPort = projectData.port;
-                        
-                        if (protocol === "HTTP" || protocol === "WS") defaultPort = "80";
-                        else if (protocol === "HTTPS" || protocol === "WSS") defaultPort = "443";
-                        else if (protocol === "MQTT") defaultPort = "1883";
-                        else if (protocol === "MQTTS") defaultPort = "8883";
-
+                        if (proto === "HTTP" || proto === "WS") defaultPort = "80";
+                        else if (proto === "HTTPS" || proto === "WSS") defaultPort = "443";
+                        else if (proto === "MQTT") defaultPort = "1883";
+                        else if (proto === "MQTTS") defaultPort = "8883";
                         setProjectData({
                           ...projectData,
-                          protocol,
+                          protocol: proto,
                           port: defaultPort,
                         });
                       }}
+                      className="w-full h-8 px-2 font-mono border border-[#CBD5E1] rounded bg-white"
                     >
                       <option value="HTTP">HTTP</option>
                       <option value="HTTPS">HTTPS</option>
@@ -890,1022 +1386,317 @@ export default function ProjectDetailPage() {
                       <option value="WSS">WebSocket Secure</option>
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="host">Host</Label>
-                    <Input
-                      id="host"
+
+                  <div className="sm:col-span-2">
+                    <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                      HOST_ADDRESS / BROKER_URL
+                    </label>
+                    <input
+                      type="text"
                       value={projectData.host}
                       onChange={(e) => {
-                        const value = e.target.value;
-                        const parsed = parseHostInput(value);
+                        const val = e.target.value;
+                        const parsed = parseHostInput(val);
                         if (parsed) {
                           setProjectData({
                             ...projectData,
                             host: parsed.host,
                             protocol: parsed.protocol,
                             port: parsed.port,
-                            endpoint: parsed.protocol.includes("HTTP") || parsed.protocol.includes("WS") ? parsed.path : projectData.endpoint,
-                            topic: parsed.protocol.includes("MQTT") ? (parsed.path.startsWith("/") ? parsed.path.slice(1) : parsed.path) : projectData.topic,
+                            endpoint:
+                              parsed.protocol.includes("HTTP") ||
+                              parsed.protocol.includes("WS")
+                                ? parsed.path
+                                : projectData.endpoint,
+                            topic: parsed.protocol.includes("MQTT")
+                              ? parsed.path.startsWith("/")
+                                ? parsed.path.slice(1)
+                                : parsed.path
+                              : projectData.topic,
                           });
                         } else {
-                          setProjectData({ ...projectData, host: value });
+                          setProjectData({ ...projectData, host: val });
                         }
                       }}
-                      placeholder="broker.example.com"
+                      className="w-full h-8 px-2.5 font-mono border border-[#CBD5E1] rounded bg-white"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="port">Port</Label>
-                    <Input
-                      id="port"
-                      type="number"
+
+                  <div>
+                    <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                      PORT
+                    </label>
+                    <input
+                      type="text"
                       value={projectData.port}
                       onChange={(e) =>
                         setProjectData({ ...projectData, port: e.target.value })
                       }
-                      placeholder="1883"
+                      className="w-full h-8 px-2.5 font-mono border border-[#CBD5E1] rounded bg-white"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="endpoint">Endpoint</Label>
-                    <Input
-                      id="endpoint"
-                      value={projectData.endpoint}
-                      onChange={(e) =>
-                        setProjectData({
-                          ...projectData,
-                          endpoint: e.target.value,
-                        })
+
+                  <div>
+                    <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                      {projectData.protocol.includes("MQTT") ? "MQTT_TOPIC" : "ENDPOINT_PATH"}
+                    </label>
+                    <input
+                      type="text"
+                      value={
+                        projectData.protocol.includes("MQTT")
+                          ? projectData.topic
+                          : projectData.endpoint
                       }
-                      placeholder="/api/data"
+                      onChange={(e) =>
+                        projectData.protocol.includes("MQTT")
+                          ? setProjectData({ ...projectData, topic: e.target.value })
+                          : setProjectData({ ...projectData, endpoint: e.target.value })
+                      }
+                      className="w-full h-8 px-2.5 font-mono border border-[#CBD5E1] rounded bg-white"
                     />
                   </div>
-                  {(projectData.protocol === "MQTT" ||
-                    projectData.protocol === "MQTTS") && (
-                    <div className="space-y-2">
-                      <Label htmlFor="topic">Topic</Label>
-                      <Input
-                        id="topic"
-                        value={projectData.topic}
-                        onChange={(e) =>
-                          setProjectData({
-                            ...projectData,
-                            topic: e.target.value,
-                          })
-                        }
-                        placeholder="sensors/temperature"
+                </div>
+
+                {/* Headers Manager */}
+                <div className="pt-3 border-t border-[#E2E8F0] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] font-bold text-[#64748B] uppercase">
+                      HTTP_HEADERS / AUTH
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setHeaderItems([...headerItems, { key: "", value: "" }])
+                      }
+                      className="text-[11px] font-mono text-[#2563EB] hover:underline"
+                    >
+                      + Add Header
+                    </button>
+                  </div>
+
+                  {headerItems.map((header, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        placeholder="Header Key (e.g. X-API-Key)"
+                        value={header.key}
+                        onChange={(e) => {
+                          const newHeaders = [...headerItems];
+                          newHeaders[idx].key = e.target.value;
+                          setHeaderItems(newHeaders);
+                        }}
+                        className="flex-1 h-7 px-2 font-mono text-xs border border-[#CBD5E1] rounded bg-white"
                       />
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username (Optional)</Label>
-                    <Input
-                      id="username"
-                      value={projectData.username}
-                      onChange={(e) =>
-                        setProjectData({
-                          ...projectData,
-                          username: e.target.value,
-                        })
-                      }
-                      placeholder="username"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password (Optional)</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={projectData.password}
-                      onChange={(e) =>
-                        setProjectData({
-                          ...projectData,
-                          password: e.target.value,
-                        })
-                      }
-                      placeholder="password"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="authToken">Authentication Token (Bearer)</Label>
-                    <Input
-                      id="authToken"
-                      type="password"
-                      value={projectData.authToken}
-                      onChange={(e) =>
-                        setProjectData({
-                          ...projectData,
-                          authToken: e.target.value,
-                        })
-                      }
-                      placeholder="Optional"
-                    />
-                  </div>
-                  
-                  <div className="space-y-3 pt-2">
-                    <div className="flex items-center justify-between">
-                      <Label>Custom Headers</Label>
-                      <Button
+                      <input
+                        placeholder="Value"
+                        value={header.value}
+                        onChange={(e) => {
+                          const newHeaders = [...headerItems];
+                          newHeaders[idx].value = e.target.value;
+                          setHeaderItems(newHeaders);
+                        }}
+                        className="flex-1 h-7 px-2 font-mono text-xs border border-[#CBD5E1] rounded bg-white"
+                      />
+                      <button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setHeaderItems([...headerItems, { key: "", value: "" }])}
+                        onClick={() => {
+                          const newHeaders = [...headerItems];
+                          newHeaders.splice(idx, 1);
+                          setHeaderItems(newHeaders);
+                        }}
+                        className="text-rose-500 hover:text-rose-700"
                       >
-                        <Plus className="h-4 w-4 mr-2" /> Add Header
-                      </Button>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                    {headerItems.map((header, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Input
-                          placeholder="Key (e.g. X-API-Key)"
-                          value={header.key}
-                          onChange={(e) => {
-                            const newHeaders = [...headerItems];
-                            newHeaders[index].key = e.target.value;
-                            setHeaderItems(newHeaders);
-                          }}
-                          className="flex-1"
-                        />
-                        <Input
-                          placeholder="Value"
-                          value={header.value}
-                          onChange={(e) => {
-                            const newHeaders = [...headerItems];
-                            newHeaders[index].value = e.target.value;
-                            setHeaderItems(newHeaders);
-                          }}
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const newHeaders = [...headerItems];
-                            newHeaders.splice(index, 1);
-                            setHeaderItems(newHeaders);
-                          }}
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+                  ))}
+                </div>
 
-        {/* Right: Payload Configuration */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="lg:col-span-2"
-        >
-          <Card className="glass h-[500px] flex flex-col">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Payload Configuration</CardTitle>
-                  <CardDescription>
-                    Configure your IoT payload structure or replay a dataset
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2 items-center">
-                  {!useDataset && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowImportDialog(true)}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Import JSON
-                      </Button>
-                      <Button size="sm" onClick={addPayloadField}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Field
-                      </Button>
-                    </>
-                  )}
-                  <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg ml-2">
-                    <Button 
-                      size="sm" 
-                      variant={!useDataset ? "default" : "ghost"}
-                      className={!useDataset ? "bg-blue-600 shadow-sm" : ""}
-                      onClick={() => setUseDataset(false)}
-                    >
-                      Builder
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant={useDataset ? "default" : "ghost"}
-                      className={useDataset ? "bg-blue-600 shadow-sm" : ""}
-                      onClick={() => setUseDataset(true)}
-                    >
-                      Dataset Replay
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-hidden">
-              {useDataset ? (
-                <div className="flex flex-col h-full space-y-4">
-                  <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
-                    <h3 className="font-medium text-blue-900 mb-1">Dataset Playback Mode</h3>
-                    <p className="text-sm text-blue-700">
-                      In this mode, the simulation will read your selected CSV dataset row by row, sending each row as a JSON object.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Select Dataset</Label>
-                    <select
-                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm outline-none focus:ring-1 focus:ring-blue-500"
-                      value={selectedDatasetId}
-                      onChange={(e) => setSelectedDatasetId(e.target.value)}
-                    >
-                      <option value="" disabled>-- Select a dataset --</option>
-                      {datasets.map(d => (
-                        <option key={d.id} value={d.id}>{d.name} ({d.loadedRows} rows) - Category: {d.moduleName}</option>
-                      ))}
-                    </select>
-                    {datasets.length === 0 && (
-                      <p className="text-xs text-red-500">No datasets found. Please upload one in the Datasets menu.</p>
-                    )}
-                  </div>
-                </div>
-              ) : payloadFields.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p className="text-sm mb-4">No fields added yet</p>
-                  <Button variant="outline" onClick={addPayloadField}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Your First Field
-                  </Button>
-                </div>
-              ) : (
-                <div className="h-full flex flex-col space-y-4">
-                  <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-                    {payloadFields.map((field, index) => (
-                      <div
-                        key={index}
-                        className="border rounded-lg p-3 space-y-2 relative bg-card"
-                      >
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="absolute top-1 right-1 h-6 w-6"
-                          onClick={() => removePayloadField(index)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                        <div className="grid grid-cols-4 gap-2 pr-6">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Name</Label>
-                            <Input
-                              value={field.name}
-                              onChange={(e) =>
-                                updatePayloadField(index, {
-                                  name: e.target.value,
-                                })
-                              }
-                              placeholder="field_name"
-                              className="h-8 text-xs"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Type</Label>
-                            <select
-                              className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
-                              value={field.type}
-                              onChange={(e) =>
-                                updatePayloadField(index, {
-                                  type: e.target.value as PayloadField["type"],
-                                })
-                              }
-                            >
-                              <option value="string">String</option>
-                              <option value="number">Number</option>
-                              <option value="boolean">Boolean</option>
-                            </select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Mode</Label>
-                            <select
-                              className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs"
-                              value={field.mode}
-                              onChange={(e) =>
-                                updatePayloadField(index, {
-                                  mode: e.target.value as PayloadField["mode"],
-                                })
-                              }
-                            >
-                              <option value="static">Static</option>
-                              <option value="random">Random</option>
-                              <option value="incremental">Incr.</option>
-                              <option value="timestamp">Time</option>
-                            </select>
-                          </div>
-                          {field.type === "number" && (
-                            <div className="space-y-1">
-                              <Label className="text-xs">Unit</Label>
-                              <Input
-                                value={field.unit || ""}
-                                onChange={(e) =>
-                                  updatePayloadField(index, {
-                                    unit: e.target.value,
-                                  })
-                                }
-                                placeholder="°C, %, ppm"
-                                className="h-8 text-xs"
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-4 gap-2 pr-6">
-                          {field.mode === "static" && (
-                            <div className="space-y-1 col-span-2">
-                              <Label className="text-xs">Value</Label>
-                              <Input
-                                value={field.value || ""}
-                                onChange={(e) =>
-                                  updatePayloadField(index, {
-                                    value: e.target.value,
-                                  })
-                                }
-                                placeholder="Enter value"
-                                className="h-8 text-xs"
-                              />
-                            </div>
-                          )}
-                          {field.mode === "random" &&
-                            field.type === "number" && (
-                              <div className="space-y-1 col-span-4">
-                                <Label className="text-xs">Range</Label>
-                                <div className="flex gap-2 items-center">
-                                  <Input
-                                    type="number"
-                                    value={field.min || 0}
-                                    onChange={(e) =>
-                                      updatePayloadField(index, {
-                                        min: parseFloat(e.target.value),
-                                      })
-                                    }
-                                    placeholder="Min"
-                                    className="h-8 text-xs"
-                                  />
-                                  <span className="text-xs text-muted-foreground">
-                                    to
-                                  </span>
-                                  <Input
-                                    type="number"
-                                    value={field.max || 100}
-                                    onChange={(e) =>
-                                      updatePayloadField(index, {
-                                        max: parseFloat(e.target.value),
-                                      })
-                                    }
-                                    placeholder="Max"
-                                    className="h-8 text-xs"
-                                  />
-                                </div>
-                              </div>
-                            )}
-                          {field.mode === "incremental" &&
-                            field.type === "number" && (
-                              <div className="space-y-1 col-span-2">
-                                <Label className="text-xs">Start Value</Label>
-                                <Input
-                                  type="number"
-                                  value={field.value || 0}
-                                  onChange={(e) =>
-                                    updatePayloadField(index, {
-                                      value: parseFloat(e.target.value),
-                                    })
-                                  }
-                                  placeholder="0"
-                                  className="h-8 text-xs"
-                                />
-                              </div>
-                            )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {!useDataset && (
-                    <div className="border-t pt-3">
-                      <h4 className="text-xs font-semibold mb-2">
-                        JSON Preview:
-                      </h4>
-                      <pre className="bg-muted p-2 rounded-md text-xs overflow-x-auto max-h-[120px] overflow-y-auto">
-                        {JSON.stringify(
-                          payloadFields.reduce(
-                            (acc, f) => {
-                              acc[f.name] =
-                                f.mode === "static"
-                                  ? f.value
-                                  : f.mode === "random" && f.type === "number"
-                                    ? `<random ${f.min}-${f.max}>`
-                                    : f.mode === "incremental"
-                                      ? "<incremental>"
-                                      : f.mode === "timestamp"
-                                        ? "<timestamp>"
-                                        : `<${f.mode}>`;
-                              return acc;
-                            },
-                            {} as Record<string, any>,
-                          ),
-                          null,
-                          2,
-                        )}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Simulation Settings */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <Card className="glass">
-          <CardHeader>
-            <CardTitle>Simulation Settings</CardTitle>
-            <CardDescription>Configure simulation parameters</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="interval">Interval (s)</Label>
-                <Input
-                  id="interval"
-                  type="number"
-                  step="0.1"
-                  value={simulationSettings.interval}
-                  onChange={(e) =>
-                    setSimulationSettings({
-                      ...simulationSettings,
-                      interval: e.target.value === "" ? "" : (parseFloat(e.target.value) || 0),
-                    })
-                  }
-                  onBlur={() => {
-                    if (simulationSettings.interval === "" || parseFloat(simulationSettings.interval as any) < 0.1) {
-                      setSimulationSettings({
-                        ...simulationSettings,
-                        interval: 1,
-                      });
-                    }
-                  }}
-                  min={0.1}
-                  disabled={isSimulationRunning}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Time between each payload send (seconds)
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="batch">Batch Size</Label>
-                <Input
-                  id="batch"
-                  type="number"
-                  value={simulationSettings.batchSize}
-                  onChange={(e) =>
-                    setSimulationSettings({
-                      ...simulationSettings,
-                      batchSize: e.target.value === "" ? "" : (parseInt(e.target.value) || 0),
-                    })
-                  }
-                  onBlur={() => {
-                    if (simulationSettings.batchSize === "" || parseInt(simulationSettings.batchSize as any) < 1) {
-                      setSimulationSettings({
-                        ...simulationSettings,
-                        batchSize: 1,
-                      });
-                    }
-                  }}
-                  min={1}
-                  disabled={isSimulationRunning}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Number of payloads per batch
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration (seconds)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  value={simulationSettings.duration}
-                  onChange={(e) =>
-                    setSimulationSettings({
-                      ...simulationSettings,
-                      duration: e.target.value === "" ? "" : (parseInt(e.target.value) || 0),
-                    })
-                  }
-                  onBlur={() => {
-                    if (simulationSettings.duration === "" || parseInt(simulationSettings.duration as any) < 0) {
-                      setSimulationSettings({
-                        ...simulationSettings,
-                        duration: 0,
-                      });
-                    }
-                  }}
-                  min={0}
-                  disabled={isSimulationRunning}
-                />
-                <p className="text-xs text-muted-foreground">
-                  0 = run until stopped manually
-                </p>
-              </div>
-            </div>
-
-            {/* Swarm Mode Settings */}
-            <div className="mt-6 pt-6 border-t border-border">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <Label className="text-base flex items-center gap-2 font-semibold">
-                    🐝 Swarm Mode <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full ml-2">Load Testing</span>
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Simulate multiple devices concurrently. Ideal for stress testing your broker.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{simulationSettings.swarmMode ? "Enabled" : "Disabled"}</span>
+                <div className="pt-3 border-t border-[#E2E8F0] flex justify-end">
                   <button
-                    type="button"
-                    role="switch"
-                    aria-checked={simulationSettings.swarmMode}
-                    onClick={() => setSimulationSettings({ ...simulationSettings, swarmMode: !simulationSettings.swarmMode })}
-                    disabled={isSimulationRunning}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${simulationSettings.swarmMode ? 'bg-primary' : 'bg-slate-300'}`}
+                    onClick={saveProjectConfig}
+                    disabled={saving}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B]"
                   >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${simulationSettings.swarmMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                    <Save className="h-3.5 w-3.5" />
+                    <span>{saving ? "Saving..." : "Update Node Configuration"}</span>
                   </button>
                 </div>
               </div>
-              
-              {simulationSettings.swarmMode && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="space-y-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <Label>Virtual Users (VUs) Stages</Label>
-                    <button
-                      type="button"
-                      onClick={() => setSimulationSettings({
-                        ...simulationSettings,
-                        stages: [...simulationSettings.stages, { duration: 30, target: 100 }]
-                      })}
-                      disabled={isSimulationRunning || simulationSettings.stages.length >= 10}
-                      className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-md font-medium hover:bg-primary/20 transition-colors"
-                    >
-                      + Add Stage
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {simulationSettings.stages.map((stage: any, index: number) => (
-                      <div key={index} className="flex items-center gap-3 bg-muted/50 p-3 rounded-md">
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Duration (sec)</Label>
-                          <Input 
-                            type="number" 
-                            value={stage.duration}
-                            min={0}
-                            disabled={isSimulationRunning}
-                            onChange={(e) => {
-                              const newStages = [...simulationSettings.stages];
-                              const val = e.target.value;
-                              newStages[index].duration = val === "" ? "" : (parseInt(val) || 0) as any;
-                              setSimulationSettings({...simulationSettings, stages: newStages});
-                            }}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Target VUs</Label>
-                          <Input 
-                            type="number" 
-                            value={stage.target}
-                            min={0}
-                            max={1000}
-                            disabled={isSimulationRunning}
-                            onChange={(e) => {
-                              const newStages = [...simulationSettings.stages];
-                              const val = e.target.value;
-                              let numVal = val === "" ? "" : (parseInt(val) || 0);
-                              if (typeof numVal === "number" && numVal > 1000) numVal = 1000;
-                              newStages[index].target = numVal as any;
-                              setSimulationSettings({...simulationSettings, stages: newStages});
-                            }}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                        {simulationSettings.stages.length > 1 && (
-                          <button
-                            type="button"
-                            disabled={isSimulationRunning}
-                            onClick={() => {
-                              const newStages = simulationSettings.stages.filter((_: any, i: number) => i !== index);
-                              setSimulationSettings({...simulationSettings, stages: newStages});
-                            }}
-                            className="mt-5 text-red-500 hover:text-red-700 hover:bg-red-500/10 p-1.5 rounded-md transition-colors"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    * k6-like stages. Example: ramp-up to 100 VUs in 30s, hold for 60s, then ramp-down to 0 in 10s. Max 1000 VUs.
-                  </p>
-                </motion.div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Chaos & Anomaly Engine */}
-        <Card className="glass mt-6 border-red-500/20">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2 text-red-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12h5l3-9 5 18 3-9h4"/></svg>
-                  Chaos / Anomaly Injector
-                </CardTitle>
-                <CardDescription>
-                  Inject random spikes and anomalies to test system alerts
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="chaosMode" className="text-sm cursor-pointer">
-                  {simulationSettings.chaosMode ? "Enabled" : "Disabled"}
-                </Label>
-                <div 
-                  className={`w-10 h-5 rounded-full p-1 cursor-pointer transition-colors ${simulationSettings.chaosMode ? 'bg-red-500' : 'bg-muted-foreground/30'}`}
-                  onClick={() => !isSimulationRunning && setSimulationSettings({...simulationSettings, chaosMode: !simulationSettings.chaosMode})}
-                >
-                  <motion.div 
-                    className="bg-white w-3 h-3 rounded-full"
-                    animate={{ x: simulationSettings.chaosMode ? 20 : 0 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                  />
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {simulationSettings.chaosMode && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="space-y-4 pt-2"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Anomaly Probability</Label>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={simulationSettings.chaosProbability}
-                        disabled={isSimulationRunning}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setSimulationSettings({
-                            ...simulationSettings,
-                            chaosProbability: val === "" ? "" : Math.min(100, Math.max(1, parseInt(val) || 1)) as any
-                          });
-                        }}
-                        className="w-14 h-7 text-center text-sm font-mono font-bold text-red-500 bg-red-500/10 border border-red-500/30 rounded-md focus:outline-none focus:ring-1 focus:ring-red-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                      <span className="text-sm font-mono font-bold text-red-500">%</span>
-                    </div>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="1" 
-                    max="100" 
-                    value={parseInt(simulationSettings.chaosProbability as any) || 1}
-                    disabled={isSimulationRunning}
-                    onChange={(e) => setSimulationSettings({...simulationSettings, chaosProbability: parseInt(e.target.value)})}
-                    className="w-full accent-red-500"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Chance of injecting a massive spike (10x) or inverted boolean into the generated payload.
-                  </p>
-                </div>
-                
-                <div className="pt-2 border-t border-red-500/10">
-                  <Label className="text-xs mb-3 block text-muted-foreground uppercase tracking-wider">Target Fields</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {payloadFields.filter((f: any) => f.mode === 'random' && (f.type === 'number' || f.type === 'boolean')).map(field => {
-                      const isSelected = simulationSettings.chaosFields.includes(field.name);
-                      return (
-                        <div 
-                          key={field.name}
-                          onClick={() => {
-                            if (isSimulationRunning) return;
-                            const newFields = isSelected 
-                              ? simulationSettings.chaosFields.filter((f: any) => f !== field.name)
-                              : [...simulationSettings.chaosFields, field.name];
-                            setSimulationSettings({...simulationSettings, chaosFields: newFields});
-                          }}
-                          className={`flex items-center gap-2 p-2 rounded-md border text-sm cursor-pointer transition-colors ${isSelected ? 'border-red-500 bg-red-500/10 text-red-500' : 'border-border hover:bg-muted'}`}
-                        >
-                          <div className={`w-3 h-3 rounded-full border ${isSelected ? 'bg-red-500 border-red-500' : 'border-muted-foreground'}`} />
-                          <span className="truncate">{field.name}</span>
-                        </div>
-                      )
-                    })}
-                    {payloadFields.filter(f => f.mode === 'random' && (f.type === 'number' || f.type === 'boolean')).length === 0 && (
-                      <p className="text-sm text-muted-foreground italic col-span-full">No random numeric or boolean fields available.</p>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-2 italic">
-                    {simulationSettings.chaosFields.length === 0 
-                      ? "* If none selected, all numeric & boolean fields will be affected." 
-                      : "* Only selected fields will be affected by anomalies."}
-                  </p>
-                </div>
-              </motion.div>
             )}
-          </CardContent>
-        </Card>
-      </motion.div>
+          </div>
+        </div>
 
-      {/* Sent Payload (New) */}
-      {lastSentPayload && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card className="glass border-primary/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                Sent Payload
-              </CardTitle>
-              <CardDescription>
-                The exact JSON data that was sent to the endpoint
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-muted p-4 rounded-md text-sm overflow-x-auto max-h-[200px] overflow-y-auto font-mono border">
-                {JSON.stringify(lastSentPayload, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+        {/* Right Column: Telemetry & Live Teleprinter (5 cols) */}
+        <div className="xl:col-span-5 space-y-4">
+          {/* Live Telemetry Dial Cells */}
+          {simulationStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white border border-[#E2E8F0] rounded-md p-3 shadow-hairline">
+              <div>
+                <span className="font-mono text-[10px] text-[#64748B] uppercase block">
+                  REQ_TOTAL
+                </span>
+                <span className="font-mono text-lg font-bold text-[#0F172A]">
+                  {simulationStats.http_reqs || simulationStats.totalSent || 0}
+                </span>
+              </div>
+              <div>
+                <span className="font-mono text-[10px] text-[#64748B] uppercase block">
+                  ACTIVE_VUS
+                </span>
+                <span className="font-mono text-lg font-bold text-emerald-700">
+                  {simulationStats.vus || 0}
+                </span>
+              </div>
+              <div>
+                <span className="font-mono text-[10px] text-[#64748B] uppercase block">
+                  THROUGHPUT
+                </span>
+                <span className="font-mono text-lg font-bold text-[#2563EB]">
+                  {simulationStats.rps || 0} <span className="text-[10px]">r/s</span>
+                </span>
+              </div>
+              <div>
+                <span className="font-mono text-[10px] text-[#64748B] uppercase block">
+                  ERRORS
+                </span>
+                <span className="font-mono text-lg font-bold text-rose-700">
+                  {simulationStats.errorCount || 0}
+                </span>
+              </div>
+            </div>
+          )}
 
-      {/* Server Response (New) */}
-      {lastResponse && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-        >
-          <Card className="glass border-primary/30">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    Server Response
-                    {lastResponse.statusCode && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${lastResponse.type === 'success' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                        {lastResponse.statusCode}
-                      </span>
+          {/* Outgoing Payload Inspector */}
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden">
+            <div className="px-3.5 py-2 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Send className="h-3.5 w-3.5 text-[#2563EB]" />
+                <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  OUTGOING_PAYLOAD
+                </span>
+              </div>
+
+              {lastSentPayload && (
+                <button
+                  onClick={() =>
+                    copyToClipboard(JSON.stringify(lastSentPayload, null, 2))
+                  }
+                  className="text-[10px] font-mono text-[#64748B] hover:text-[#0F172A] flex items-center gap-1"
+                >
+                  {copiedPayload ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                  <span>{copiedPayload ? "COPIED" : "COPY"}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="p-3">
+              <pre className="bg-[#F8FAFC] border border-[#E2E8F0] p-3 rounded font-mono text-xs text-[#0F172A] max-h-56 overflow-y-auto overflow-x-auto leading-relaxed">
+                {lastSentPayload
+                  ? JSON.stringify(lastSentPayload, null, 2)
+                  : JSON.stringify(
+                      payloadFields.reduce((acc, f) => {
+                        acc[f.name] =
+                          f.mode === "static"
+                            ? f.value
+                            : f.mode === "random" && f.type === "number"
+                            ? `<random ${f.min ?? 0}-${f.max ?? 100}>`
+                            : `<${f.mode}>`;
+                        return acc;
+                      }, {} as Record<string, any>),
+                      null,
+                      2
                     )}
-                  </CardTitle>
-                  <CardDescription>
-                    Last response received from endpoint
-                  </CardDescription>
-                </div>
-                {lastResponse.latency && (
-                  <div className="text-right">
-                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md border">
-                      {lastResponse.latency}ms latency
-                    </span>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      {new Date(lastResponse.timestamp).toLocaleTimeString()}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <pre className="bg-muted p-4 rounded-md text-sm overflow-x-auto max-h-[200px] overflow-y-auto font-mono border">
-                {lastResponse.type === "error" ? (
-                  <span className="text-red-400">
-                    {typeof (lastResponse.error || lastResponse.data) === "object"
-                      ? JSON.stringify(lastResponse.error || lastResponse.data, null, 2)
-                      : String(lastResponse.error || lastResponse.data)}
-                  </span>
-                ) : (
-                  typeof lastResponse.data === "object" 
-                    ? JSON.stringify(lastResponse.data, null, 2)
-                    : String(lastResponse.data)
-                )}
               </pre>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+            </div>
+          </div>
 
-      {/* Live Stats */}
-      {isSimulationRunning && simulationStats && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <Card className="glass border-green-500/50">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-green-500">
-                    Simulation Running
-                  </CardTitle>
-                  <CardDescription>Real-time statistics</CardDescription>
-                </div>
-                <div className="flex items-center gap-3">
-                  {countdown > 0 && (
-                    <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-full px-3 py-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                      <span className="text-sm font-mono font-bold text-amber-500">{countdown.toFixed(1)}s</span>
-                    </div>
+          {/* Server Response & ACK Monitor */}
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden">
+            <div className="px-3.5 py-2 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Activity className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  SERVER_ACK_STREAM
+                </span>
+              </div>
+
+              {lastResponse && (
+                <div className="flex items-center gap-2 font-mono text-[10px]">
+                  {lastResponse.statusCode && (
+                    <span
+                      className={`px-1.5 py-0.2 rounded font-bold ${
+                        lastResponse.type === "success"
+                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                          : "bg-rose-50 text-rose-800 border border-rose-200"
+                      }`}
+                    >
+                      HTTP {lastResponse.statusCode}
+                    </span>
                   )}
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-sm text-green-500">Live</span>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-4 mb-4">
-                <div className="space-y-1 bg-muted p-3 rounded-lg border">
-                  <p className="text-xs text-muted-foreground flex items-center justify-between">
-                    <span>Total Requests</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                  </p>
-                  <p className="text-2xl font-bold font-mono">
-                    {simulationStats.http_reqs || simulationStats.totalSent || 0}
-                  </p>
-                </div>
-                <div className="space-y-1 bg-muted p-3 rounded-lg border border-green-500/20">
-                  <p className="text-xs text-muted-foreground flex items-center justify-between">
-                    <span>Active VUs</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                  </p>
-                  <p className="text-2xl font-bold text-green-500 font-mono">
-                    {simulationStats.vus || 0}
-                  </p>
-                </div>
-                <div className="space-y-1 bg-muted p-3 rounded-lg border border-blue-500/20">
-                  <p className="text-xs text-muted-foreground flex items-center justify-between">
-                    <span>Req / Second</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                  </p>
-                  <p className="text-2xl font-bold text-blue-500 font-mono">
-                    {simulationStats.rps || 0} <span className="text-xs font-normal">req/s</span>
-                  </p>
-                </div>
-                <div className="space-y-1 bg-muted p-3 rounded-lg border border-red-500/20">
-                  <p className="text-xs text-muted-foreground flex items-center justify-between">
-                    <span>Errors</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                  </p>
-                  <p className="text-2xl font-bold text-red-500 font-mono">
-                    {simulationStats.errorCount || 0}
-                  </p>
-                </div>
-              </div>
-              
-              {simulationStats.http_req_duration && (
-                <div className="bg-background rounded-lg border p-4 space-y-4">
-                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    Latency Metrics (k6-style)
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-muted-foreground uppercase">Average</p>
-                      <p className="text-sm font-mono">{Math.round(simulationStats.http_req_duration.avg || 0)}ms</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-muted-foreground uppercase">Min</p>
-                      <p className="text-sm font-mono">{Math.round(simulationStats.http_req_duration.min || 0)}ms</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-muted-foreground uppercase">Med</p>
-                      <p className="text-sm font-mono">{Math.round(simulationStats.http_req_duration.med || 0)}ms</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-muted-foreground uppercase">Max</p>
-                      <p className="text-sm font-mono">{Math.round(simulationStats.http_req_duration.max || 0)}ms</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-muted-foreground uppercase text-orange-500">P(90)</p>
-                      <p className="text-sm font-mono text-orange-500 font-medium">{Math.round(simulationStats.http_req_duration.p90 || 0)}ms</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-muted-foreground uppercase text-red-500">P(95)</p>
-                      <p className="text-sm font-mono text-red-500 font-bold">{Math.round(simulationStats.http_req_duration.p95 || 0)}ms</p>
-                    </div>
-                  </div>
+                  {lastResponse.latency && (
+                    <span className="text-[#64748B]">{lastResponse.latency}ms</span>
+                  )}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+            </div>
 
-      {/* Import JSON Dialog */}
+            <div className="p-3">
+              <pre className="bg-[#F8FAFC] border border-[#E2E8F0] p-3 rounded font-mono text-xs text-[#0F172A] max-h-56 overflow-y-auto overflow-x-auto leading-relaxed">
+                {lastResponse ? (
+                  typeof (lastResponse.error || lastResponse.data) === "object" ? (
+                    JSON.stringify(lastResponse.error || lastResponse.data, null, 2)
+                  ) : (
+                    String(lastResponse.error || lastResponse.data)
+                  )
+                ) : (
+                  <span className="text-[#94A3B8]">
+                    {"// Waiting for transmission acknowledgement..."}
+                  </span>
+                )}
+              </pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Import JSON Modal */}
       {showImportDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-background border rounded-lg shadow-lg max-w-2xl w-full mx-4"
-          >
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Import Payload from JSON</CardTitle>
-                    <CardDescription>
-                      Paste your JSON payload structure below
-                    </CardDescription>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => {
-                      setShowImportDialog(false);
-                      setImportJson("");
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="json-input">JSON Payload</Label>
-                  <textarea
-                    id="json-input"
-                    className="w-full h-64 p-3 rounded-md border border-input bg-background font-mono text-sm"
-                    placeholder={`{\n  "temperature": 25.5,\n  "humidity": 60\n}`}
-                    value={importJson}
-                    onChange={(e) => setImportJson(e.target.value)}
-                  />
-                </div>
-                <div className="bg-muted p-3 rounded-md text-xs space-y-1">
-                  <p className="font-semibold">Import Notes:</p>
-                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                    <li>Number → Random mode (0–100 range)</li>
-                    <li>String → Static mode</li>
-                    <li>Boolean → Static mode</li>
-                    <li>
-                      Nested objects will be flattened (e.g., sensor.temp)
-                    </li>
-                  </ul>
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowImportDialog(false);
-                      setImportJson("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button onClick={handleImportPayload}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Import
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-[#CBD5E1] rounded-md shadow-popover max-w-lg w-full overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
+              <span className="font-mono text-xs font-bold text-[#0F172A] uppercase">
+                IMPORT_JSON_SCHEMA
+              </span>
+              <button
+                onClick={() => setShowImportDialog(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <textarea
+                value={importJson}
+                onChange={(e) => setImportJson(e.target.value)}
+                placeholder='{\n  "voltage": 220,\n  "current": 4.5,\n  "status": "active"\n}'
+                className="w-full h-48 p-2.5 font-mono text-xs border border-[#CBD5E1] rounded focus:border-[#2563EB] outline-none"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowImportDialog(false)}
+                  className="px-3 py-1.5 text-xs font-mono rounded border border-[#CBD5E1] hover:bg-[#F8FAFC]"
+                >
+                  CANCEL
+                </button>
+                <button
+                  onClick={handleImportPayload}
+                  className="px-3.5 py-1.5 text-xs font-mono font-bold bg-[#0F172A] text-white rounded hover:bg-[#1E293B]"
+                >
+                  PARSE_AND_IMPORT
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -10,6 +10,10 @@ import {
   XCircle,
   Clock,
   Eye,
+  Shield,
+  Key,
+  Globe,
+  Terminal,
 } from "lucide-react";
 import { AuthConfig, RefreshLog } from "@/lib/authConfigApi";
 import { formatDistanceToNow } from "date-fns";
@@ -48,139 +52,142 @@ export default function AuthConfigList({
 
   if (authConfigs.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#F8FAFB] mb-4">
-          <Clock className="h-8 w-8 text-[#5A6C7D]" />
-        </div>
-        <h3 className="text-lg font-semibold text-[#2C3E50] mb-2">
-          No Auth Configs
-        </h3>
-        <p className="text-[#5A6C7D]">
-          Create your first authentication configuration
+      <div className="p-12 text-center text-slate-400 font-mono text-xs space-y-2">
+        <Shield className="h-10 w-10 mx-auto opacity-25" />
+        <p className="uppercase font-bold tracking-wider text-[#0F172A]">
+          NO_AUTH_CONFIGS_FOR_NODE
+        </p>
+        <p className="text-[11px] font-sans text-slate-400 max-w-sm mx-auto">
+          No OAuth 2.0 or Token profiles linked to this simulation node. Deploy an authentication configuration to enable automatic token retrieval.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {authConfigs.map((config) => (
         <div
           key={config.id}
-          className="card-industrial p-6 hover:shadow-lg transition-shadow"
+          className="bg-white border border-[#E2E8F0] rounded-md p-4 shadow-hairline hover:border-[#CBD5E1] transition-colors"
         >
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
               {/* Header */}
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="text-lg font-semibold text-[#2C3E50]">
-                  {config.provider}
-                </h3>
+              <div className="flex items-center gap-2.5 mb-2.5 flex-wrap">
+                <span className="font-bold text-sm text-[#0F172A]">
+                  {config.provider.toUpperCase()}
+                </span>
                 {config.active ? (
-                  <span className="badge-active">Active</span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-bold">
+                    ACTIVE
+                  </span>
                 ) : (
-                  <span className="badge-error">Inactive</span>
+                  <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono">
+                    DISABLED
+                  </span>
                 )}
                 {config.refreshEnabled && (
-                  <span className="px-2 py-1 bg-[#88BDF2]/10 text-[#6A89A7] text-xs font-medium rounded">
-                    Auto-Refresh
+                  <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-mono font-bold flex items-center gap-1">
+                    <RefreshCw className="h-2.5 w-2.5" />
+                    AUTO_REFRESH ({config.refreshBeforeExpiry}S)
                   </span>
                 )}
               </div>
 
-              {/* Details */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-[#5A6C7D]">Endpoint:</span>
-                  <p className="text-[#2C3E50] font-mono text-xs mt-1 truncate">
+              {/* Details Matrix */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 font-mono text-xs">
+                <div className="p-2 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
+                  <span className="text-[10px] text-[#64748B] uppercase block">
+                    TOKEN_ENDPOINT:
+                  </span>
+                  <p className="text-[#0F172A] font-bold truncate mt-0.5">
                     {config.tokenEndpoint}
                   </p>
                 </div>
-                <div>
-                  <span className="text-[#5A6C7D]">Client ID:</span>
-                  <p className="text-[#2C3E50] font-mono text-xs mt-1 truncate">
+
+                <div className="p-2 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
+                  <span className="text-[10px] text-[#64748B] uppercase block">
+                    CLIENT_ID:
+                  </span>
+                  <p className="text-[#0F172A] font-bold truncate mt-0.5">
                     {config.clientId}
                   </p>
                 </div>
-                <div>
-                  <span className="text-[#5A6C7D]">Grant Type:</span>
-                  <p className="text-[#2C3E50] mt-1">{config.grantType}</p>
+
+                <div className="p-2 rounded bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between">
+                  <span className="text-[10px] text-[#64748B] uppercase">GRANT_TYPE:</span>
+                  <span className="font-bold text-[#0F172A]">{config.grantType}</span>
                 </div>
+
                 {config.scope && (
-                  <div>
-                    <span className="text-[#5A6C7D]">Scope:</span>
-                    <p className="text-[#2C3E50] mt-1">{config.scope}</p>
+                  <div className="p-2 rounded bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between">
+                    <span className="text-[10px] text-[#64748B] uppercase">SCOPE:</span>
+                    <span className="font-bold text-[#0F172A] truncate max-w-[180px]">
+                      {config.scope}
+                    </span>
                   </div>
                 )}
-                {config.refreshEnabled && (
-                  <div>
-                    <span className="text-[#5A6C7D]">Refresh Before:</span>
-                    <p className="text-[#2C3E50] mt-1">
-                      {config.refreshBeforeExpiry}s
-                    </p>
-                  </div>
-                )}
-                <div>
-                  <span className="text-[#5A6C7D]">Updated:</span>
-                  <p className="text-[#2C3E50] mt-1">
-                    {formatDistanceToNow(new Date(config.updatedAt), {
-                      addSuffix: true,
-                    })}
-                  </p>
-                </div>
+              </div>
+
+              <div className="mt-2 text-[10px] font-mono text-slate-400">
+                LAST_UPDATED:{" "}
+                {formatDistanceToNow(new Date(config.updatedAt), { addSuffix: true })}
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 ml-4">
+            {/* Actions Toolbar */}
+            <div className="flex items-center gap-1.5 self-start shrink-0 pt-1">
               <button
                 onClick={() => onViewLogs(config)}
-                className="p-2 text-[#6A89A7] hover:bg-[#F8FAFB] rounded-lg transition-colors"
-                title="View Logs"
+                className="p-1.5 text-slate-500 hover:text-[#0F172A] hover:bg-[#F8FAFC] border border-[#CBD5E1] rounded transition-colors"
+                title="View Refresh Logs"
               >
-                <Eye className="h-4 w-4" />
+                <Eye className="h-3.5 w-3.5" />
               </button>
+
               <button
                 onClick={() => handleTest(config.id)}
                 disabled={testingId === config.id}
-                className="p-2 text-[#6A89A7] hover:bg-[#F8FAFB] rounded-lg transition-colors disabled:opacity-50"
-                title="Test Connection"
+                className="p-1.5 text-slate-500 hover:text-[#2563EB] hover:bg-blue-50 border border-[#CBD5E1] rounded transition-colors disabled:opacity-50"
+                title="Test Token Fetch"
               >
                 <TestTube
-                  className={`h-4 w-4 ${testingId === config.id ? "animate-pulse" : ""}`}
+                  className={`h-3.5 w-3.5 ${testingId === config.id ? "animate-spin" : ""}`}
                 />
               </button>
+
               {config.refreshEnabled && (
                 <button
                   onClick={() => handleRefresh(config.id)}
                   disabled={refreshingId === config.id}
-                  className="p-2 text-[#6A89A7] hover:bg-[#F8FAFB] rounded-lg transition-colors disabled:opacity-50"
-                  title="Refresh Token"
+                  className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 border border-[#CBD5E1] rounded transition-colors disabled:opacity-50"
+                  title="Force Refresh Token"
                 >
                   <RefreshCw
-                    className={`h-4 w-4 ${refreshingId === config.id ? "animate-spin" : ""}`}
+                    className={`h-3.5 w-3.5 ${refreshingId === config.id ? "animate-spin" : ""}`}
                   />
                 </button>
               )}
+
               <button
                 onClick={() => onEdit(config)}
-                className="p-2 text-[#6A89A7] hover:bg-[#F8FAFB] rounded-lg transition-colors"
-                title="Edit"
+                className="p-1.5 text-slate-500 hover:text-[#0F172A] hover:bg-[#F8FAFC] border border-[#CBD5E1] rounded transition-colors"
+                title="Edit Configuration"
               >
-                <Edit2 className="h-4 w-4" />
+                <Edit2 className="h-3.5 w-3.5" />
               </button>
+
               <button
                 onClick={() => {
-                  if (
-                    confirm("Are you sure you want to delete this auth config?")
-                  ) {
+                  if (confirm("Confirm permanent removal of this authentication configuration?")) {
                     onDelete(config.id);
                   }
                 }}
-                className="p-2 text-[#F44336] hover:bg-red-50 rounded-lg transition-colors"
-                title="Delete"
+                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded transition-colors"
+                title="Delete Configuration"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
@@ -206,78 +213,77 @@ export function RefreshLogsModal({
   if (!isOpen || !authConfig) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+      <div className="bg-white border border-[#CBD5E1] rounded-md shadow-popover max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[#E8EDF2]">
-          <div>
-            <h2 className="text-xl font-bold text-[#2C3E50]">Refresh Logs</h2>
-            <p className="text-sm text-[#5A6C7D] mt-1">{authConfig.provider}</p>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#E2E8F0] bg-[#F8FAFC]">
+          <div className="flex items-center gap-2">
+            <Terminal className="h-4 w-4 text-[#0F172A]" />
+            <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+              TOKEN_REFRESH_AUDIT_LOGS{" // "}{authConfig.provider.toUpperCase()}
+            </span>
           </div>
           <button
             onClick={onClose}
-            className="text-[#5A6C7D] hover:text-[#2C3E50] transition-colors"
+            className="text-slate-400 hover:text-slate-700 text-xs font-mono"
           >
-            <XCircle className="h-5 w-5" />
+            ✕
           </button>
         </div>
 
-        {/* Logs */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Logs Feed */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2.5 font-mono text-xs bg-[#F8FAFC]">
           {logs.length === 0 ? (
-            <div className="text-center py-12">
-              <Clock className="h-12 w-12 text-[#5A6C7D] mx-auto mb-4" />
-              <p className="text-[#5A6C7D]">No refresh logs yet</p>
+            <div className="text-center py-12 text-slate-400">
+              <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="uppercase text-xs font-bold">NO_REFRESH_LOGS_RECORDED</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {logs.map((log) => (
-                <div
-                  key={log.id}
-                  className={`p-4 rounded-lg border ${
-                    log.success
-                      ? "bg-green-50 border-green-200"
-                      : "bg-red-50 border-red-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 flex-1">
-                      {log.success ? (
-                        <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                      )}
-                      <div className="flex-1">
-                        <p className="font-medium text-[#2C3E50]">
-                          {log.success
-                            ? "Token Refreshed Successfully"
-                            : "Refresh Failed"}
-                        </p>
-                        {log.errorMessage && (
-                          <p className="text-sm text-red-700 mt-1">
-                            {log.errorMessage}
-                          </p>
-                        )}
-                        {log.success && log.newTokenExpiry && (
-                          <p className="text-sm text-[#5A6C7D] mt-1">
-                            New token expires:{" "}
-                            {formatDistanceToNow(new Date(log.newTokenExpiry), {
-                              addSuffix: true,
-                            })}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <span className="text-xs text-[#5A6C7D]">
-                      {formatDistanceToNow(new Date(log.createdAt), {
-                        addSuffix: true,
-                      })}
+            logs.map((log) => (
+              <div
+                key={log.id}
+                className="p-3 rounded border border-[#E2E8F0] bg-white shadow-hairline space-y-1.5"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {log.success ? (
+                      <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+                        SUCCESS
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-800 border border-rose-200 text-[10px] font-bold">
+                        FAILED
+                      </span>
+                    )}
+                    <span className="text-slate-400 text-[11px]">
+                      {new Date(log.createdAt).toLocaleString()}
                     </span>
                   </div>
+
+                  {log.newTokenExpiry && (
+                    <span className="text-[11px] text-[#64748B]">
+                      EXPIRES_AT: <b className="text-[#0F172A]">{new Date(log.newTokenExpiry).toLocaleTimeString()}</b>
+                    </span>
+                  )}
                 </div>
-              ))}
-            </div>
+
+                {log.errorMessage && (
+                  <p className="text-rose-700 text-[11px] font-mono break-all bg-rose-50/50 p-2 rounded border border-rose-200">
+                    {log.errorMessage}
+                  </p>
+                )}
+              </div>
+            ))
           )}
+        </div>
+
+        <div className="px-4 py-2.5 border-t border-[#E2E8F0] bg-white flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-3.5 py-1.5 rounded border border-[#CBD5E1] bg-white hover:bg-[#F8FAFC] text-xs font-mono font-medium text-[#475569]"
+          >
+            CLOSE
+          </button>
         </div>
       </div>
     </div>

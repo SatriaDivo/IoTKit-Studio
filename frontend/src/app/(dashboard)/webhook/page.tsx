@@ -1,21 +1,25 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+  Webhook,
+  Zap,
+  RefreshCw,
+  Trash2,
+  Copy,
+  Check,
+  Plus,
+  Terminal,
+  Layers,
+  ArrowRight,
+  Code2,
+  CheckCircle2,
+  Globe,
+  Activity,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { useProjectStore } from "@/store/projectStore";
-import { io, Socket } from "socket.io-client";
 import toast from "react-hot-toast";
-import { Copy, RefreshCw, Trash2, Webhook, Zap, Map, Plus, Trash } from "lucide-react";
 
 interface WebhookLog {
   id: string;
@@ -48,7 +52,9 @@ export default function WebhookListenerPage() {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [liveCount, setLiveCount] = useState(0);
-  const [shellTab, setShellTab] = useState<'powershell' | 'curl' | 'python'>('powershell');
+  const [shellTab, setShellTab] = useState<"curl" | "powershell" | "python">("curl");
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedCmd, setCopiedCmd] = useState(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const lastLogIdRef = useRef<string>("");
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -58,7 +64,6 @@ export default function WebhookListenerPage() {
   const [mappings, setMappings] = useState<MappingRule[]>([]);
   const [savingMapping, setSavingMapping] = useState<boolean>(false);
 
-
   useEffect(() => {
     fetchProjects();
     return () => {
@@ -66,11 +71,6 @@ export default function WebhookListenerPage() {
     };
   }, []);
 
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
-
-  // Polling-based real-time webhook events
   const startPolling = (projectId: string) => {
     if (pollingRef.current) clearInterval(pollingRef.current);
 
@@ -80,7 +80,6 @@ export default function WebhookListenerPage() {
         const newLogs: WebhookLog[] = data.logs || [];
 
         if (newLogs.length > 0 && newLogs[0].id !== lastLogIdRef.current) {
-          // Count how many new logs arrived
           const prevId = lastLogIdRef.current;
           let newCount = 0;
           if (prevId) {
@@ -88,9 +87,6 @@ export default function WebhookListenerPage() {
               if (log.id === prevId) break;
               newCount++;
             }
-          } else {
-            // First load, don't count as "live" 
-            newCount = 0;
           }
 
           lastLogIdRef.current = newLogs[0].id;
@@ -98,13 +94,11 @@ export default function WebhookListenerPage() {
 
           if (newCount > 0) {
             setLiveCount((c) => c + newCount);
-            toast.success(`📥 ${newCount} new webhook request${newCount > 1 ? 's' : ''}!`, { duration: 2000 });
+            toast.success(`📥 Ingested ${newCount} incoming webhook(s)`);
           }
         }
-      } catch {
-        // Ignore polling errors
-      }
-    }, 1000);
+      } catch {}
+    }, 1200);
   };
 
   const stopPolling = () => {
@@ -114,7 +108,6 @@ export default function WebhookListenerPage() {
     }
   };
 
-  // When project changes, fetch info and start polling
   const handleProjectChange = async (projectId: string) => {
     setSelectedProjectId(projectId);
     setLogs([]);
@@ -129,7 +122,6 @@ export default function WebhookListenerPage() {
       const { data } = await api.get(`/webhook-manage/info/${projectId}`);
       setWebhookInfo(data);
 
-      // Load history
       const { data: historyData } = await api.get(`/webhook-manage/history/${projectId}`);
       const initialLogs = historyData.logs || [];
       setLogs(initialLogs);
@@ -137,19 +129,22 @@ export default function WebhookListenerPage() {
         lastLogIdRef.current = initialLogs[0].id;
       }
 
-      // Start polling for real-time updates
       if (data.webhookEnabled) {
         startPolling(projectId);
       }
 
-      // Fetch schema mappings
       try {
         const { data: mapData } = await api.get(`/webhook-manage/mapping/${projectId}`);
         setMappingActive(mapData.active);
         if (mapData.mappings) {
           try {
-            const parsedRules = typeof mapData.mappings === 'string' ? JSON.parse(mapData.mappings) : mapData.mappings;
-            setMappings(parsedRules.map((m: any, idx: number) => ({ id: String(idx), ...m })));
+            const parsedRules =
+              typeof mapData.mappings === "string"
+                ? JSON.parse(mapData.mappings)
+                : mapData.mappings;
+            setMappings(
+              parsedRules.map((m: any, idx: number) => ({ id: String(idx), ...m }))
+            );
           } catch {
             setMappings([]);
           }
@@ -161,7 +156,7 @@ export default function WebhookListenerPage() {
         setMappingActive(false);
       }
     } catch {
-      toast.error("Failed to load webhook info");
+      toast.error("Failed to load webhook configuration");
     } finally {
       setLoading(false);
     }
@@ -206,9 +201,9 @@ export default function WebhookListenerPage() {
         active: mappingActive,
       });
 
-      toast.success("Webhook schema mappings saved successfully!");
+      toast.success("Webhook schema mappings saved");
     } catch {
-      toast.error("Failed to save webhook schema mappings");
+      toast.error("Failed to save schema mappings");
     } finally {
       setSavingMapping(false);
     }
@@ -225,11 +220,10 @@ export default function WebhookListenerPage() {
         webhookEnabled: true,
         webhookUrl: data.webhookUrl,
       }));
-      // Start polling for incoming webhooks
       startPolling(selectedProjectId);
-      toast.success("Webhook endpoint generated!");
+      toast.success("Webhook endpoint generated");
     } catch {
-      toast.error("Failed to generate webhook");
+      toast.error("Failed to generate webhook token");
     } finally {
       setGenerating(false);
     }
@@ -240,10 +234,19 @@ export default function WebhookListenerPage() {
     try {
       await api.delete(`/webhook-manage/clear/${selectedProjectId}`);
       stopPolling();
-      setWebhookInfo((prev) => prev ? { ...prev, webhookToken: null, webhookEnabled: false, webhookUrl: null } : null);
-      toast.success("Webhook disabled");
+      setWebhookInfo((prev) =>
+        prev
+          ? {
+              ...prev,
+              webhookToken: null,
+              webhookEnabled: false,
+              webhookUrl: null,
+            }
+          : null
+      );
+      toast.success("Webhook endpoint deactivated");
     } catch {
-      toast.error("Failed to disable webhook");
+      toast.error("Failed to deactivate webhook");
     }
   };
 
@@ -253,401 +256,404 @@ export default function WebhookListenerPage() {
       await api.delete(`/logs/project/${selectedProjectId}/clear`);
       setLogs([]);
       setLiveCount(0);
-      toast.success("Logs cleared successfully");
+      toast.success("Logs purged");
     } catch {
       toast.error("Failed to clear logs");
     }
   };
 
-  const handleCopy = (text: string) => {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text)
-        .then(() => toast.success("Copied to clipboard!"))
-        .catch(() => fallbackCopy(text));
+  const copyToClipboard = (text: string, type: "url" | "cmd") => {
+    navigator.clipboard.writeText(text);
+    if (type === "url") {
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
     } else {
-      fallbackCopy(text);
+      setCopiedCmd(true);
+      setTimeout(() => setCopiedCmd(false), 2000);
     }
+    toast.success("Copied to clipboard");
   };
 
-  const fallbackCopy = (text: string) => {
-    try {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.style.position = "fixed";
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      const successful = document.execCommand("copy");
-      document.body.removeChild(textArea);
-      if (successful) {
-        toast.success("Copied to clipboard!");
-      } else {
-        toast.error("Failed to copy");
-      }
-    } catch (err) {
-      toast.error("Failed to copy");
+  const getShellCommand = () => {
+    if (!webhookInfo?.webhookUrl) return "";
+    if (shellTab === "curl") {
+      return `curl -X POST "${webhookInfo.webhookUrl}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"device_id": "SN-902", "telemetry": {"temp": 28.4, "status": "active"}}'`;
     }
-  };
-
-  const formatPayload = (payload: string | null, parsedPayload?: any) => {
-    try {
-      const obj = parsedPayload || (payload ? JSON.parse(payload) : null);
-      return obj ? JSON.stringify(obj, null, 2) : "—";
-    } catch (e) {
-      return payload || "—";
+    if (shellTab === "powershell") {
+      return `Invoke-RestMethod -Uri "${webhookInfo.webhookUrl}" \`\n  -Method POST \`\n  -ContentType "application/json" \`\n  -Body '{"device_id": "SN-902", "telemetry": {"temp": 28.4, "status": "active"}}'`;
     }
+    return `import requests\n\nurl = "${webhookInfo.webhookUrl}"\npayload = {\n    "device_id": "SN-902",\n    "telemetry": {"temp": 28.4, "status": "active"}\n}\nresponse = requests.post(url, json=payload)\nprint(response.status_code, response.text)`;
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-[#2C3E50] flex items-center gap-3">
-            <Webhook className="h-8 w-8 text-[#6A89A7]" />
-            Webhook Listener
-          </h1>
-          <p className="text-[#5A6C7D] mt-1">
-            Receive and inspect live HTTP requests from external devices or cloud services
-          </p>
-        </div>
-        {liveCount > 0 && (
-          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 px-4 py-2 rounded-lg">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm text-green-600 font-medium">{liveCount} received</span>
+    <div className="space-y-4">
+      {/* Precision Instrument Header */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md p-4 shadow-hairline">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded bg-blue-50 text-blue-800 border border-blue-200">
+              <Webhook className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-[#0F172A] tracking-tight">
+                  Webhook Ingestion Listener
+                </h1>
+                {webhookInfo?.webhookEnabled ? (
+                  <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    LISTENING_HTTP_POST
+                  </span>
+                ) : (
+                  <span className="font-mono text-[10px] font-medium px-2 py-0.5 rounded bg-slate-50 text-slate-500 border border-slate-200">
+                    NO_ACTIVE_ENDPOINT
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-[#64748B] font-mono mt-0.5">
+                PUBLIC_GATEWAY // INGESTION_BUS // REALTIME_PAYLOAD_MAPPER
+              </p>
+            </div>
           </div>
-        )}
+
+          {liveCount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-emerald-50 border border-emerald-200 font-mono text-xs text-emerald-800 font-semibold self-start sm:self-auto">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>+{liveCount} INGESTED THIS SESSION</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Project Selector & Endpoint Card */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="card-industrial">
-            <CardHeader>
-              <CardTitle>Endpoint Configuration</CardTitle>
-              <CardDescription>Select a project and generate a unique webhook URL</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Select Project</Label>
+      {/* Main Grid: Config Station (5 cols) & Live Teleprinter (7 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column: Endpoint Config & Schema Mapper (5 cols) */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* Node Selector & URL Card */}
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+              <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                ENDPOINT_CONFIGURATION
+              </span>
+              <span className="font-mono text-[10px] text-[#64748B]">PORT 4000</span>
+            </div>
+
+            <div className="p-4 space-y-3.5">
+              <div>
+                <label className="text-[10px] font-mono text-[#64748B] uppercase block mb-1">
+                  TARGET_SIMULATION_NODE
+                </label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="w-full h-8 px-2.5 border border-[#CBD5E1] rounded text-xs font-mono bg-white focus:border-[#2563EB] outline-none"
                   value={selectedProjectId}
                   onChange={(e) => handleProjectChange(e.target.value)}
                 >
-                  <option value="">-- Choose a project --</option>
+                  <option value="">-- Select Project Node --</option>
                   {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.protocol})
+                    </option>
                   ))}
                 </select>
               </div>
 
               {selectedProjectId && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-3"
-                >
+                <div className="space-y-3 pt-2 border-t border-[#F1F5F9]">
                   {webhookInfo?.webhookEnabled && webhookInfo.webhookUrl ? (
                     <>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wider">Webhook URL (Public)</Label>
-                        <div className="flex items-center gap-2 bg-muted rounded-md p-3 border">
-                          <code className="text-xs flex-1 break-all text-[#6A89A7] font-mono">
+                      <div>
+                        <label className="text-[10px] font-mono text-[#64748B] uppercase block mb-1">
+                          PUBLIC_INGESTION_URL
+                        </label>
+                        <div className="flex items-center gap-1.5 p-2 bg-[#F8FAFC] border border-[#CBD5E1] rounded">
+                          <code className="text-xs font-mono text-[#0F172A] flex-1 break-all select-all">
                             {webhookInfo.webhookUrl}
                           </code>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 shrink-0"
-                            onClick={() => handleCopy(webhookInfo.webhookUrl!)}
+                          <button
+                            onClick={() => copyToClipboard(webhookInfo.webhookUrl!, "url")}
+                            className="p-1.5 rounded hover:bg-slate-200 text-[#475569] transition-colors"
+                            title="Copy URL"
                           >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
+                            {copiedUrl ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
                         </div>
                       </div>
 
-                      <div className="bg-[#384959]/5 border border-[#384959]/20 rounded-md p-3 text-xs space-y-2">
-                        <p className="font-semibold text-[#384959]">📡 How to use:</p>
-                        <p className="text-muted-foreground">Send any HTTP request to the URL above. Body and headers will be captured.</p>
-
-                        {/* Shell Tab Selector & Copy Button */}
-                        <div className="flex items-center justify-between pt-1">
-                          <div className="flex gap-1">
-                            {(['powershell', 'curl', 'python'] as const).map(tab => (
+                      {/* Code Generator Snippets */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1 font-mono text-[10px]">
+                            {(["curl", "powershell", "python"] as const).map((tab) => (
                               <button
                                 key={tab}
                                 onClick={() => setShellTab(tab)}
-                                className={`px-2.5 py-1 text-[10px] font-mono rounded transition-colors ${
+                                className={`px-2 py-0.5 rounded uppercase font-semibold transition-colors ${
                                   shellTab === tab
-                                    ? 'bg-[#6A89A7] text-white'
-                                    : 'bg-black/10 text-[#384959] hover:bg-black/20'
+                                    ? "bg-[#0F172A] text-white"
+                                    : "text-[#64748B] hover:bg-slate-100"
                                 }`}
                               >
-                                {tab === 'powershell' ? 'PowerShell' : tab === 'curl' ? 'cURL (bash)' : 'Python'}
+                                {tab}
                               </button>
                             ))}
                           </div>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-[#384959] hover:bg-black/10"
-                            onClick={() => {
-                              const cmd = shellTab === 'powershell' 
-                                ? `Invoke-WebRequest -Uri "${webhookInfo.webhookUrl}" \`\n  -Method POST \`\n  -ContentType "application/json" \`\n  -Body '{"sensor":"temp","value":25}'`
-                                : shellTab === 'curl'
-                                ? `curl -X POST "${webhookInfo.webhookUrl}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"sensor":"temp","value":25}'`
-                                : `import requests\nrequests.post(\n  "${webhookInfo.webhookUrl}",\n  json={"sensor": "temp", "value": 25}\n)`;
-                              handleCopy(cmd);
-                            }}
-                            title="Copy command"
+
+                          <button
+                            onClick={() => copyToClipboard(getShellCommand(), "cmd")}
+                            className="text-[10px] font-mono text-[#2563EB] hover:underline flex items-center gap-1"
                           >
-                            <Copy className="h-3 w-3" />
-                          </Button>
+                            {copiedCmd ? (
+                              <Check className="h-3 w-3 text-emerald-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                            <span>{copiedCmd ? "COPIED" : "COPY_CMD"}</span>
+                          </button>
                         </div>
 
-                        <pre className="font-mono text-[10px] bg-black/5 rounded p-2 text-[#384959] whitespace-pre-wrap break-all relative">
-                          {shellTab === 'powershell' &&
-                            `Invoke-WebRequest -Uri "${webhookInfo.webhookUrl}" \`\n  -Method POST \`\n  -ContentType "application/json" \`\n  -Body '{"sensor":"temp","value":25}'`}
-                          {shellTab === 'curl' &&
-                            `curl -X POST "${webhookInfo.webhookUrl}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"sensor":"temp","value":25}'`}
-                          {shellTab === 'python' &&
-                            `import requests\nrequests.post(\n  "${webhookInfo.webhookUrl}",\n  json={"sensor": "temp", "value": 25}\n)`}
+                        <pre className="font-mono text-xs bg-[#F8FAFC] border border-[#E2E8F0] p-2.5 rounded text-[#0F172A] overflow-x-auto leading-relaxed max-h-36">
+                          {getShellCommand()}
                         </pre>
                       </div>
 
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
-                          <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                          Regenerate Token
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
-                          onClick={handleClear}
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          onClick={handleGenerate}
+                          disabled={generating}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-mono font-medium px-3 py-1.5 rounded border border-[#CBD5E1] bg-white hover:bg-[#F8FAFC]"
                         >
-                          <Trash2 className="h-3.5 w-3.5 mr-2" />
-                          Disable
-                        </Button>
+                          <RefreshCw className="h-3 w-3" />
+                          <span>ROTATE_TOKEN</span>
+                        </button>
+                        <button
+                          onClick={handleClear}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-mono font-medium px-3 py-1.5 rounded border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>DEACTIVATE</span>
+                        </button>
                       </div>
                     </>
                   ) : (
-                    <div className="text-center py-6 space-y-3">
-                      <div className="h-12 w-12 rounded-full bg-[#6A89A7]/10 flex items-center justify-center mx-auto">
-                        <Webhook className="h-6 w-6 text-[#6A89A7]" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">No webhook endpoint configured for this project.</p>
-                      <Button onClick={handleGenerate} disabled={generating} className="btn-primary">
-                        <Zap className="h-4 w-4 mr-2" />
-                        {generating ? "Generating..." : "Generate Endpoint"}
-                      </Button>
+                    <div className="p-6 text-center text-slate-500 font-mono text-xs space-y-3">
+                      <p>No active public endpoint generated for this node.</p>
+                      <button
+                        onClick={handleGenerate}
+                        disabled={generating}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B]"
+                      >
+                        <Zap className="h-3.5 w-3.5" />
+                        <span>{generating ? "Generating..." : "Generate Public Webhook"}</span>
+                      </button>
                     </div>
                   )}
-                </motion.div>
+                </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Webhook Schema Mapper Card */}
           {selectedProjectId && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Card className="card-industrial">
-                <CardHeader className="flex flex-row items-center justify-between border-b border-[#E8EDF2] pb-4">
-                  <div>
-                    <CardTitle className="text-lg text-[#2C3E50] flex items-center gap-2">
-                      <Map className="h-5 w-5 text-[#6A89A7]" />
-                      Webhook Schema Mapper
-                    </CardTitle>
-                    <CardDescription>
-                      Map external deep JSON variables to IoTKit internal variables (e.g. data.sensors.0.val &rarr; temperature)
-                    </CardDescription>
+            <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                    SCHEMA_MAPPER
+                  </span>
+                  <span className="text-[10px] font-mono text-[#64748B]">
+                    JSON_TRANSFORM
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 font-mono text-xs">
+                  <span className="text-[10px] text-[#64748B]">STATUS:</span>
+                  <button
+                    onClick={() => setMappingActive(!mappingActive)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      mappingActive
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {mappingActive ? "ACTIVE" : "BYPASS"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 space-y-3">
+                <p className="text-[11px] text-[#64748B] font-sans">
+                  Extract deep variables from external payloads (e.g.{" "}
+                  <code className="text-[#2563EB] font-mono">telemetry.temp</code> &rarr;{" "}
+                  <code className="text-[#0F172A] font-mono">temperature</code>) for uniform telemetry ingestion.
+                </p>
+
+                {mappings.length === 0 ? (
+                  <div className="p-4 text-center text-slate-400 font-mono text-xs border border-dashed rounded bg-[#F8FAFC]">
+                    NO_MAPPING_RULES_DEFINED. Raw payloads will pass unaltered.
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[#5A6C7D]">Active</span>
-                    <input
-                      type="checkbox"
-                      checked={mappingActive}
-                      onChange={(e) => setMappingActive(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-[#6A89A7] focus:ring-[#6A89A7]"
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-6 space-y-4">
-                  {mappings.length === 0 ? (
-                    <div className="text-center py-8 border border-dashed rounded-lg bg-black/5">
-                      <Map className="h-8 w-8 mx-auto mb-2 text-muted-foreground opacity-30" />
-                      <p className="text-xs text-muted-foreground">No schema mappings defined yet.</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Incoming webhook payloads will be processed without modifications.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-[#5A6C7D] px-1 pb-1">
-                        <div className="col-span-5">External JSON Path (e.g., data.temp)</div>
-                        <div className="col-span-4">Internal Key (e.g., temperature)</div>
-                        <div className="col-span-2">Data Type</div>
-                        <div className="col-span-1 text-center">Del</div>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {mappings.map((mapping) => (
+                      <div
+                        key={mapping.id}
+                        className="grid grid-cols-12 gap-2 items-center text-xs font-mono"
+                      >
+                        <div className="col-span-5">
+                          <input
+                            type="text"
+                            value={mapping.externalPath}
+                            placeholder="payload.temp"
+                            onChange={(e) =>
+                              updateMappingRow(mapping.id, "externalPath", e.target.value)
+                            }
+                            className="w-full h-7 px-2 border border-[#CBD5E1] rounded bg-white"
+                          />
+                        </div>
+                        <div className="col-span-4">
+                          <input
+                            type="text"
+                            value={mapping.internalKey}
+                            placeholder="temperature"
+                            onChange={(e) =>
+                              updateMappingRow(mapping.id, "internalKey", e.target.value)
+                            }
+                            className="w-full h-7 px-2 border border-[#CBD5E1] rounded bg-white"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <select
+                            value={mapping.dataType}
+                            onChange={(e) =>
+                              updateMappingRow(mapping.id, "dataType", e.target.value as any)
+                            }
+                            className="w-full h-7 px-1 border border-[#CBD5E1] rounded bg-white text-[10px]"
+                          >
+                            <option value="number">Number</option>
+                            <option value="string">String</option>
+                            <option value="boolean">Boolean</option>
+                          </select>
+                        </div>
+                        <div className="col-span-1 text-right">
+                          <button
+                            onClick={() => removeMappingRow(mapping.id)}
+                            className="text-slate-400 hover:text-rose-600"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      
-                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                        {mappings.map((mapping) => (
-                          <div key={mapping.id} className="grid grid-cols-12 gap-2 items-center">
-                            <div className="col-span-5">
-                              <input
-                                type="text"
-                                value={mapping.externalPath}
-                                placeholder="status.sensors.0.val"
-                                onChange={(e) => updateMappingRow(mapping.id, "externalPath", e.target.value)}
-                                className="w-full text-xs font-mono h-8 bg-background border border-input rounded px-2"
-                              />
-                            </div>
-                            <div className="col-span-4">
-                              <input
-                                type="text"
-                                value={mapping.internalKey}
-                                placeholder="temperature"
-                                onChange={(e) => updateMappingRow(mapping.id, "internalKey", e.target.value)}
-                                className="w-full text-xs font-mono h-8 bg-background border border-input rounded px-2"
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <select
-                                value={mapping.dataType}
-                                onChange={(e) => updateMappingRow(mapping.id, "dataType", e.target.value as any)}
-                                className="w-full text-xs h-8 bg-background border border-input rounded px-1"
-                              >
-                                <option value="number">Number</option>
-                                <option value="string">String</option>
-                                <option value="boolean">Boolean</option>
-                              </select>
-                            </div>
-                            <div className="col-span-1 flex justify-center">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeMappingRow(mapping.id)}
-                                className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                              >
-                                <Trash className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center pt-2">
-                    <Button variant="outline" size="sm" onClick={addMappingRow} className="text-xs">
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Add Mapping Rule
-                    </Button>
-                    <Button
-                      onClick={handleSaveMapping}
-                      disabled={savingMapping}
-                      size="sm"
-                      className="btn-primary text-xs"
-                    >
-                      {savingMapping ? "Saving..." : "Save Mappings"}
-                    </Button>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                )}
+
+                <div className="flex items-center justify-between pt-2 border-t border-[#F1F5F9]">
+                  <button
+                    onClick={addMappingRow}
+                    className="inline-flex items-center gap-1 text-[11px] font-mono text-[#2563EB] hover:underline"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Add Transform Rule</span>
+                  </button>
+                  <button
+                    onClick={handleSaveMapping}
+                    disabled={savingMapping}
+                    className="px-3 py-1.5 text-xs font-mono font-bold bg-[#0F172A] text-white rounded hover:bg-[#1E293B]"
+                  >
+                    {savingMapping ? "SAVING..." : "SAVE_MAPPINGS"}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Live Status Card */}
-        <Card className="card-industrial h-fit">
-          <CardHeader>
-            <CardTitle>Live Status</CardTitle>
-            <CardDescription>Real-time connection and request statistics</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-muted rounded-lg p-4 text-center border">
-                <p className="text-3xl font-bold font-mono text-[#6A89A7]">{logs.length}</p>
-                <p className="text-xs text-muted-foreground mt-1">Total Received</p>
+        {/* Right Column: Live Webhook Requests Teleprinter (7 cols) */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden flex flex-col h-[680px]">
+            {/* Teleprinter Header */}
+            <div className="px-4 py-2.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-[#0F172A]" />
+                <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  INGESTED_REQUESTS_LOG
+                </span>
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-bold">
+                  {logs.length} EVENTS
+                </span>
               </div>
-              <div className="bg-muted rounded-lg p-4 text-center border">
-                <p className="text-3xl font-bold font-mono text-green-500">{liveCount}</p>
-                <p className="text-xs text-muted-foreground mt-1">This Session</p>
-              </div>
-              <div className={`col-span-2 rounded-lg p-3 border text-center text-sm font-medium ${webhookInfo?.webhookEnabled ? 'bg-green-500/10 border-green-500/30 text-green-600' : 'bg-muted border-border text-muted-foreground'}`}>
-                {webhookInfo?.webhookEnabled ? "🟢 Endpoint Active — Listening" : "⚫ No Active Endpoint"}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Incoming Requests Log */}
-      <Card className="card-industrial">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Incoming Requests</CardTitle>
-              <CardDescription>Live stream of all received webhook payloads</CardDescription>
+              {logs.length > 0 && (
+                <button
+                  onClick={handleClearLogs}
+                  className="text-[11px] font-mono text-slate-500 hover:text-rose-600 transition-colors flex items-center gap-1"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>CLEAR_LOGS</span>
+                </button>
+              )}
             </div>
-            {logs.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleClearLogs}>
-                Clear
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {logs.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <Webhook className="h-12 w-12 mx-auto mb-3 opacity-20" />
-              <p className="text-sm">Waiting for incoming requests...</p>
-              <p className="text-xs mt-1">Send a POST request to your webhook URL to see it here.</p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-              <AnimatePresence>
-                {logs.map((log, index) => (
-                  <motion.div
-                    key={log.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index === 0 ? 0 : 0 }}
-                    className="border rounded-lg overflow-hidden"
-                  >
-                    <div className="flex items-center justify-between bg-muted/60 px-4 py-2 border-b">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono bg-green-500/20 text-green-600 px-2 py-0.5 rounded">
-                          200 OK
-                        </span>
-                        <span className="text-xs text-muted-foreground font-mono">
-                          {new Date(log.timestamp).toLocaleTimeString("id-ID", { hour12: false })}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{log.message.split("[")[0].trim()}</span>
+
+            {/* Ingestion Stream */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 font-mono text-xs">
+              {logs.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center space-y-2 p-8">
+                  <Webhook className="h-10 w-10 opacity-20" />
+                  <p className="uppercase text-xs tracking-wider">
+                    NO_INGESTED_WEBHOOKS_YET
+                  </p>
+                  <p className="text-[11px] font-sans text-slate-400 max-w-sm">
+                    Select a project node, copy the endpoint URL, and send HTTP POST requests from your external devices or cloud gateways.
+                  </p>
+                </div>
+              ) : (
+                logs.map((log) => {
+                  let formatted = log.payload || "{}";
+                  try {
+                    const parsed = JSON.parse(log.payload || "{}");
+                    formatted = JSON.stringify(parsed, null, 2);
+                  } catch {}
+
+                  return (
+                    <div
+                      key={log.id}
+                      className="border border-[#E2E8F0] rounded bg-white shadow-hairline overflow-hidden"
+                    >
+                      <div className="px-3 py-1.5 bg-[#F8FAFC] border-b border-[#E2E8F0] flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                            HTTP 200 OK
+                          </span>
+                          <span className="text-slate-400">
+                            {new Date(log.timestamp).toLocaleTimeString()}
+                          </span>
+                          <span className="text-[#64748B] font-sans truncate max-w-[220px]">
+                            {log.message.split("[")[0].trim()}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(formatted, "cmd")}
+                          className="text-slate-400 hover:text-[#0F172A]"
+                          title="Copy JSON Payload"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
                       </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => handleCopy(log.payload || "")}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
+                      <pre className="p-3 bg-white text-[#0F172A] font-mono text-xs overflow-x-auto max-h-48 leading-relaxed">
+                        {formatted}
+                      </pre>
                     </div>
-                    <pre className="text-xs font-mono p-4 bg-black/5 overflow-x-auto max-h-48 overflow-y-auto">
-                      {formatPayload(log.payload, log.parsedPayload)}
-                    </pre>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                  );
+                })
+              )}
               <div ref={logsEndRef} />
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,25 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  AlertTriangle, 
-  Plus, 
-  Trash2, 
-  Power, 
-  Settings, 
-  Bell, 
-  ShieldAlert, 
-  Terminal, 
-  RefreshCw, 
+import {
+  ShieldAlert,
+  Plus,
+  Trash2,
+  Power,
+  Settings,
+  Terminal,
+  RefreshCw,
   FolderKanban,
-  CheckCircle,
-  FileSpreadsheet
+  CheckCircle2,
+  AlertTriangle,
+  Radio,
+  Sliders,
+  Filter,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { api } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { usePopupStore } from "@/store/popupStore";
 
 interface AlertRule {
   id: string;
@@ -48,72 +46,49 @@ interface AlertLog {
 export default function AlertsPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"rules" | "logs">("rules");
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [logs, setLogs] = useState<AlertLog[]>([]);
-  const confirm = usePopupStore((state) => state.confirm);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<"rules" | "logs">("rules");
 
-  // New Rule Form State
+  // Create Modal State
+  const [showModal, setShowModal] = useState(false);
   const [ruleName, setRuleName] = useState("");
   const [ruleField, setRuleField] = useState("");
   const [ruleOperator, setRuleOperator] = useState(">");
   const [ruleValue, setRuleValue] = useState("");
   const [ruleSeverity, setRuleSeverity] = useState<"info" | "warning" | "critical">("warning");
 
-  // Fetch Projects on Load
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await api.get("/projects");
-        setProjects(res.data);
-        if (res.data.length > 0) {
-          setSelectedProjectId(res.data[0].id);
-        } else {
-          setLoading(false);
-        }
-      } catch (err) {
-        toast.error("Failed to load projects");
-        setLoading(false);
-      }
-    };
     fetchProjects();
   }, []);
 
-  // Fetch Rules and Logs when project or active tab changes
+  const fetchProjects = async () => {
+    try {
+      const res = await api.get("/projects");
+      const list = res.data.projects || [];
+      setProjects(list);
+      if (list.length > 0) {
+        setSelectedProjectId(list[0].id);
+      }
+    } catch {
+      toast.error("Failed to load nodes list");
+    }
+  };
+
   useEffect(() => {
     if (!selectedProjectId) return;
-    
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        if (activeTab === "rules") {
-          const res = await api.get(`/alerts/rules/project/${selectedProjectId}`);
-          setRules(res.data);
-        } else {
-          const res = await api.get(`/alerts/history/project/${selectedProjectId}`);
-          setLogs(res.data);
-        }
-      } catch (err) {
-        toast.error("Failed to load alert data");
-      } finally {
-        setLoading(false);
-      }
-    };
+    loadData();
 
-    fetchData();
-
-    // Setup periodic polling for logs if active tab is logs
-    let interval: any;
+    let interval: NodeJS.Timeout | null = null;
     if (activeTab === "logs") {
-      interval = setInterval(async () => {
-        try {
-          const res = await api.get(`/alerts/history/project/${selectedProjectId}`);
-          setLogs(res.data);
-        } catch (e) {}
-      }, 3000);
+      interval = setInterval(() => {
+        api
+          .get(`/alerts/logs/${selectedProjectId}`)
+          .then((res) => setLogs(res.data || []))
+          .catch(() => {});
+      }, 2000);
     }
 
     return () => {
@@ -121,10 +96,26 @@ export default function AlertsPage() {
     };
   }, [selectedProjectId, activeTab]);
 
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [rulesRes, logsRes] = await Promise.all([
+        api.get(`/alerts/rules/${selectedProjectId}`),
+        api.get(`/alerts/logs/${selectedProjectId}`),
+      ]);
+      setRules(rulesRes.data || []);
+      setLogs(logsRes.data || []);
+    } catch {
+      toast.error("Failed to load alert rules");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ruleName || !ruleField || !ruleValue) {
-      toast.error("Please fill in all fields");
+      toast.error("Please fill in all mandatory fields");
       return;
     }
 
@@ -140,346 +131,389 @@ export default function AlertsPage() {
       });
 
       setRules([res.data, ...rules]);
-      toast.success("Alert rule created successfully!");
+      toast.success("Alert rule deployed");
       setShowModal(false);
-      
-      // Reset form
+
       setRuleName("");
       setRuleField("");
       setRuleOperator(">");
       setRuleValue("");
       setRuleSeverity("warning");
-    } catch (err) {
+    } catch {
       toast.error("Failed to create alert rule");
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleToggleRule = async (ruleId: string, currentActive: boolean) => {
+  const handleToggleRule = async (ruleId: string, currentStatus: boolean) => {
     try {
       const res = await api.put(`/alerts/rules/${ruleId}`, {
-        isActive: !currentActive,
+        isActive: !currentStatus,
       });
-      setRules(rules.map(r => r.id === ruleId ? res.data : r));
-      toast.success(`Rule ${!currentActive ? 'activated' : 'deactivated'} successfully!`);
-    } catch (err) {
-      toast.error("Failed to toggle rule state");
+      setRules(rules.map((r) => (r.id === ruleId ? res.data : r)));
+      toast.success(`Rule ${!currentStatus ? "activated" : "deactivated"}`);
+    } catch {
+      toast.error("Failed to update rule status");
     }
   };
 
   const handleDeleteRule = async (ruleId: string) => {
-    const isConfirmed = await confirm("Are you sure you want to delete this alert rule?", "Delete Alert Rule");
-    if (!isConfirmed) return;
+    if (!confirm("Confirm deletion of this alert threshold rule?")) return;
     try {
       await api.delete(`/alerts/rules/${ruleId}`);
-      setRules(rules.filter(r => r.id !== ruleId));
-      toast.success("Alert rule deleted");
-    } catch (err) {
-      toast.error("Failed to delete alert rule");
+      setRules(rules.filter((r) => r.id !== ruleId));
+      toast.success("Rule purged from engine");
+    } catch {
+      toast.error("Failed to delete rule");
     }
   };
 
   const handleClearHistory = async () => {
-    const isConfirmed = await confirm("Are you sure you want to clear all alert logs for this project?", "Clear Alert Logs");
-    if (!isConfirmed) return;
+    if (!confirm("Purge all anomaly logs for this node?")) return;
     try {
-      await api.post(`/alerts/history/clear/${selectedProjectId}`);
+      await api.delete(`/alerts/logs/${selectedProjectId}`);
       setLogs([]);
-      toast.success("Alert logs cleared");
-    } catch (err) {
-      toast.error("Failed to clear alert logs");
+      toast.success("Anomaly log history purged");
+    } catch {
+      toast.error("Failed to purge anomaly logs");
     }
   };
 
-  const getSeverityStyle = (severity: string) => {
-    switch (severity) {
+  const getSeverityBadge = (severity: string) => {
+    switch (severity.toLowerCase()) {
       case "critical":
-        return "text-[#F44336] bg-[#F44336]/10 border-[#F44336]/30";
+      case "error":
+        return "bg-rose-50 text-rose-800 border border-rose-200 font-bold";
       case "warning":
-        return "text-[#FF9800] bg-[#FF9800]/10 border-[#FF9800]/30";
+        return "bg-amber-50 text-amber-800 border border-amber-200 font-bold";
       default:
-        return "text-[#6A89A7] bg-[#6A89A7]/10 border-[#6A89A7]/30";
+        return "bg-blue-50 text-blue-800 border border-blue-200 font-bold";
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-[#2C3E50] flex items-center gap-3">
-            <AlertTriangle className="h-8 w-8 text-[#6A89A7] animate-pulse" />
-            Alert & Rule Engine
-          </h1>
-          <p className="text-[#5A6C7D] mt-1">
-            Detect anomalies, configure threshold rules, and receive autonomous real-time notifications.
-          </p>
-        </div>
+    <div className="space-y-4">
+      {/* Precision Instrument Header */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md p-4 shadow-hairline">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded bg-rose-50 text-rose-800 border border-rose-200">
+              <ShieldAlert className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-[#0F172A] tracking-tight">
+                  Threshold &amp; Anomaly Engine
+                </h1>
+                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  DAEMON_MONITORING
+                </span>
+              </div>
+              <p className="text-xs text-[#64748B] font-mono mt-0.5">
+                ACTIVE_RULES: {rules.filter((r) => r.isActive).length}/{rules.length}{" // "}ANOMALIES:{" "}
+                {logs.length} EVENTS
+              </p>
+            </div>
+          </div>
 
-        {/* Project Selector */}
-        <div className="flex items-center gap-3 bg-[#E8EDF2] p-2.5 rounded-lg border border-[#D1DBE5]">
-          <FolderKanban className="h-5 w-5 text-[#5A6C7D]" />
-          <select
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-[#2C3E50] border-none outline-none cursor-pointer pr-4"
-          >
-            {projects.map((proj) => (
-              <option key={proj.id} value={proj.id}>
-                {proj.name}
-              </option>
-            ))}
-          </select>
+          {/* Node Selector & Action */}
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <FolderKanban className="h-3.5 w-3.5 text-[#64748B]" />
+              <select
+                className="h-8 px-2.5 border border-[#CBD5E1] rounded text-xs font-mono bg-white focus:border-[#2563EB] outline-none"
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.protocol})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={() => setShowModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm transition-all"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>New Rule</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tabs Menu */}
-      <div className="flex border-b border-[#D1DBE5] gap-4">
+      {/* Tabs Switcher */}
+      <div className="flex items-center gap-2 border-b border-[#E2E8F0] pb-1">
         <button
           onClick={() => setActiveTab("rules")}
-          className={`pb-3 text-sm font-semibold transition-all border-b-2 px-1 flex items-center gap-2 ${
+          className={`px-3 py-1.5 rounded text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 ${
             activeTab === "rules"
-              ? "border-[#6A89A7] text-[#2C3E50]"
-              : "border-transparent text-[#5A6C7D] hover:text-[#2C3E50]"
+              ? "bg-[#0F172A] text-white"
+              : "text-[#64748B] hover:text-[#0F172A] bg-white border border-[#CBD5E1]"
           }`}
         >
-          <Settings className="h-4 w-4" />
-          Configured Alert Rules
+          <Sliders className="h-3.5 w-3.5" />
+          <span>RULES_MATRIX ({rules.length})</span>
         </button>
+
         <button
           onClick={() => setActiveTab("logs")}
-          className={`pb-3 text-sm font-semibold transition-all border-b-2 px-1 flex items-center gap-2 ${
+          className={`px-3 py-1.5 rounded text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 ${
             activeTab === "logs"
-              ? "border-[#6A89A7] text-[#2C3E50]"
-              : "border-transparent text-[#5A6C7D] hover:text-[#2C3E50]"
+              ? "bg-[#0F172A] text-white"
+              : "text-[#64748B] hover:text-[#0F172A] bg-white border border-[#CBD5E1]"
           }`}
         >
-          <Terminal className="h-4 w-4" />
-          Anomaly Log Terminal
+          <Terminal className="h-3.5 w-3.5" />
+          <span>ANOMALY_TELEPRINTER ({logs.length})</span>
           {logs.length > 0 && activeTab !== "logs" && (
-            <span className="h-2 w-2 rounded-full bg-[#F44336] animate-ping" />
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
           )}
         </button>
       </div>
 
-      {/* Tab: Rules */}
+      {/* Tab: Rules Matrix */}
       {activeTab === "rules" && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-bold text-[#2C3E50]">Threshold Rules ({rules.length})</h2>
-            <Button
-              onClick={() => setShowModal(true)}
-              className="bg-[#6A89A7] hover:bg-[#5a7997] text-white flex items-center gap-2 rounded-lg"
-            >
-              <Plus className="h-4 w-4" /> New Alert Rule
-            </Button>
-          </div>
-
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <RefreshCw className="h-8 w-8 text-[#6A89A7] animate-spin" />
+            <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3">
+              <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+              <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+                FETCHING_RULES...
+              </span>
             </div>
           ) : rules.length === 0 ? (
-            <Card className="card-industrial p-12 text-center flex flex-col items-center">
-              <ShieldAlert className="h-16 w-16 text-[#8B9AA8] mb-4" />
-              <h3 className="text-xl font-bold text-[#2C3E50]">No Active Alert Rules</h3>
-              <p className="text-[#5A6C7D] mt-2 max-w-md">
-                Configure threshold rules to monitor telemetry values (e.g. temperature, boolean state) and trigger real-time alerts.
+            <div className="p-12 text-center bg-white border border-[#E2E8F0] rounded-md shadow-hairline space-y-3">
+              <ShieldAlert className="h-10 w-10 text-slate-300 mx-auto" />
+              <h3 className="font-mono text-sm font-bold text-[#0F172A] uppercase">
+                NO_ALERT_RULES_DEFINED
+              </h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto font-sans">
+                Deploy threshold evaluation rules (e.g. temperature &gt; 80, tank_level &lt; 15) to intercept out-of-spec sensor conditions.
               </p>
-              <Button
+              <button
                 onClick={() => setShowModal(true)}
-                className="mt-6 bg-[#6A89A7] hover:bg-[#5a7997] text-white flex items-center gap-2 rounded-lg"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-mono font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] rounded shadow-xs"
               >
-                <Plus className="h-4 w-4" /> Create First Rule
-              </Button>
-            </Card>
+                <Plus className="h-3.5 w-3.5" />
+                <span>DEPLOY_FIRST_RULE</span>
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {rules.map((rule) => (
-                <Card 
-                  key={rule.id} 
-                  className={`card-industrial p-5 flex flex-col justify-between border-t-4 transition-all ${
-                    rule.isActive ? "border-t-[#6A89A7] shadow-sm" : "border-t-[#A5B5C5] opacity-75"
+                <div
+                  key={rule.id}
+                  className={`bg-white border rounded-md shadow-hairline p-4 flex flex-col justify-between transition-colors ${
+                    rule.isActive
+                      ? "border-[#CBD5E1] hover:border-slate-400"
+                      : "border-[#E2E8F0] opacity-60 bg-slate-50/50"
                   }`}
                 >
                   <div>
-                    <div className="flex justify-between items-start mb-3">
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded border uppercase tracking-wider ${getSeverityStyle(rule.severity)}`}>
+                    {/* Severity & Action Controls */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded uppercase tracking-wider ${getSeverityBadge(
+                          rule.severity
+                        )}`}
+                      >
                         {rule.severity}
                       </span>
-                      <div className="flex gap-2">
+
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleToggleRule(rule.id, rule.isActive)}
-                          className={`p-1.5 rounded-lg border transition-all ${
+                          className={`p-1 rounded text-xs transition-colors ${
                             rule.isActive
-                              ? "text-[#4CAF50] bg-[#4CAF50]/10 border-[#4CAF50]/30 hover:bg-[#4CAF50]/20"
-                              : "text-[#5A6C7D] bg-gray-100 border-gray-300 hover:bg-gray-200"
+                              ? "text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100"
+                              : "text-slate-500 bg-slate-100 border border-slate-200 hover:bg-slate-200"
                           }`}
-                          title={rule.isActive ? "Deactivate Rule" : "Activate Rule"}
+                          title={rule.isActive ? "Deactivate rule" : "Activate rule"}
                         >
-                          <Power className="h-4 w-4" />
+                          <Power className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => handleDeleteRule(rule.id)}
-                          className="p-1.5 text-[#F44336] bg-[#F44336]/10 border-[#F44336]/30 rounded-lg hover:bg-[#F44336]/20 transition-all"
-                          title="Delete Rule"
+                          className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="Purge rule"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
 
-                    <h3 className="text-md font-bold text-[#2C3E50]">{rule.name}</h3>
-                    <div className="mt-4 space-y-2 bg-[#F5F8FA] p-3 rounded-lg border border-[#D1DBE5] font-mono text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-[#5A6C7D]">Field Path:</span>
-                        <span className="font-semibold text-[#2C3E50]">{rule.field}</span>
+                    <h3 className="font-bold text-sm text-[#0F172A] tracking-tight">
+                      {rule.name}
+                    </h3>
+
+                    {/* Condition Box */}
+                    <div className="mt-3 p-2.5 rounded bg-[#F8FAFC] border border-[#E2E8F0] font-mono text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#64748B]">TARGET_FIELD:</span>
+                        <span className="font-semibold text-[#0F172A]">{rule.field}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-[#5A6C7D]">Condition:</span>
-                        <span className="font-semibold text-[#2C3E50]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#64748B]">EVALUATION:</span>
+                        <span className="font-bold text-[#2563EB]">
                           {rule.operator} {rule.value}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-[10px] text-[#8B9AA8] mt-4 pt-3 border-t border-[#D1DBE5] flex justify-between">
-                    <span>Configured</span>
-                    <span>{new Date(rule.createdAt).toLocaleString()}</span>
+                  <div className="pt-3 mt-4 border-t border-[#F1F5F9] flex items-center justify-between font-mono text-[10px] text-slate-400">
+                    <span>DEPLOYED</span>
+                    <span>{new Date(rule.createdAt).toLocaleDateString()}</span>
                   </div>
-                </Card>
+                </div>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* Tab: Logs */}
+      {/* Tab: Anomaly Log Terminal */}
       {activeTab === "logs" && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-bold text-[#2C3E50]">Triggered Anomalies ({logs.length})</h2>
-            {logs.length > 0 && (
-              <Button
-                onClick={handleClearHistory}
-                className="bg-[#F44336] hover:bg-[#D32F2F] text-white flex items-center gap-2 rounded-lg"
-              >
-                <Trash2 className="h-4 w-4" /> Clear Logs Terminal
-              </Button>
-            )}
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <RefreshCw className="h-8 w-8 text-[#6A89A7] animate-spin" />
-            </div>
-          ) : logs.length === 0 ? (
-            <Card className="card-industrial p-12 text-center flex flex-col items-center">
-              <CheckCircle className="h-16 w-16 text-[#4CAF50] mb-4 animate-bounce" />
-              <h3 className="text-xl font-bold text-[#2C3E50]">No Anomalies Detected</h3>
-              <p className="text-[#5A6C7D] mt-2 max-w-md">
-                Systems are running smoothly. No parameters have violated the configured thresholds.
-              </p>
-            </Card>
-          ) : (
-            <Card className="card-industrial overflow-hidden border border-[#D1DBE5]">
-              <div className="bg-[#2C3E50] p-3 text-white flex items-center gap-2 border-b border-[#384959] font-mono text-xs">
-                <Terminal className="h-4 w-4 text-[#88BDF2]" />
-                <span>anomaly_engine_stdout.log</span>
-                <span className="ml-auto flex items-center gap-2 text-[#8B9AA8]">
-                  <span className="h-2 w-2 rounded-full bg-[#4CAF50] animate-pulse" />
-                  <span>Real-time Stream Connected</span>
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden flex flex-col h-[640px]">
+            {/* Terminal Header */}
+            <div className="px-4 py-2.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-[#0F172A]" />
+                <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  anomaly_engine_teleprinter.stdout
+                </span>
+                <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-bold">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  2000MS_POLL
                 </span>
               </div>
-              
-              <div className="max-h-[500px] overflow-y-auto p-4 bg-[#1E293B] font-mono text-xs text-gray-200 divide-y divide-gray-800">
-                {logs.map((log) => {
-                  const dateStr = new Date(log.timestamp).toLocaleString();
+
+              {logs.length > 0 && (
+                <button
+                  onClick={handleClearHistory}
+                  className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-500 hover:text-rose-600 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>PURGE_ANOMALIES</span>
+                </button>
+              )}
+            </div>
+
+            {/* Terminal Stream */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-xs bg-[#F8FAFC]">
+              {logs.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center space-y-2">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-600 opacity-60" />
+                  <p className="uppercase text-xs tracking-wider font-bold text-[#0F172A]">
+                    ALL_SYSTEMS_NOMINAL
+                  </p>
+                  <p className="text-[11px] font-sans text-slate-400 max-w-sm">
+                    No parameter violations detected. Sensor streams are currently within safe limits.
+                  </p>
+                </div>
+              ) : (
+                logs.map((log) => {
                   const isCritical = log.severity === "critical" || log.severity === "error";
-                  
                   return (
-                    <div key={log.id} className="py-2.5 flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                      <span className="text-gray-500 shrink-0 select-none">[{dateStr}]</span>
-                      <span className={`px-2 py-0.5 rounded font-bold uppercase select-none shrink-0 ${
-                        isCritical 
-                          ? "text-[#F44336] bg-[#F44336]/10 border border-[#F44336]/20" 
-                          : log.severity === "warning"
-                          ? "text-[#FF9800] bg-[#FF9800]/10 border border-[#FF9800]/20"
-                          : "text-[#6A89A7] bg-[#6A89A7]/10 border border-[#6A89A7]/20"
-                      }`}>
-                        {log.severity}
-                      </span>
-                      <span className={`flex-1 ${isCritical ? "text-[#FF8A80] font-semibold" : "text-gray-300"}`}>
-                        {log.message}
-                      </span>
-                      <span className="text-gray-500 font-mono text-[10px] shrink-0">val: {log.value}</span>
+                    <div
+                      key={log.id}
+                      className="p-2.5 rounded border border-[#E2E8F0] bg-white shadow-hairline flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-slate-400 text-[11px] tabular-nums shrink-0">
+                          [{new Date(log.timestamp).toLocaleTimeString()}]
+                        </span>
+                        <span
+                          className={`text-[10px] font-mono px-1.5 py-0.2 rounded uppercase shrink-0 ${getSeverityBadge(
+                            log.severity
+                          )}`}
+                        >
+                          {log.severity}
+                        </span>
+                        <span
+                          className={`truncate font-sans ${
+                            isCritical ? "text-rose-700 font-semibold" : "text-[#0F172A]"
+                          }`}
+                        >
+                          {log.message}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 text-[11px] text-[#64748B]">
+                        <span className="font-mono text-slate-400">MEASURED:</span>
+                        <span className="font-mono font-bold text-[#0F172A] bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                          {log.value}
+                        </span>
+                      </div>
                     </div>
                   );
-                })}
-              </div>
-            </Card>
-          )}
+                })
+              )}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Create Rule Modal */}
+      {/* Deploy Rule Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-          <Card className="card-industrial max-w-md w-full p-6 space-y-4 shadow-2xl relative border border-[#D1DBE5]">
-            <div className="flex justify-between items-center border-b border-[#D1DBE5] pb-3">
-              <h3 className="text-lg font-bold text-[#2C3E50] flex items-center gap-2">
-                <ShieldAlert className="h-5 w-5 text-[#6A89A7]" />
-                Configure New Alert Rule
-              </h3>
-              <button 
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-[#CBD5E1] rounded-md shadow-popover max-w-md w-full overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
+              <span className="font-mono text-xs font-bold text-[#0F172A] uppercase">
+                DEPLOY_ALERT_RULE
+              </span>
+              <button
                 onClick={() => setShowModal(false)}
-                className="text-[#5A6C7D] hover:text-[#2C3E50]"
+                className="text-slate-400 hover:text-slate-700"
               >
-                &times;
+                ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateRule} className="space-y-4">
+            <form onSubmit={handleCreateRule} className="p-4 space-y-3.5 text-xs">
               <div>
-                <label className="block text-xs font-bold text-[#5A6C7D] uppercase tracking-wider mb-1">
-                  Rule Name
+                <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                  RULE IDENTIFIER / NAME
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Tank Overheating Alert"
+                  placeholder="e.g. Tank Overheat Protection"
                   value={ruleName}
                   onChange={(e) => setRuleName(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-[#D1DBE5] text-sm focus:outline-none focus:ring-1 focus:ring-[#6A89A7]"
+                  className="w-full h-8 px-2.5 font-sans border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-[#5A6C7D] uppercase tracking-wider mb-1">
-                    Payload Field Path
+                  <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                    FIELD PATH
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. temperature"
+                    placeholder="temperature"
                     value={ruleField}
                     onChange={(e) => setRuleField(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-[#D1DBE5] text-sm focus:outline-none focus:ring-1 focus:ring-[#6A89A7] font-mono"
+                    className="w-full h-8 px-2.5 font-mono border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
                   />
-                  <p className="text-[9px] text-[#8B9AA8] mt-0.5">Supports nested paths like: sensor.value</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#5A6C7D] uppercase tracking-wider mb-1">
-                    Operator
+                  <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                    OPERATOR
                   </label>
                   <select
                     value={ruleOperator}
                     onChange={(e) => setRuleOperator(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-[#D1DBE5] text-sm focus:outline-none focus:ring-1 focus:ring-[#6A89A7] bg-white cursor-pointer"
+                    className="w-full h-8 px-2 font-mono border border-[#CBD5E1] rounded bg-white outline-none"
                   >
                     <option value=">">&gt; Greater Than</option>
                     <option value="<">&lt; Less Than</option>
@@ -493,22 +527,22 @@ export default function AlertsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#5A6C7D] uppercase tracking-wider mb-1">
-                  Threshold Value
+                <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                  THRESHOLD VALUE
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 80"
+                  placeholder="85"
                   value={ruleValue}
                   onChange={(e) => setRuleValue(e.target.value)}
-                  className="w-full p-2.5 rounded-lg border border-[#D1DBE5] text-sm focus:outline-none focus:ring-1 focus:ring-[#6A89A7]"
+                  className="w-full h-8 px-2.5 font-mono border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#5A6C7D] uppercase tracking-wider mb-1">
-                  Alert Severity
+                <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                  SEVERITY LEVEL
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {(["info", "warning", "critical"] as const).map((sev) => (
@@ -516,14 +550,10 @@ export default function AlertsPage() {
                       key={sev}
                       type="button"
                       onClick={() => setRuleSeverity(sev)}
-                      className={`p-2 rounded-lg text-xs font-bold border transition-all capitalize ${
+                      className={`h-7 rounded text-xs font-mono font-bold uppercase border transition-colors ${
                         ruleSeverity === sev
-                          ? sev === "critical"
-                            ? "bg-[#F44336] text-white border-[#F44336]"
-                            : sev === "warning"
-                            ? "bg-[#FF9800] text-white border-[#FF9800]"
-                            : "bg-[#6A89A7] text-white border-[#6A89A7]"
-                          : "bg-white text-[#5A6C7D] border-[#D1DBE5] hover:bg-gray-50"
+                          ? "bg-[#0F172A] text-white border-[#0F172A]"
+                          : "bg-white text-[#475569] border-[#CBD5E1] hover:bg-[#F8FAFC]"
                       }`}
                     >
                       {sev}
@@ -532,24 +562,24 @@ export default function AlertsPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-[#D1DBE5]">
-                <Button
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
+                <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="bg-transparent border border-[#D1DBE5] text-[#5A6C7D] hover:bg-gray-100 rounded-lg text-sm"
+                  className="px-3 py-1.5 text-xs font-mono rounded border border-[#CBD5E1] hover:bg-[#F8FAFC]"
                 >
-                  Cancel
-                </Button>
-                <Button
+                  CANCEL
+                </button>
+                <button
                   type="submit"
                   disabled={actionLoading}
-                  className="bg-[#6A89A7] hover:bg-[#5a7997] text-white rounded-lg text-sm flex items-center gap-2"
+                  className="px-4 py-1.5 text-xs font-mono font-bold bg-[#0F172A] text-white rounded hover:bg-[#1E293B]"
                 >
-                  {actionLoading ? "Creating..." : "Save Config"}
-                </Button>
+                  {actionLoading ? "DEPLOYING..." : "DEPLOY_RULE"}
+                </button>
               </div>
             </form>
-          </Card>
+          </div>
         </div>
       )}
     </div>

@@ -2,21 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import {
   Activity,
-  Database,
   Send,
   CheckCircle2,
   Plus,
   FolderKanban,
-  TrendingUp,
-  TrendingDown,
-  Circle,
   Radio,
+  Wifi,
+  Globe,
+  Terminal,
+  RefreshCw,
+  ExternalLink,
+  Cpu,
+  Layers,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useProjectStore } from "@/store/projectStore";
 import { useAuthStore } from "@/store/authStore";
 import { api } from "@/lib/api";
@@ -40,18 +40,7 @@ export default function DashboardPage() {
   const [successRate, setSuccessRate] = useState(0);
   const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = recentActivity.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(recentActivity.length / itemsPerPage);
-
-  const handleItemsPerPageChange = (value: number) => {
-    setItemsPerPage(value);
-    setCurrentPage(1);
-  };
+  const [filterProtocol, setFilterProtocol] = useState<string>("ALL");
 
   useEffect(() => {
     loadDashboardData();
@@ -100,29 +89,28 @@ export default function DashboardPage() {
     };
 
     checkRunning();
-    const interval = setInterval(checkRunning, 5000);
+    const interval = setInterval(checkRunning, 4000);
     return () => clearInterval(interval);
   }, [projects]);
 
   const fetchRecentLogs = async () => {
     try {
       const response = await api.get("/logs", {
-        params: { limit: 50, sort: "desc" },
+        params: { limit: 40, sort: "desc" },
       });
       if (response.data && Array.isArray(response.data)) {
         const logs: ActivityLog[] = response.data.map((log: any) => ({
           id: log.id,
           timestamp: log.timestamp || log.createdAt,
-          project: log.projectName || log.project?.name || "Unknown Project",
-          protocol: log.protocol || "N/A",
+          project: log.projectName || log.project?.name || "Global Stream",
+          protocol: log.protocol || "HTTP",
           payloadSize: log.payloadSize || "--",
-          status: log.status === "success" ? "success" : "error",
-          message: log.message || log.payload || "No message",
+          status: log.type === "error" || log.statusCode >= 400 ? "error" : "success",
+          message: log.message || log.payload || "Payload dispatched",
         }));
         setRecentActivity(logs);
       }
     } catch (error) {
-      console.error("Error fetching logs:", error);
       setRecentActivity([]);
     }
   };
@@ -138,501 +126,411 @@ export default function DashboardPage() {
           setSuccessRate(parseFloat(rate.toFixed(1)));
         }
       }
-    } catch (error) {
-      console.error("Error fetching simulation stats:", error);
-    }
+    } catch (error) {}
   };
 
-  const protocolUsage = {
-    MQTT: projects.filter((p) => p.protocol.includes("MQTT")).length,
-    HTTP: projects.filter((p) => p.protocol.includes("HTTP")).length,
-    WS: projects.filter((p) => p.protocol.includes("WS")).length,
+  const protocolCounts = {
+    MQTT: projects.filter((p) => p.protocol?.toUpperCase().includes("MQTT")).length,
+    HTTP: projects.filter((p) => p.protocol?.toUpperCase().includes("HTTP")).length,
+    WS: projects.filter((p) => p.protocol?.toUpperCase().includes("WS")).length,
   };
-  const totalProtocols = Object.values(protocolUsage).reduce(
-    (a, b) => a + b,
-    0,
-  );
 
-  const statCards = [
-    {
-      title: "Total Projects",
-      value: projects.length,
-      icon: FolderKanban,
-      trend:
-        projects.length > 0 ? `${projects.length} active` : "No projects yet",
-      trendUp: true,
-      iconBg: "bg-[#BDDDFC]",
-      iconColor: "text-[#384959]",
-    },
-    {
-      title: "Active Simulations",
-      value: runningCount,
-      icon: Activity,
-      trend:
-        projects.length > 0
-          ? `${runningCount} of ${projects.length} running`
-          : "No simulations",
-      trendUp: runningCount > 0,
-      iconBg: "bg-[#88BDF2]/30",
-      iconColor: "text-[#384959]",
-    },
-    {
-      title: "Payloads Sent",
-      value:
-        totalPayloadsSent >= 1000000
-          ? `${(totalPayloadsSent / 1000000).toFixed(1)}M`
-          : totalPayloadsSent >= 1000
-            ? `${(totalPayloadsSent / 1000).toFixed(1)}K`
-            : totalPayloadsSent,
-      icon: Send,
-      trend: totalPayloadsSent > 0 ? "Total sent" : "No payloads yet",
-      trendUp: true,
-      iconBg: "bg-[#6A89A7]/20",
-      iconColor: "text-[#6A89A7]",
-    },
-    {
-      title: "Success Rate",
-      value: totalPayloadsSent > 0 ? `${successRate}%` : "--",
-      icon: CheckCircle2,
-      trend: totalPayloadsSent > 0 ? "Overall success" : "No data",
-      trendUp: successRate >= 95,
-      iconBg: "bg-[#4CAF50]/20",
-      iconColor: "text-[#4CAF50]",
-    },
-  ];
+  const filteredLogs = recentActivity.filter((log) => {
+    if (filterProtocol === "ALL") return true;
+    if (filterProtocol === "ERROR") return log.status === "error";
+    return log.protocol?.toUpperCase().includes(filterProtocol);
+  });
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+          SYNCING_TELEMETRY...
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      {/* Cockpit Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
         <div>
-          <h1 className="text-3xl font-bold text-[#2C3E50]">
-            Dashboard Overview
-          </h1>
-          <p className="text-[#5A6C7D] mt-1">
-            Real-time telemetry and simulation status.
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-[#0F172A] tracking-tight">
+              Mission Control
+            </h1>
+            <span className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+              CLUSTER_ACTIVE
+            </span>
+          </div>
+          <p className="text-xs text-[#64748B] mt-0.5 font-mono">
+            LIVE_DATA_STREAM // ENGINE: GO FIBER // MULTI-PROTOCOL SUITE
           </p>
         </div>
-        <Button
-          onClick={() => router.push("/projects/new")}
-          className="btn-primary"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Simulation
-        </Button>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat, index) => (
-          <motion.div
-            key={stat.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => loadDashboardData()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium text-[#475569] bg-white border border-[#CBD5E1] hover:bg-[#F8FAFC] transition-colors"
           >
-            <Card className="card-industrial hover:shadow-industrial-lg transition-all duration-200">
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <p className="text-sm text-[#8B9AA8] mb-1">{stat.title}</p>
-                    <p className="text-4xl font-bold text-[#2C3E50]">
-                      {stat.value}
-                    </p>
-                  </div>
-                  <div className={`p-3 rounded-xl ${stat.iconBg}`}>
-                    <stat.icon className={`h-6 w-6 ${stat.iconColor}`} />
-                  </div>
-                </div>
-                {stat.trend && (
-                  <div className="flex items-center gap-1 text-xs">
-                    {stat.trendUp ? (
-                      <TrendingUp className="h-3 w-3 text-[#4CAF50]" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3 text-[#F44336]" />
-                    )}
-                    <span
-                      className={
-                        stat.trendUp ? "text-[#4CAF50]" : "text-[#F44336]"
-                      }
-                    >
-                      {stat.trend}
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+            <RefreshCw className="h-3 w-3" />
+            <span>SYNC</span>
+          </button>
+          <button
+            onClick={() => router.push("/projects/new")}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm transition-all"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Create Node</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Card className="card-industrial h-full">
-            <CardHeader className="border-b border-[#E8EDF2]">
-              <div className="flex items-center gap-2">
-                <Circle className="h-4 w-4 text-[#6A89A7]" />
-                <CardTitle className="text-lg text-[#2C3E50]">
-                  Protocol Usage
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-center mb-6">
-                <div className="relative w-40 h-40">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r="70"
-                      fill="none"
-                      stroke="#E8EDF2"
-                      strokeWidth="20"
-                    />
-                    {totalProtocols > 0 && (
-                      <>
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="70"
-                          fill="none"
-                          stroke="#6A89A7"
-                          strokeWidth="20"
-                          strokeDasharray={`${(protocolUsage.MQTT / totalProtocols) * 440} 440`}
-                          strokeDashoffset="0"
-                        />
-                        <circle
-                          cx="80"
-                          cy="80"
-                          r="70"
-                          fill="none"
-                          stroke="#88BDF2"
-                          strokeWidth="20"
-                          strokeDasharray={`${(protocolUsage.HTTP / totalProtocols) * 440} 440`}
-                          strokeDashoffset={`-${(protocolUsage.MQTT / totalProtocols) * 440}`}
-                        />
-                      </>
-                    )}
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-xs text-[#8B9AA8]">Total</p>
-                    <p className="text-2xl font-bold text-[#2C3E50]">
-                      {totalPayloadsSent >= 1000000
-                        ? `${(totalPayloadsSent / 1000000).toFixed(1)}M`
-                        : totalPayloadsSent >= 1000
-                          ? `${(totalPayloadsSent / 1000).toFixed(1)}K`
-                          : totalPayloadsSent || 0}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-[#6A89A7]"></div>
-                    <span className="text-sm text-[#5A6C7D]">MQTT</span>
-                  </div>
-                  <span className="text-sm font-semibold text-[#2C3E50]">
-                    (
-                    {Math.round((protocolUsage.MQTT / totalProtocols) * 100) ||
-                      0}
-                    %)
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-[#88BDF2]"></div>
-                    <span className="text-sm text-[#5A6C7D]">HTTP</span>
-                  </div>
-                  <span className="text-sm font-semibold text-[#2C3E50]">
-                    (
-                    {Math.round((protocolUsage.HTTP / totalProtocols) * 100) ||
-                      0}
-                    %)
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-[#BDDDFC]"></div>
-                    <span className="text-sm text-[#5A6C7D]">WS</span>
-                  </div>
-                  <span className="text-sm font-semibold text-[#2C3E50]">
-                    (
-                    {Math.round((protocolUsage.WS / totalProtocols) * 100) || 0}
-                    %)
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          className="lg:col-span-2"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Card className="card-industrial h-full">
-            <CardHeader className="border-b border-[#E8EDF2]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Radio className="h-4 w-4 text-[#6A89A7]" />
-                  <CardTitle className="text-lg text-[#2C3E50]">
-                    Real-time Activity Feed
-                  </CardTitle>
-                </div>
-                <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-[#4CAF50]/10 border border-[#4CAF50]/30">
-                  <div className="h-2 w-2 rounded-full bg-[#4CAF50] animate-pulse"></div>
-                  <span className="text-xs font-medium text-[#4CAF50]">
-                    Live
-                  </span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {recentActivity.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Radio className="h-12 w-12 text-[#D1DBE5] mb-3" />
-                    <p className="text-sm text-[#5A6C7D] font-medium">
-                      No activity yet
-                    </p>
-                    <p className="text-xs text-[#8B9AA8] mt-1">
-                      Start a simulation to see real-time activity
-                    </p>
-                  </div>
-                ) : (
-                  recentActivity.slice(0, 10).map((activity, index) => (
-                    <motion.div
-                      key={activity.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.6 + index * 0.1 }}
-                      className={`p-3 rounded-lg border-l-4 ${activity.status === "success" ? "bg-[#4CAF50]/5 border-l-[#4CAF50]" : "bg-[#F44336]/5 border-l-[#F44336]"}`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-[#8B9AA8]">
-                            {new Date(activity.timestamp).toLocaleTimeString()}
-                          </span>
-                          <span
-                            className={`text-xs font-mono px-2 py-0.5 rounded ${activity.protocol === "MQTT" ? "bg-[#6A89A7]/20 text-[#384959]" : activity.protocol === "HTTP" ? "bg-[#88BDF2]/20 text-[#384959]" : "bg-[#BDDDFC]/20 text-[#384959]"}`}
-                          >
-                            [{activity.protocol}]
-                          </span>
-                        </div>
-                        {activity.status === "success" ? (
-                          <CheckCircle2 className="h-4 w-4 text-[#4CAF50]" />
-                        ) : (
-                          <Circle className="h-4 w-4 text-[#F44336]" />
-                        )}
-                      </div>
-                      <p className="text-sm text-[#5A6C7D]">
-                        {activity.message}
-                      </p>
-                    </motion.div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-      >
-        <Card className="card-industrial">
-          <CardHeader className="border-b border-[#E8EDF2]">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg text-[#2C3E50]">
-                Recent Activity
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-[#6A89A7] hover:text-[#5a7997] hover:bg-[#E8EDF2]"
-                onClick={() => router.push("/logs")}
-              >
-                View All Logs →
-              </Button>
+      {/* Integrated Telemetry Instrument Bar (4 Cells Hairline Grid) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 bg-white border border-[#E2E8F0] rounded-md divide-y lg:divide-y-0 lg:divide-x divide-[#E2E8F0] shadow-hairline overflow-hidden">
+        {/* Cell 1: Total Nodes */}
+        <div className="p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-mono text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+              TOTAL_NODES
+            </span>
+            <FolderKanban className="h-3.5 w-3.5 text-[#94A3B8]" />
+          </div>
+          <div>
+            <div className="font-mono text-3xl font-bold text-[#0F172A] tracking-tight tabular-nums">
+              {projects.length.toString().padStart(2, "0")}
             </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {recentActivity.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Database className="h-12 w-12 text-[#D1DBE5] mb-3" />
-                <p className="text-sm text-[#5A6C7D] font-medium">
-                  No recent activity
-                </p>
-                <p className="text-xs text-[#8B9AA8] mt-1">
-                  Activity will appear here when simulations are running
-                </p>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono text-[#64748B]">
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+              <span>CONFIGURED_PROJECTS</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Cell 2: Active Simulations */}
+        <div className="p-4 flex flex-col justify-between bg-slate-50/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-mono text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+              ACTIVE_SIMS
+            </span>
+            <Activity className="h-3.5 w-3.5 text-emerald-600" />
+          </div>
+          <div>
+            <div className="font-mono text-3xl font-bold text-[#0F172A] tracking-tight tabular-nums flex items-baseline gap-2">
+              <span>{runningCount.toString().padStart(2, "0")}</span>
+              <span className="text-xs font-normal text-[#64748B]">/ {projects.length}</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono">
+              {runningCount > 0 ? (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-emerald-700 font-semibold">STREAMING_LIVE</span>
+                </>
+              ) : (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                  <span className="text-[#64748B]">IDLE_STANDBY</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Cell 3: Payloads Sent */}
+        <div className="p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-mono text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+              PAYLOADS_SENT
+            </span>
+            <Send className="h-3.5 w-3.5 text-[#2563EB]" />
+          </div>
+          <div>
+            <div className="font-mono text-3xl font-bold text-[#0F172A] tracking-tight tabular-nums">
+              {totalPayloadsSent >= 1000000
+                ? `${(totalPayloadsSent / 1000000).toFixed(2)}M`
+                : totalPayloadsSent >= 1000
+                ? `${(totalPayloadsSent / 1000).toFixed(1)}K`
+                : totalPayloadsSent}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono text-[#64748B]">
+              <span className="text-[#2563EB]">●</span>
+              <span>TOTAL_DISPATCHED</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Cell 4: Success Ratio */}
+        <div className="p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-mono text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+              SUCCESS_RATE
+            </span>
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+          </div>
+          <div>
+            <div className="font-mono text-3xl font-bold text-[#0F172A] tracking-tight tabular-nums flex items-baseline gap-1">
+              <span>{totalPayloadsSent > 0 ? successRate : "100.0"}</span>
+              <span className="text-sm font-semibold text-[#64748B]">%</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] font-mono">
+              {successRate >= 95 || totalPayloadsSent === 0 ? (
+                <span className="text-emerald-700 font-medium">OPTIMAL_REACH</span>
+              ) : (
+                <span className="text-amber-700 font-medium">ANOMALIES_DETECTED</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid: Protocol Matrix & Live Telemetry Teleprinter */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column: Protocol Channel Status (4 cols) */}
+        <div className="lg:col-span-4 space-y-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
+              <div className="flex items-center gap-2">
+                <Layers className="h-3.5 w-3.5 text-[#0F172A]" />
+                <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  PROTOCOL_BUS
+                </span>
               </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-[#E8EDF2]">
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
-                          Timestamp
-                        </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
-                          Project
-                        </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
-                          Protocol
-                        </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
-                          Payload Size
-                        </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-[#384959]">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentItems.map((activity) => (
-                        <tr
-                          key={activity.id}
-                          className="border-b border-[#E8EDF2] hover:bg-[#F5F7FA] transition-colors"
-                        >
-                          <td className="py-3 px-4 text-sm text-[#5A6C7D]">
-                            {new Date(activity.timestamp).toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <FolderKanban className="h-4 w-4 text-[#6A89A7]" />
-                              <span className="text-sm text-[#2C3E50]">
-                                {activity.project}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`text-xs font-mono px-2 py-1 rounded ${activity.protocol === "MQTT" ? "bg-[#6A89A7]/20 text-[#384959]" : activity.protocol === "HTTP" ? "bg-[#88BDF2]/20 text-[#384959]" : "bg-[#BDDDFC]/20 text-[#384959]"}`}
-                            >
-                              {activity.protocol}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-[#5A6C7D]">
-                            {activity.payloadSize}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${activity.status === "success" ? "bg-[#4CAF50]/10 text-[#4CAF50] border border-[#4CAF50]/30" : "bg-[#F44336]/10 text-[#F44336] border border-[#F44336]/30"}`}
-                            >
-                              <div
-                                className={`h-1.5 w-1.5 rounded-full ${activity.status === "success" ? "bg-[#4CAF50]" : "bg-[#F44336]"}`}
-                              ></div>
-                              {activity.status === "success"
-                                ? "Success"
-                                : "Error"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#E8EDF2]">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#5A6C7D]">Show:</span>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) =>
-                        handleItemsPerPageChange(Number(e.target.value))
-                      }
-                      className="px-3 py-1.5 text-sm border border-[#D1DBE5] rounded-lg bg-white text-[#2C3E50] focus:outline-none focus:ring-2 focus:ring-[#6A89A7]/20 focus:border-[#6A89A7]"
-                    >
-                      <option value={10}>10</option>
-                      <option value={15}>15</option>
-                      <option value={20}>20</option>
-                    </select>
-                    <span className="text-sm text-[#5A6C7D]">
-                      entries per page
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#5A6C7D]">
-                      Showing {indexOfFirstItem + 1} to{" "}
-                      {Math.min(indexOfLastItem, recentActivity.length)} of{" "}
-                      {recentActivity.length} entries
-                    </span>
-                    <div className="flex items-center gap-1 ml-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="h-8 w-8 p-0 border-[#D1DBE5] text-[#5A6C7D] hover:bg-[#E8EDF2] disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        ‹
-                      </Button>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                        (page) => {
-                          if (
-                            page === 1 ||
-                            page === totalPages ||
-                            (page >= currentPage - 1 && page <= currentPage + 1)
-                          ) {
-                            return (
-                              <Button
-                                key={page}
-                                variant={
-                                  currentPage === page ? "default" : "outline"
-                                }
-                                size="sm"
-                                onClick={() => setCurrentPage(page)}
-                                className={`h-8 w-8 p-0 ${currentPage === page ? "bg-[#6A89A7] hover:bg-[#5a7997] text-white" : "border-[#D1DBE5] text-[#5A6C7D] hover:bg-[#E8EDF2]"}`}
-                              >
-                                {page}
-                              </Button>
-                            );
-                          } else if (
-                            page === currentPage - 2 ||
-                            page === currentPage + 2
-                          ) {
-                            return (
-                              <span key={page} className="px-1 text-[#8B9AA8]">
-                                ...
-                              </span>
-                            );
-                          }
-                          return null;
-                        },
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="h-8 w-8 p-0 border-[#D1DBE5] text-[#5A6C7D] hover:bg-[#E8EDF2] disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        ›
-                      </Button>
+              <span className="font-mono text-[10px] text-[#64748B]">
+                3 CHANNELS
+              </span>
+            </div>
+
+            <div className="p-3.5 space-y-3">
+              {/* MQTT Channel */}
+              <div
+                onClick={() => router.push("/mqtt-inspector")}
+                className="p-3 rounded border border-[#E2E8F0] bg-[#F8FAFC] hover:bg-slate-100/60 hover:border-[#CBD5E1] transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded bg-emerald-100 text-emerald-800">
+                      <Radio className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-mono text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                        <span>MQTT / MQTTS</span>
+                        <span className="text-[10px] text-[#64748B] font-normal">
+                          PORT 1883
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#64748B] mt-0.5 font-mono">
+                        BROKER_PUBSUB // QoS 0,1,2
+                      </p>
                     </div>
                   </div>
+                  <div className="text-right">
+                    <span className="font-mono text-base font-bold text-[#0F172A]">
+                      {protocolCounts.MQTT}
+                    </span>
+                    <span className="block text-[10px] font-mono text-[#64748B]">
+                      NODES
+                    </span>
+                  </div>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
+              </div>
+
+              {/* HTTP Channel */}
+              <div
+                onClick={() => router.push("/projects")}
+                className="p-3 rounded border border-[#E2E8F0] bg-[#F8FAFC] hover:bg-slate-100/60 hover:border-[#CBD5E1] transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded bg-blue-100 text-blue-800">
+                      <Globe className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-mono text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                        <span>HTTP / REST</span>
+                        <span className="text-[10px] text-[#64748B] font-normal">
+                          PORT 80/443
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#64748B] mt-0.5 font-mono">
+                        POST/PUT PAYLOADS
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-mono text-base font-bold text-[#0F172A]">
+                      {protocolCounts.HTTP}
+                    </span>
+                    <span className="block text-[10px] font-mono text-[#64748B]">
+                      NODES
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* WebSocket Channel */}
+              <div
+                onClick={() => router.push("/projects")}
+                className="p-3 rounded border border-[#E2E8F0] bg-[#F8FAFC] hover:bg-slate-100/60 hover:border-[#CBD5E1] transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded bg-teal-100 text-teal-800">
+                      <Wifi className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-mono text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                        <span>WS / WSS</span>
+                        <span className="text-[10px] text-[#64748B] font-normal">
+                          BIDIRECTIONAL
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#64748B] mt-0.5 font-mono">
+                        SOCKET_STREAM
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-mono text-base font-bold text-[#0F172A]">
+                      {protocolCounts.WS}
+                    </span>
+                    <span className="block text-[10px] font-mono text-[#64748B]">
+                      NODES
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Link Footer */}
+            <div className="px-4 py-2.5 border-t border-[#E2E8F0] bg-white flex items-center justify-between text-xs font-mono text-[#475569]">
+              <span>CORE_GATEWAY: GO_FIBER</span>
+              <button
+                onClick={() => router.push("/analytics")}
+                className="text-[#2563EB] hover:underline flex items-center gap-1 font-semibold"
+              >
+                <span>Full Telemetry</span>
+                <ExternalLink className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Live Telemetry Teleprinter / Log Feed (8 cols) */}
+        <div className="lg:col-span-8">
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden h-full flex flex-col">
+            {/* Teleprinter Header */}
+            <div className="px-4 py-3 border-b border-[#E2E8F0] flex flex-wrap items-center justify-between gap-2 bg-[#F8FAFC]">
+              <div className="flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-[#0F172A]" />
+                <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  TELEMETRY_STREAM
+                </span>
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700">
+                  {filteredLogs.length} LOGS
+                </span>
+              </div>
+
+              {/* Protocol Filters */}
+              <div className="flex items-center gap-1 font-mono text-[11px]">
+                {["ALL", "MQTT", "HTTP", "WS", "ERROR"].map((proto) => (
+                  <button
+                    key={proto}
+                    onClick={() => setFilterProtocol(proto)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                      filterProtocol === proto
+                        ? "bg-[#0F172A] text-white"
+                        : "text-[#64748B] hover:bg-slate-200"
+                    }`}
+                  >
+                    {proto}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Log Stream Content */}
+            <div className="flex-1 overflow-x-auto min-h-[320px] max-h-[460px] overflow-y-auto divide-y divide-[#F1F5F9] font-mono text-xs">
+              {filteredLogs.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center p-10 text-[#94A3B8] font-mono space-y-2">
+                  <Terminal className="h-8 w-8 opacity-25" />
+                  <p className="text-xs uppercase tracking-wider">
+                    NO_TELEMETRY_LOGS_CAPTURED
+                  </p>
+                  <p className="text-[11px] text-slate-400 font-sans">
+                    Start a simulation in Projects to begin streaming sensor payloads.
+                  </p>
+                </div>
+              ) : (
+                filteredLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-[#F8FAFC] transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Timestamp */}
+                      <span className="text-[11px] text-[#94A3B8] tabular-nums shrink-0">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+
+                      {/* Protocol Pill */}
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${
+                          log.protocol?.includes("MQTT")
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            : log.protocol?.includes("WS")
+                            ? "bg-teal-50 text-teal-800 border border-teal-200"
+                            : "bg-blue-50 text-blue-800 border border-blue-200"
+                        }`}
+                      >
+                        {log.protocol}
+                      </span>
+
+                      {/* Project Name */}
+                      <span className="text-xs font-semibold text-[#0F172A] truncate max-w-[140px]">
+                        {log.project}
+                      </span>
+
+                      {/* Message / Payload Preview */}
+                      <span className="text-xs text-[#64748B] truncate max-w-[260px] hidden md:inline">
+                        {log.message}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Status */}
+                      {log.status === "success" ? (
+                        <span className="font-mono text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          ACK_OK
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                          FAIL
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Bottom Monitor Bar */}
+            <div className="px-4 py-2 border-t border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between text-[11px] font-mono text-[#64748B]">
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>POLLING_INTERVAL: 4000ms</span>
+              </div>
+              <button
+                onClick={() => router.push("/logs")}
+                className="text-[#2563EB] hover:underline font-semibold"
+              >
+                View Full Audit Logs →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

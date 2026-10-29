@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Radio,
   Play,
@@ -11,26 +10,19 @@ import {
   Send,
   Trash2,
   Pause,
-  Wifi,
-  WifiOff,
   Copy,
   Check,
   Search,
   Settings,
   ChevronRight,
   MessageSquare,
+  Layers,
+  Terminal,
+  Activity,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import toast from "react-hot-toast";
 import { useMQTTStore, MQTTMessage } from "@/store/mqttStore";
 
@@ -54,8 +46,8 @@ export default function MQTTInspectorPage() {
     JSON.stringify(
       { status: "active", temperature: 24.5, humidity: 60 },
       null,
-      2,
-    ),
+      2
+    )
   );
   const [publishInterval, setPublishInterval] = useState(5);
   const [publishCount, setPublishCount] = useState<number | "">("");
@@ -78,9 +70,7 @@ export default function MQTTInspectorPage() {
   } = useMQTTStore();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMessage, setSelectedMessage] = useState<MQTTMessage | null>(
-    null,
-  );
+  const [selectedMessage, setSelectedMessage] = useState<MQTTMessage | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
@@ -98,7 +88,7 @@ export default function MQTTInspectorPage() {
           setClientId(savedClientId);
         } else {
           setClientId(
-            `iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`,
+            `iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`
           );
         }
 
@@ -108,39 +98,26 @@ export default function MQTTInspectorPage() {
         const savedPassword = localStorage.getItem("mqtt_inspector_password");
         if (savedPassword) setPassword(savedPassword);
 
-        const savedTopics = localStorage.getItem(
-          "mqtt_inspector_subscribedTopics",
-        );
+        const savedTopics = localStorage.getItem("mqtt_inspector_subscribedTopics");
         if (savedTopics) {
           setSubscribedTopics(JSON.parse(savedTopics));
         }
 
-        const savedPublishTopic = localStorage.getItem(
-          "mqtt_inspector_publishTopic",
-        );
+        const savedPublishTopic = localStorage.getItem("mqtt_inspector_publishTopic");
         if (savedPublishTopic) setPublishTopic(savedPublishTopic);
 
-        const savedPublishPayload = localStorage.getItem(
-          "mqtt_inspector_publishPayload",
-        );
+        const savedPublishPayload = localStorage.getItem("mqtt_inspector_publishPayload");
         if (savedPublishPayload) setPublishPayload(savedPublishPayload);
 
-        const savedPublishInterval = localStorage.getItem(
-          "mqtt_inspector_publishInterval",
-        );
-        if (savedPublishInterval)
-          setPublishInterval(Number(savedPublishInterval));
+        const savedPublishInterval = localStorage.getItem("mqtt_inspector_publishInterval");
+        if (savedPublishInterval) setPublishInterval(Number(savedPublishInterval));
 
-        const savedPublishCount = localStorage.getItem(
-          "mqtt_inspector_publishCount",
-        );
+        const savedPublishCount = localStorage.getItem("mqtt_inspector_publishCount");
         if (savedPublishCount && savedPublishCount !== "") {
           setPublishCount(Number(savedPublishCount));
         }
 
-        const wasConnected = localStorage.getItem(
-          "mqtt_inspector_wasConnected",
-        );
+        const wasConnected = localStorage.getItem("mqtt_inspector_wasConnected");
         if (wasConnected === "true" && savedBrokerUrl && savedClientId) {
           const topics = savedTopics ? JSON.parse(savedTopics) : [];
           setTimeout(() => {
@@ -155,12 +132,12 @@ export default function MQTTInspectorPage() {
         }
       } else {
         setClientId(
-          `iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`,
+          `iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`
         );
       }
     } catch (e) {
       setClientId(
-        `iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`,
+        `iotkit_inspector_${Math.random().toString(16).substring(2, 10)}`
       );
     } finally {
       setIsLoaded(true);
@@ -183,18 +160,12 @@ export default function MQTTInspectorPage() {
         localStorage.setItem("mqtt_inspector_password", password);
         localStorage.setItem(
           "mqtt_inspector_subscribedTopics",
-          JSON.stringify(subscribedTopics),
+          JSON.stringify(subscribedTopics)
         );
         localStorage.setItem("mqtt_inspector_publishTopic", publishTopic);
         localStorage.setItem("mqtt_inspector_publishPayload", publishPayload);
-        localStorage.setItem(
-          "mqtt_inspector_publishInterval",
-          publishInterval.toString(),
-        );
-        localStorage.setItem(
-          "mqtt_inspector_publishCount",
-          publishCount.toString(),
-        );
+        localStorage.setItem("mqtt_inspector_publishInterval", publishInterval.toString());
+        localStorage.setItem("mqtt_inspector_publishCount", publishCount.toString());
       }
     } catch (e) {}
   }, [
@@ -216,7 +187,7 @@ export default function MQTTInspectorPage() {
       if (typeof window !== "undefined") {
         localStorage.setItem(
           "mqtt_inspector_wasConnected",
-          isConnected ? "true" : "false",
+          isConnected ? "true" : "false"
         );
       }
     } catch (e) {}
@@ -228,8 +199,8 @@ export default function MQTTInspectorPage() {
     if (!project) return;
 
     let protocol = "tcp";
-    const protoStr = project.protocol as string;
-    if (protoStr === "MQTTS" || protoStr === "mqtts") {
+    const protoStr = (project.protocol as string) || "";
+    if (protoStr.toUpperCase() === "MQTTS") {
       protocol = "ssl";
     }
 
@@ -244,13 +215,13 @@ export default function MQTTInspectorPage() {
       });
       setPublishTopic(project.topic);
     }
-    toast.success(`Loaded configuration from project: ${project.name}`);
+    toast.success(`Loaded configuration from: ${project.name}`);
   };
 
   const handleAddTopic = () => {
     if (!topicInput.trim()) return;
     if (subscribedTopics.includes(topicInput.trim())) {
-      toast.error("Topic already added");
+      toast.error("Topic already in subscription list");
       return;
     }
     const newTopics = [...subscribedTopics, topicInput.trim()];
@@ -269,25 +240,19 @@ export default function MQTTInspectorPage() {
 
   const handlePublish = async () => {
     if (!publishTopic.trim()) {
-      toast.error("Please enter a topic to publish to");
+      toast.error("Topic is required");
       return;
-    }
-
-    try {
-      JSON.parse(publishPayload);
-    } catch {
-      // allow plain text
     }
 
     const success = await publishMessage(publishTopic.trim(), publishPayload);
     if (success) {
-      toast.success("Published message!");
+      toast.success("MQTT packet published");
     }
   };
 
   const handleStartAutoPublish = () => {
     if (!publishTopic.trim()) {
-      toast.error("Please enter a topic to publish to");
+      toast.error("Topic is required");
       return;
     }
 
@@ -303,25 +268,24 @@ export default function MQTTInspectorPage() {
 
     if (maxCount > 0 && count >= maxCount) {
       setIsAutoPublishing(false);
-      toast.success(`Auto-publish completed! Sent ${count} message(s)`);
+      toast.success(`Auto-publish completed: ${count} message(s)`);
       return;
     }
 
     autoPublishIntervalRef.current = setInterval(async () => {
       const success = await publishMessage(publishTopic.trim(), publishPayload);
-
       if (success) {
         count++;
         setPublishedCount(count);
 
         if (maxCount > 0 && count >= maxCount) {
           handleStopAutoPublish();
-          toast.success(`Auto-publish completed! Sent ${count} message(s)`);
+          toast.success(`Auto-publish completed: ${count} message(s)`);
         }
       }
     }, publishInterval * 1000);
 
-    toast.success(`Auto-publish started! Interval: ${publishInterval}s`);
+    toast.success(`Auto-publish started (${publishInterval}s interval)`);
   };
 
   const handleStopAutoPublish = () => {
@@ -330,139 +294,87 @@ export default function MQTTInspectorPage() {
       autoPublishIntervalRef.current = null;
     }
     setIsAutoPublishing(false);
-    toast.success(`Auto-publish stopped. Sent ${publishedCount} message(s)`);
+    toast.success(`Auto-publish stopped. Emitted ${publishedCount} packet(s)`);
   };
 
   const handleFormatJson = () => {
     try {
       const parsed = JSON.parse(publishPayload);
       setPublishPayload(JSON.stringify(parsed, null, 2));
-      toast.success("Formatted JSON successfully!");
+      toast.success("Formatted JSON payload");
     } catch {
-      toast.error("Invalid JSON format in payload");
+      toast.error("Invalid JSON syntax");
     }
   };
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    toast.success("Copied to clipboard!");
+    toast.success("Copied to clipboard");
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   const filteredMessages = messages.filter(
     (m) =>
       m.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.payload.toLowerCase().includes(searchQuery.toLowerCase()),
+      m.payload.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] min-h-[500px] bg-[#F5F7FA] rounded-xl border border-[#E8EDF2] overflow-hidden shadow-sm">
-      {/* Top Bar */}
-      <div className="h-14 bg-white border-b border-[#E8EDF2] flex items-center justify-between px-6">
-        <div className="flex items-center gap-3">
-          <Radio className="h-5 w-5 text-[#6A89A7]" />
-          <h1 className="text-lg font-semibold text-[#2C3E50]">
-            MQTT Inspector
-          </h1>
-          <div className="flex items-center gap-2 ml-4">
-            <span className="text-sm text-[#5A6C7D]">Connection:</span>
-            <span className="text-sm font-mono text-[#2C3E50]">{clientId}</span>
+    <div className="space-y-4">
+      {/* Precision Instrument Header */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md p-4 shadow-hairline">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <Radio className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-[#0F172A] tracking-tight">
+                  MQTT Protocol Inspector
+                </h1>
+                {isConnected ? (
+                  <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    BROKER_CONNECTED
+                  </span>
+                ) : isConnecting ? (
+                  <span className="font-mono text-[10px] font-medium px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                    CONNECTING...
+                  </span>
+                ) : (
+                  <span className="font-mono text-[10px] font-medium px-2 py-0.5 rounded bg-slate-50 text-slate-500 border border-slate-200">
+                    DISCONNECTED
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-[#64748B] font-mono mt-0.5">
+                BROKER: {brokerUrl}{" // "}CLIENT_ID: {clientId || "auto"}
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {isConnected ? (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
-              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="text-sm font-medium text-green-700">
-                Connected
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#E8EDF2] border border-[#D1DBE5] rounded-lg">
-              <div className="h-2 w-2 rounded-full bg-[#8B9AA8]"></div>
-              <span className="text-sm font-medium text-[#5A6C7D]">
-                Disconnected
-              </span>
-            </div>
-          )}
-          <Button
-            onClick={() => setShowConnectionModal(!showConnectionModal)}
-            className="h-9 px-4 bg-[#6A89A7] hover:bg-[#5a7997] text-white text-sm"
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
-          </Button>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Connections */}
-        <div className="w-64 bg-white border-r border-[#E8EDF2] flex flex-col">
-          <div className="p-4 border-b border-[#E8EDF2]">
-            <h2 className="text-sm font-semibold text-[#2C3E50] mb-3">
-              Connections
-            </h2>
-            <select
-              onChange={(e) => handleProjectSelect(e.target.value)}
-              disabled={isConnected || isConnecting || projectsLoading}
-              className="w-full h-9 px-3 border border-[#D1DBE5] rounded-lg text-xs bg-white text-[#2C3E50] focus:ring-1 focus:ring-[#6A89A7] focus:outline-none"
+          {/* Action Header Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowConnectionModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium text-[#475569] bg-white border border-[#CBD5E1] hover:bg-[#F8FAFC]"
             >
-              <option value="">-- Select project --</option>
-              {projects
-                .filter((p) => {
-                  const proto = (p.protocol || "").toUpperCase();
-                  return proto === "MQTT" || proto === "MQTTS";
-                })
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-            </select>
-          </div>
+              <Settings className="h-3.5 w-3.5" />
+              <span>CONFIG</span>
+            </button>
 
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-2">
-              {projects
-                .filter((p) => {
-                  const proto = (p.protocol || "").toUpperCase();
-                  return proto === "MQTT" || proto === "MQTTS";
-                })
-                .map((p) => (
-                  <div
-                    key={p.id}
-                    className="p-3 rounded-lg border border-[#E8EDF2] hover:bg-[#F5F7FA] cursor-pointer transition-colors"
-                    onClick={() => handleProjectSelect(p.id)}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-[#2C3E50]">
-                        {p.name}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 bg-[#E8EDF2] text-[#5A6C7D] rounded">
-                        {p.protocol}
-                      </span>
-                    </div>
-                    <span className="text-xs text-[#8B9AA8] font-mono">
-                      {p.host}:{p.port}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          <div className="p-4 border-t border-[#E8EDF2]">
             {isConnected ? (
-              <Button
+              <button
                 onClick={disconnectMqtt}
-                className="w-full h-9 bg-red-500 hover:bg-red-600 text-white text-sm"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 shadow-sm transition-all"
               >
-                <Square className="h-4 w-4 mr-2" />
-                Disconnect
-              </Button>
+                <Square className="h-3.5 w-3.5 fill-current" />
+                <span>Disconnect</span>
+              </button>
             ) : (
-              <Button
+              <button
                 onClick={() =>
                   connectMqtt({
                     brokerUrl,
@@ -473,69 +385,89 @@ export default function MQTTInspectorPage() {
                   })
                 }
                 disabled={isConnecting}
-                className="w-full h-9 bg-[#6A89A7] hover:bg-[#5a7997] text-white text-sm"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm disabled:opacity-50 transition-all"
               >
-                {isConnecting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4 mr-2" />
-                    Connect
-                  </>
-                )}
-              </Button>
+                <Play className="h-3.5 w-3.5 fill-current" />
+                <span>{isConnecting ? "Connecting..." : "Connect Broker"}</span>
+              </button>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Middle Section - Topics & Publisher */}
-        <div className="w-80 bg-white border-r border-[#E8EDF2] flex flex-col">
-          {/* Subscriptions */}
-          <div className="flex-1 flex flex-col">
-            <div className="p-4 border-b border-[#E8EDF2]">
-              <h2 className="text-sm font-semibold text-[#2C3E50] mb-3">
-                Subscriptions
-              </h2>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="topic/#"
+      {/* Main Grid: Control Rail + Sniffer Teleprinter */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Control Rail (4 cols): Projects Preset, Subscriptions, Publisher */}
+        <div className="lg:col-span-4 space-y-4">
+          {/* Quick Preset Selector */}
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline p-3 space-y-2">
+            <label className="text-[10px] font-mono font-bold text-[#64748B] uppercase block">
+              LOAD CONFIG FROM PROJECT NODE
+            </label>
+            <select
+              onChange={(e) => handleProjectSelect(e.target.value)}
+              disabled={isConnected || isConnecting || projectsLoading}
+              className="w-full h-8 px-2.5 border border-[#CBD5E1] rounded text-xs font-mono bg-white focus:border-[#2563EB] outline-none"
+            >
+              <option value="">-- Select MQTT Project --</option>
+              {projects
+                .filter((p) => {
+                  const proto = (p.protocol || "").toUpperCase();
+                  return proto.includes("MQTT");
+                })
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.host}:{p.port || 1883})
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {/* Subscriptions Panel */}
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden">
+            <div className="px-3.5 py-2.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+              <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                TOPIC_SUBSCRIPTIONS
+              </span>
+              <span className="font-mono text-[10px] text-[#64748B]">
+                {subscribedTopics.length} ACTIVE
+              </span>
+            </div>
+
+            <div className="p-3 space-y-3">
+              {/* Subscribe input */}
+              <div className="flex gap-1.5">
+                <input
+                  placeholder="sensors/+/temperature"
                   value={topicInput}
                   onChange={(e) => setTopicInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAddTopic()}
-                  className="flex-1 h-9 text-xs"
-                  disabled={!isConnected}
+                  className="flex-1 h-8 px-2.5 font-mono text-xs border border-[#CBD5E1] rounded bg-white focus:border-[#2563EB] outline-none"
                 />
-                <Button
+                <button
                   onClick={handleAddTopic}
-                  disabled={!isConnected}
-                  className="h-9 px-3 bg-[#6A89A7] hover:bg-[#5a7997] text-white"
+                  className="px-2.5 h-8 bg-[#0F172A] text-white rounded text-xs font-semibold hover:bg-[#1E293B]"
                 >
-                  <Plus className="h-4 w-4" />
-                </Button>
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
               </div>
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="space-y-2">
+              {/* Subscribed list */}
+              <div className="space-y-1.5 max-h-44 overflow-y-auto">
                 {subscribedTopics.map((topic) => (
                   <div
                     key={topic}
-                    className="flex items-center justify-between p-2 rounded-lg border border-[#E8EDF2] hover:bg-[#F5F7FA] group"
+                    className="flex items-center justify-between p-2 rounded border border-[#E2E8F0] bg-[#F8FAFC] text-xs font-mono group"
                   >
-                    <div className="flex items-center gap-2 flex-1">
-                      <MessageSquare className="h-4 w-4 text-[#6A89A7]" />
-                      <span className="text-sm text-[#2C3E50] font-mono">
-                        {topic}
-                      </span>
-                    </div>
+                    <span className="text-emerald-700 font-semibold truncate max-w-[200px]">
+                      {topic}
+                    </span>
                     <button
                       onClick={() => handleRemoveTopic(topic)}
-                      className="opacity-0 group-hover:opacity-100 text-[#8B9AA8] hover:text-red-500 transition-all"
+                      className="text-slate-400 hover:text-rose-600 transition-colors"
+                      title="Unsubscribe"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ))}
@@ -543,236 +475,338 @@ export default function MQTTInspectorPage() {
             </div>
           </div>
 
-          {/* Publisher */}
-          <div className="border-t border-[#E8EDF2] p-4">
-            <h2 className="text-sm font-semibold text-[#2C3E50] mb-3">
-              Publish
-            </h2>
-            <div className="space-y-3">
-              <Input
-                placeholder="Topic"
-                value={publishTopic}
-                onChange={(e) => setPublishTopic(e.target.value)}
-                disabled={!isConnected}
-                className="h-9 text-xs font-mono"
-              />
-              <textarea
-                value={publishPayload}
-                onChange={(e) => setPublishPayload(e.target.value)}
-                disabled={!isConnected}
-                className="w-full h-24 p-2 text-xs font-mono border border-[#D1DBE5] rounded-lg focus:ring-1 focus:ring-[#6A89A7] focus:outline-none"
-                placeholder="Payload..."
-              />
-              <div className="flex gap-2">
-                <Button
+          {/* Publisher Panel */}
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden">
+            <div className="px-3.5 py-2.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+              <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                PACKET_PUBLISHER
+              </span>
+              <button
+                onClick={handleFormatJson}
+                className="text-[10px] font-mono text-[#2563EB] hover:underline"
+              >
+                FORMAT_JSON
+              </button>
+            </div>
+
+            <div className="p-3 space-y-2.5">
+              <div>
+                <label className="text-[10px] font-mono text-[#64748B] uppercase block mb-1">
+                  PUBLISH_TOPIC
+                </label>
+                <input
+                  value={publishTopic}
+                  onChange={(e) => setPublishTopic(e.target.value)}
+                  placeholder="iotkit/device/1"
+                  className="w-full h-8 px-2.5 font-mono text-xs border border-[#CBD5E1] rounded bg-white focus:border-[#2563EB] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-mono text-[#64748B] uppercase block mb-1">
+                  PAYLOAD_BODY (JSON / TEXT)
+                </label>
+                <textarea
+                  value={publishPayload}
+                  onChange={(e) => setPublishPayload(e.target.value)}
+                  className="w-full h-24 p-2 font-mono text-xs border border-[#CBD5E1] rounded bg-white focus:border-[#2563EB] outline-none leading-relaxed"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
                   onClick={handlePublish}
                   disabled={!isConnected}
-                  className="flex-1 h-9 bg-[#6A89A7] hover:bg-[#5a7997] text-white text-sm"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-8 bg-[#0F172A] text-white rounded text-xs font-semibold hover:bg-[#1E293B] disabled:opacity-50"
                 >
-                  <Send className="h-4 w-4 mr-2" />
-                  Send
-                </Button>
-                <Button
-                  onClick={handleFormatJson}
-                  disabled={!isConnected}
-                  variant="outline"
-                  className="h-9 px-3 text-sm"
-                >
-                  Format
-                </Button>
+                  <Send className="h-3 w-3" />
+                  <span>Emit Packet</span>
+                </button>
+              </div>
+
+              {/* Auto Publish Trigger */}
+              <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#64748B]">
+                  <span>EVERY:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={publishInterval}
+                    onChange={(e) => setPublishInterval(parseInt(e.target.value) || 1)}
+                    className="w-12 h-6 px-1.5 border border-[#CBD5E1] rounded text-center text-xs font-mono"
+                  />
+                  <span>SEC</span>
+                </div>
+
+                {!isAutoPublishing ? (
+                  <button
+                    onClick={handleStartAutoPublish}
+                    disabled={!isConnected}
+                    className="px-2.5 py-1 text-xs font-mono font-medium rounded border border-[#CBD5E1] hover:bg-[#F8FAFC] disabled:opacity-50"
+                  >
+                    START_LOOP
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStopAutoPublish}
+                    className="px-2.5 py-1 text-xs font-mono font-semibold rounded bg-rose-600 text-white hover:bg-rose-700"
+                  >
+                    HALT_LOOP ({publishedCount})
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Section - Messages */}
-        <div className="flex-1 flex flex-col bg-[#F5F7FA]">
-          <div className="h-12 bg-white border-b border-[#E8EDF2] flex items-center justify-between px-4">
-            <div className="flex items-center gap-3">
-              <h2 className="text-sm font-semibold text-[#2C3E50]">Messages</h2>
-              <span className="text-xs text-[#8B9AA8]">
-                {filteredMessages.length} message(s)
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#8B9AA8]" />
-                <Input
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-9 w-48 text-xs"
-                />
+        {/* Right Main Area (8 cols): Packet Sniffer & Detail Inspector */}
+        <div className="lg:col-span-8 space-y-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden flex flex-col h-[680px]">
+            {/* Sniffer Top Bar */}
+            <div className="px-4 py-2.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-[#0F172A]" />
+                <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  CAPTURED_PACKET_STREAM
+                </span>
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-bold">
+                  {filteredMessages.length} PKTS
+                </span>
               </div>
-              <Button
-                onClick={clearMessages}
-                variant="outline"
-                className="h-9 px-3 text-xs"
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Clear
-              </Button>
-            </div>
-          </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
-            {filteredMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <Radio className="h-12 w-12 text-[#8B9AA8] opacity-25 mb-3" />
-                <p className="text-sm font-medium text-[#5A6C7D]">
-                  No messages yet
-                </p>
-                <p className="text-xs text-[#8B9AA8] mt-1">
-                  Connect to broker and subscribe to topics
-                </p>
+              {/* Controls */}
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-2" />
+                  <input
+                    placeholder="Filter packets..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-7 pl-7 pr-2 font-mono text-xs border border-[#CBD5E1] rounded bg-white w-40 sm:w-48 outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setIsPaused(!isPaused)}
+                  className={`px-2 py-1 rounded text-xs font-mono font-medium border flex items-center gap-1 ${
+                    isPaused
+                      ? "bg-amber-50 text-amber-800 border-amber-200"
+                      : "bg-white text-[#475569] border-[#CBD5E1] hover:bg-[#F8FAFC]"
+                  }`}
+                  title={isPaused ? "Resume packet capture" : "Pause packet capture"}
+                >
+                  {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                  <span>{isPaused ? "RESUMED" : "PAUSE"}</span>
+                </button>
+
+                <button
+                  onClick={clearMessages}
+                  className="px-2 py-1 rounded text-xs font-mono font-medium border border-[#CBD5E1] text-[#475569] hover:text-rose-600 hover:bg-rose-50"
+                  title="Purge captured packets"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredMessages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    onClick={() => setSelectedMessage(msg)}
-                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                      selectedMessage?.id === msg.id
-                        ? "bg-white border-[#6A89A7] shadow-md"
-                        : "bg-white border-[#E8EDF2] hover:border-[#D1DBE5] hover:shadow-sm"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-[#2C3E50] font-mono">
-                          {msg.topic}
-                        </span>
-                        <span className="text-xs px-1.5 py-0.5 bg-[#E8EDF2] text-[#5A6C7D] rounded">
-                          QoS {msg.qos}
-                        </span>
+            </div>
+
+            {/* Split Sniffer: Packets List (Top) & Detail Inspector (Bottom) */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Packets Stream */}
+              <div className="flex-1 overflow-y-auto divide-y divide-[#F1F5F9] font-mono text-xs">
+                {filteredMessages.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center p-8 text-[#94A3B8] text-center space-y-2">
+                    <Radio className="h-8 w-8 opacity-25" />
+                    <p className="uppercase text-xs tracking-wider">
+                      NO_MQTT_PACKETS_CAPTURED
+                    </p>
+                    <p className="text-[11px] font-sans text-slate-400 max-w-sm">
+                      Connect to your MQTT broker and publish or subscribe to topics to sniff live telemetry packets.
+                    </p>
+                  </div>
+                ) : (
+                  filteredMessages.map((msg) => {
+                    const isSelected = selectedMessage?.id === msg.id;
+                    return (
+                      <div
+                        key={msg.id}
+                        onClick={() => setSelectedMessage(msg)}
+                        className={`px-3.5 py-2 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                          isSelected
+                            ? "bg-blue-50/70 border-l-2 border-[#2563EB]"
+                            : "hover:bg-[#F8FAFC]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-[11px] text-slate-400 tabular-nums shrink-0">
+                            {new Date(msg.timestamp).toLocaleTimeString()}
+                          </span>
+                          <span className="text-emerald-700 font-bold truncate max-w-[150px]">
+                            {msg.topic}
+                          </span>
+                          <span className="text-slate-400 text-[10px] shrink-0">
+                            QoS {msg.qos}
+                          </span>
+                          <span className="text-[#64748B] truncate max-w-[260px] hidden sm:inline">
+                            {msg.payload}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {new TextEncoder().encode(msg.payload).length}B
+                          </span>
+                          <ChevronRight className="h-3 w-3 text-slate-400" />
+                        </div>
                       </div>
-                      <span className="text-xs text-[#8B9AA8]">
-                        {new Date(msg.timestamp).toLocaleTimeString("id-ID", {
-                          hour12: false,
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })}
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Packet Detail Inspector (Bottom Section) */}
+              <div className="h-56 border-t border-[#E2E8F0] bg-[#F8FAFC] flex flex-col overflow-hidden">
+                <div className="px-3.5 py-1.5 border-b border-[#E2E8F0] bg-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] font-bold text-[#0F172A] uppercase">
+                      PACKET_INSPECTOR
+                    </span>
+                    {selectedMessage && (
+                      <span className="font-mono text-[10px] text-[#2563EB] font-bold">
+                        {selectedMessage.topic}
                       </span>
-                    </div>
-                    <pre className="text-xs font-mono text-[#2C3E50] bg-[#F5F7FA] p-3 rounded overflow-x-auto">
+                    )}
+                  </div>
+
+                  {selectedMessage && (
+                    <button
+                      onClick={() =>
+                        copyToClipboard(selectedMessage.payload, selectedMessage.id)
+                      }
+                      className="text-[10px] font-mono text-[#64748B] hover:text-[#0F172A] flex items-center gap-1"
+                    >
+                      {copiedId === selectedMessage.id ? (
+                        <Check className="h-3 w-3 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                      <span>{copiedId === selectedMessage.id ? "COPIED" : "COPY_PAYLOAD"}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-3 flex-1 overflow-y-auto">
+                  {selectedMessage ? (
+                    <pre className="font-mono text-xs text-[#0F172A] leading-relaxed">
                       {(() => {
                         try {
-                          const parsed = JSON.parse(msg.payload);
+                          const parsed = JSON.parse(selectedMessage.payload);
                           return JSON.stringify(parsed, null, 2);
                         } catch {
-                          return msg.payload;
+                          return selectedMessage.payload;
                         }
                       })()}
                     </pre>
-                  </div>
-                ))}
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-slate-400 font-mono text-xs">
+                      {"// Select a packet from the stream above to inspect its decoded payload."}
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Connection Settings Modal */}
-      <AnimatePresence>
-        {showConnectionModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-lg shadow-2xl w-full max-w-md p-6"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-[#2C3E50]">
-                  Connection Settings
-                </h3>
+      {showConnectionModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-[#CBD5E1] rounded-md shadow-popover max-w-md w-full overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
+              <span className="font-mono text-xs font-bold text-[#0F172A] uppercase">
+                MQTT_BROKER_SETTINGS
+              </span>
+              <button
+                onClick={() => setShowConnectionModal(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 text-xs">
+              <div>
+                <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                  BROKER URL (TCP / SSL / WS)
+                </label>
+                <input
+                  value={brokerUrl}
+                  onChange={(e) => setBrokerUrl(e.target.value)}
+                  disabled={isConnected}
+                  className="w-full h-8 px-2.5 font-mono border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
+                  placeholder="tcp://broker.hivemq.com:1883"
+                />
+              </div>
+
+              <div>
+                <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                  CLIENT ID
+                </label>
+                <input
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  disabled={isConnected}
+                  className="w-full h-8 px-2.5 font-mono border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                    USERNAME (OPTIONAL)
+                  </label>
+                  <input
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    disabled={isConnected}
+                    className="w-full h-8 px-2 font-mono border border-[#CBD5E1] rounded bg-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                    PASSWORD (OPTIONAL)
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isConnected}
+                    className="w-full h-8 px-2 font-mono border border-[#CBD5E1] rounded bg-white outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
                 <button
                   onClick={() => setShowConnectionModal(false)}
-                  className="text-[#8B9AA8] hover:text-[#5A6C7D]"
+                  className="px-3 py-1.5 text-xs font-mono rounded border border-[#CBD5E1] hover:bg-[#F8FAFC]"
                 >
-                  <X className="h-5 w-5" />
+                  CANCEL
+                </button>
+                <button
+                  onClick={() => {
+                    setShowConnectionModal(false);
+                    toast.success("Broker parameters updated");
+                  }}
+                  className="px-4 py-1.5 text-xs font-mono font-bold bg-[#0F172A] text-white rounded hover:bg-[#1E293B]"
+                >
+                  SAVE_SETTINGS
                 </button>
               </div>
-
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">
-                    Broker URL
-                  </Label>
-                  <Input
-                    value={brokerUrl}
-                    onChange={(e) => setBrokerUrl(e.target.value)}
-                    disabled={isConnected}
-                    className="mt-1.5 h-9 text-xs"
-                    placeholder="tcp://broker.hivemq.com:1883"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs font-semibold text-[#5A6C7D]">
-                    Client ID
-                  </Label>
-                  <Input
-                    value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    disabled={isConnected}
-                    className="mt-1.5 h-9 text-xs font-mono"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs font-semibold text-[#5A6C7D]">
-                      Username
-                    </Label>
-                    <Input
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      disabled={isConnected}
-                      className="mt-1.5 h-9 text-xs"
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold text-[#5A6C7D]">
-                      Password
-                    </Label>
-                    <Input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={isConnected}
-                      className="mt-1.5 h-9 text-xs"
-                      placeholder="Optional"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    onClick={() => setShowConnectionModal(false)}
-                    variant="outline"
-                    className="flex-1 h-9 text-sm"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setShowConnectionModal(false);
-                      toast.success("Settings saved!");
-                    }}
-                    className="flex-1 h-9 bg-[#6A89A7] hover:bg-[#5a7997] text-white text-sm"
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

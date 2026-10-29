@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Shield, AlertCircle } from "lucide-react";
+import { Plus, Shield, AlertCircle, FolderKanban, Terminal, RefreshCw, Key } from "lucide-react";
 import { authConfigApi, AuthConfig, RefreshLog } from "@/lib/authConfigApi";
 import { api } from "@/lib/api";
 import AuthConfigModal from "@/components/auth/AuthConfigModal";
 import AuthConfigList, {
   RefreshLogsModal,
 } from "@/components/auth/AuthConfigList";
+import toast from "react-hot-toast";
 
 export default function AuthSettingsPage() {
   const [projects, setProjects] = useState<any[]>([]);
@@ -34,13 +35,16 @@ export default function AuthSettingsPage() {
   const loadProjects = async () => {
     try {
       const response = await api.get("/projects");
-      const data = response.data;
-      setProjects(data);
-      if (data.length > 0 && !selectedProjectId) {
-        setSelectedProjectId(data[0].id);
+      const list = Array.isArray(response.data)
+        ? response.data
+        : response.data?.projects || [];
+      setProjects(list);
+      if (list.length > 0 && !selectedProjectId) {
+        setSelectedProjectId(list[0].id);
       }
     } catch (error) {
       console.error("Failed to load projects:", error);
+      toast.error("Failed to load simulation nodes");
     } finally {
       setLoading(false);
     }
@@ -50,9 +54,10 @@ export default function AuthSettingsPage() {
     try {
       setLoading(true);
       const data = await authConfigApi.getByProject(selectedProjectId);
-      setAuthConfigs(data);
+      setAuthConfigs(data || []);
     } catch (error) {
       console.error("Failed to load auth configs:", error);
+      toast.error("Failed to load auth configurations");
     } finally {
       setLoading(false);
     }
@@ -81,9 +86,10 @@ export default function AuthSettingsPage() {
   const handleDelete = async (id: string) => {
     try {
       await authConfigApi.delete(id);
+      toast.success("Auth configuration deleted");
       await loadAuthConfigs();
     } catch (error: any) {
-      alert(error.response?.data?.error || "Failed to delete auth config");
+      toast.error(error.response?.data?.error || "Failed to delete auth config");
     }
   };
 
@@ -91,16 +97,12 @@ export default function AuthSettingsPage() {
     try {
       const result = await authConfigApi.test(id);
       if (result.success) {
-        alert(
-          `✅ Token obtained successfully!\n\nExpires in: ${result.expiresIn}s`,
-        );
+        toast.success(`Token obtained successfully. Expires in ${result.expiresIn}s`);
       } else {
-        alert(`❌ Test failed:\n\n${result.error}`);
+        toast.error(`Test failed: ${result.error}`);
       }
     } catch (error: any) {
-      alert(
-        `❌ Test failed:\n\n${error.response?.data?.error || error.message}`,
-      );
+      toast.error(error.response?.data?.error || error.message || "Test failed");
     }
   };
 
@@ -108,30 +110,24 @@ export default function AuthSettingsPage() {
     try {
       const result = await authConfigApi.refresh(id);
       if (result.success) {
-        alert(
-          `✅ Token refreshed successfully!\n\nExpires in: ${result.expiresIn}s`,
-        );
+        toast.success(`Token refreshed. Expires in ${result.expiresIn}s`);
         await loadAuthConfigs();
       } else {
-        alert(`❌ Refresh failed:\n\n${result.error}`);
+        toast.error(`Refresh failed: ${result.error}`);
       }
     } catch (error: any) {
-      alert(
-        `❌ Refresh failed:\n\n${error.response?.data?.error || error.message}`,
-      );
+      toast.error(error.response?.data?.error || error.message || "Refresh failed");
     }
   };
 
   const handleViewLogs = async (config: AuthConfig) => {
     try {
       const logs = await authConfigApi.getLogs(config.id);
-      setRefreshLogs(logs);
+      setRefreshLogs(logs || []);
       setSelectedConfigForLogs(config);
       setIsLogsModalOpen(true);
     } catch (error: any) {
-      alert(
-        `Failed to load logs:\n\n${error.response?.data?.error || error.message}`,
-      );
+      toast.error(error.response?.data?.error || error.message || "Failed to load logs");
     }
   };
 
@@ -147,112 +143,137 @@ export default function AuthSettingsPage() {
 
   if (loading && projects.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6A89A7] mx-auto mb-4"></div>
-          <p className="text-[#5A6C7D]">Loading...</p>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3">
+        <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+          INITIALIZING_AUTH_ENGINE...
+        </span>
       </div>
     );
   }
 
   if (projects.length === 0) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-[#2C3E50]">
-            Authentication Settings
-          </h1>
-          <p className="text-[#5A6C7D] mt-1">
-            Manage OAuth 2.0 and token authentication
-          </p>
+      <div className="space-y-4">
+        <div className="bg-white border border-[#E2E8F0] rounded-md p-4 shadow-hairline">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded bg-slate-100 text-[#0F172A] border border-slate-200">
+              <Shield className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-[#0F172A] tracking-tight">
+                OAuth 2.0 &amp; Token Federation Engine
+              </h1>
+              <p className="text-xs text-[#64748B] font-mono mt-0.5">
+                NO_PROJECT_NODES_FOUND
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="card-industrial p-12 text-center">
-          <AlertCircle className="h-12 w-12 text-[#5A6C7D] mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-[#2C3E50] mb-2">
-            No Projects Found
+        <div className="p-12 text-center bg-white border border-[#E2E8F0] rounded-md shadow-hairline space-y-3">
+          <AlertCircle className="h-10 w-10 text-slate-300 mx-auto" />
+          <h3 className="font-mono text-sm font-bold text-[#0F172A] uppercase">
+            NO_PROJECTS_REGISTERED
           </h3>
-          <p className="text-[#5A6C7D]">
-            Create a project first to configure authentication
+          <p className="text-xs text-slate-500 max-w-sm mx-auto font-sans">
+            Provision an IoT simulation node first before configuring automated OAuth 2.0 token management.
           </p>
+          <button
+            onClick={() => (window.location.href = "/projects/new")}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-mono font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] rounded shadow-xs"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>PROVISION_FIRST_NODE</span>
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-[#2C3E50]">
-            Authentication Settings
-          </h1>
-          <p className="text-[#5A6C7D] mt-1">
-            Manage OAuth 2.0 and token authentication
-          </p>
+    <div className="space-y-4">
+      {/* Precision Instrument Header */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md p-4 shadow-hairline">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded bg-slate-100 text-[#0F172A] border border-slate-200">
+              <Shield className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-[#0F172A] tracking-tight">
+                  OAuth 2.0 &amp; Token Federation Engine
+                </h1>
+                <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  TOKEN_DAEMON_ACTIVE
+                </span>
+              </div>
+              <p className="text-xs text-[#64748B] font-mono mt-0.5">
+                AUTOMATED_TOKEN_REFRESH{" // "}BEARER_INJECTION_DAEMON
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              disabled={!selectedProjectId}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm transition-all disabled:opacity-50"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Auth Config</span>
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="btn-primary flex items-center gap-2"
-          disabled={!selectedProjectId}
-        >
-          <Plus className="h-4 w-4" />
-          Add Auth Config
-        </button>
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-[#88BDF2]/10 border border-[#88BDF2]/30 rounded-lg p-4 flex items-start gap-3">
-        <Shield className="h-5 w-5 text-[#6A89A7] mt-0.5" />
-        <div className="flex-1">
-          <h3 className="font-semibold text-[#2C3E50] mb-1">
-            Automatic Token Management
-          </h3>
-          <p className="text-sm text-[#5A6C7D]">
-            Configure OAuth 2.0 authentication for your projects. Tokens will be
-            automatically refreshed before expiry and injected into your
-            requests. All credentials are encrypted at rest.
-          </p>
+      {/* Target Node Selector Ribbon */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          <FolderKanban className="h-4 w-4 text-[#64748B]" />
+          <span className="font-mono font-bold text-[#0F172A] text-xs">
+            SELECT_SIMULATION_NODE:
+          </span>
+          <select
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+            className="h-8 px-2.5 border border-[#CBD5E1] rounded text-xs font-mono bg-white focus:border-[#2563EB] outline-none"
+          >
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.protocol})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="font-mono text-[11px] text-[#64748B]">
+          CONFIGS_LINKED: <b className="text-[#0F172A]">{authConfigs.length}</b>
         </div>
       </div>
 
-      {/* Project Selector */}
-      <div className="card-industrial p-6">
-        <label className="block text-sm font-medium text-[#2C3E50] mb-2">
-          Select Project
-        </label>
-        <select
-          value={selectedProjectId}
-          onChange={(e) => setSelectedProjectId(e.target.value)}
-          className="w-full px-4 py-2 border border-[#D1DBE5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6A89A7]"
-        >
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name} ({project.protocol.toUpperCase()})
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Auth Configs List */}
-      <div className="card-industrial p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-[#2C3E50]">
-            Authentication Configurations
-          </h2>
-          {authConfigs.length > 0 && (
-            <span className="text-sm text-[#5A6C7D]">
-              {authConfigs.length} config(s)
+      {/* Auth Configurations Matrix */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden p-4">
+        <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#F1F5F9]">
+          <div className="flex items-center gap-2">
+            <Key className="h-4 w-4 text-[#0F172A]" />
+            <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+              AUTHENTICATION_PROFILES_MATRIX
             </span>
-          )}
+          </div>
+          <span className="font-mono text-[10px] text-[#64748B]">
+            AES_256_ENCRYPTED_SECRETS
+          </span>
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6A89A7] mx-auto mb-4"></div>
-            <p className="text-[#5A6C7D]">Loading configurations...</p>
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+            <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+              QUERYING_CONFIGURATIONS...
+            </span>
           </div>
         ) : (
           <AuthConfigList

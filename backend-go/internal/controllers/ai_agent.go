@@ -189,22 +189,6 @@ func Chat(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Message is required"})
 	}
 
-	// Daily message count verification
-	today := time.Now().Truncate(24 * time.Hour)
-	var dailyCount int64
-
-	database.DB.Model(&database.ChatMessage{}).
-		Joins("JOIN chat_sessions ON chat_messages.\"sessionId\" = chat_sessions.id").
-		Where("chat_messages.role = ? AND chat_messages.\"createdAt\" >= ? AND chat_sessions.\"userId\" = ?", "user", today, userID).
-		Count(&dailyCount)
-
-	if dailyCount >= 5 {
-		return c.Status(429).JSON(fiber.Map{
-			"error":   "Daily limit reached",
-			"message": "You have reached your daily limit of 5 AI Agent prompts. Please try again tomorrow.",
-		})
-	}
-
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	model := os.Getenv("OPENROUTER_MODEL")
 	if model == "" {
@@ -692,7 +676,7 @@ func GetModels(c *fiber.Ctx) error {
 	return c.JSON(rawJSON)
 }
 
-// GetUsage returns user usage stats for the day
+// GetUsage returns user usage stats for the day (unlimited mode)
 func GetUsage(c *fiber.Ctx) error {
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
@@ -700,7 +684,6 @@ func GetUsage(c *fiber.Ctx) error {
 	}
 
 	userID := c.Locals("userId").(string)
-	limit := 5
 
 	today := time.Now().Truncate(24 * time.Hour)
 	var dailyCount int64
@@ -715,15 +698,11 @@ func GetUsage(c *fiber.Ctx) error {
 		currentModel = "anthropic/claude-3.5-sonnet"
 	}
 
-	remaining := limit - int(dailyCount)
-	if remaining < 0 {
-		remaining = 0
-	}
-
 	return c.JSON(fiber.Map{
-		"limit":        limit,
+		"limit":        -1,
+		"unlimited":    true,
 		"used":         dailyCount,
-		"remaining":    remaining,
+		"remaining":    -1,
 		"currentModel": currentModel,
 	})
 }

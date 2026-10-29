@@ -2,17 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Plus, Trash2, Edit, Play, Square } from "lucide-react";
+import { Plus, Trash2, Edit, Play, Square, Radio, Globe, Wifi, Cpu, Layers } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
@@ -22,27 +13,17 @@ export default function ProjectsPage() {
   const router = useRouter();
   const { projects, fetchProjects, deleteProject } = useProjectStore();
   const [loading, setLoading] = useState(true);
-  // Track simulation status per project: { [projectId]: boolean }
-  const [runningProjects, setRunningProjects] = useState<
-    Record<string, boolean>
-  >({});
-  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
-    {},
-  );
-  // Display status: 'idle' | 'running' | 'stopped'
-  const [projectStatus, setProjectStatus] = useState<
-    Record<string, "idle" | "running" | "stopped">
-  >({});
+  const [runningProjects, setRunningProjects] = useState<Record<string, boolean>>({});
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [projectStatus, setProjectStatus] = useState<Record<string, "idle" | "running" | "stopped">>({});
   const intervalsRef = useRef<Record<string, NodeJS.Timeout>>({});
   const idleTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
   const confirm = usePopupStore((state) => state.confirm);
 
   useEffect(() => {
     fetchProjects().finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Once projects are loaded, fetch simulation status for each
   useEffect(() => {
     if (projects.length === 0) return;
 
@@ -50,25 +31,21 @@ export default function ProjectsPage() {
       fetchProjectSimStatus(project.id);
     });
 
-    // Cleanup all intervals on unmount
     return () => {
       Object.values(intervalsRef.current).forEach(clearInterval);
       Object.values(idleTimersRef.current).forEach(clearTimeout);
       intervalsRef.current = {};
       idleTimersRef.current = {};
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects.length]);
 
   const setIdleAfterDelay = (projectId: string) => {
-    // Clear any existing idle timer
     if (idleTimersRef.current[projectId]) {
       clearTimeout(idleTimersRef.current[projectId]);
     }
-    // After 10 seconds, change status from 'stopped' to 'idle'
     idleTimersRef.current[projectId] = setTimeout(() => {
       setProjectStatus((prev) => ({ ...prev, [projectId]: "idle" }));
-      fetchProjects(); // Refresh the list so lastActivity is updated
+      fetchProjects();
       delete idleTimersRef.current[projectId];
     }, 10000);
   };
@@ -107,7 +84,7 @@ export default function ProjectsPage() {
         clearInterval(intervalsRef.current[projectId]);
         delete intervalsRef.current[projectId];
       }
-    }, 5000);
+    }, 4000);
   };
 
   const stopPolling = (projectId: string) => {
@@ -120,16 +97,12 @@ export default function ProjectsPage() {
   const handleStart = async (projectId: string) => {
     setActionLoading((prev) => ({ ...prev, [projectId]: true }));
     try {
-      // Fetch saved payload for this project
       const payloadRes = await api.get(`/payloads/project/${projectId}`);
       const payloads = payloadRes.data;
 
       if (!payloads || payloads.length === 0) {
-        toast.error(
-          "No payload configured. Redirecting to project settings...",
-        );
+        toast.error("No payload structure found. Redirecting to configuration...");
         setActionLoading((prev) => ({ ...prev, [projectId]: false }));
-        // Redirect to project detail page to configure payload
         router.push(`/projects/${projectId}`);
         return;
       }
@@ -137,12 +110,10 @@ export default function ProjectsPage() {
       const latestPayload = payloads[0];
       let structure = JSON.parse(latestPayload.structure);
 
-      // Check if user had Dataset Replay mode enabled (saved in localStorage)
       const savedUseDataset = localStorage.getItem(`useDataset_${projectId}`);
       const savedDatasetId = localStorage.getItem(`selectedDatasetId_${projectId}`);
 
       if (savedUseDataset === "true" && savedDatasetId) {
-        // Include dataset mode marker, same as project detail page
         const staticFields = Array.isArray(structure)
           ? structure.filter((f: any) => f.mode === "static")
           : [];
@@ -158,7 +129,6 @@ export default function ProjectsPage() {
         ];
       }
 
-      // Load saved simulation settings from localStorage
       let interval = 1000;
       let batchSize = 1;
       let swarmMode = false;
@@ -201,7 +171,7 @@ export default function ProjectsPage() {
 
       setRunningProjects((prev) => ({ ...prev, [projectId]: true }));
       setProjectStatus((prev) => ({ ...prev, [projectId]: "running" }));
-      toast.success("Simulation started!");
+      toast.success("Simulation stream started");
       startPolling(projectId);
     } catch (error: any) {
       toast.error(error.response?.data?.error || "Failed to start simulation");
@@ -218,7 +188,7 @@ export default function ProjectsPage() {
       setProjectStatus((prev) => ({ ...prev, [projectId]: "stopped" }));
       setIdleAfterDelay(projectId);
       stopPolling(projectId);
-      toast.success("Simulation stopped!");
+      toast.success("Simulation stream stopped");
     } catch (error: any) {
       toast.error(error.response?.data?.error || "Failed to stop simulation");
     } finally {
@@ -226,209 +196,214 @@ export default function ProjectsPage() {
     }
   };
 
-
-  const getProtocolColor = (protocol: string) => {
-    if (protocol.includes("HTTP"))
-      return "text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md text-xs";
-    if (protocol.includes("MQTT"))
-      return "text-green-600 bg-green-50 px-2 py-0.5 rounded-md text-xs";
-    if (protocol.includes("WS"))
-      return "text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md text-xs";
-    return "text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md text-xs";
+  const getProtocolBadge = (protocol: string) => {
+    const p = protocol?.toUpperCase() || "";
+    if (p.includes("MQTT")) {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+          <Radio className="h-2.5 w-2.5" />
+          {p}
+        </span>
+      );
+    }
+    if (p.includes("WS")) {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200">
+          <Wifi className="h-2.5 w-2.5" />
+          {p}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+        <Globe className="h-2.5 w-2.5" />
+        {p}
+      </span>
+    );
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
+        <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+          FETCHING_NODES...
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Projects</h1>
-          <p className="text-slate-600 mt-1">
-            Manage your IoT simulation projects
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-[#0F172A] tracking-tight">
+              Simulation Nodes
+            </h1>
+            <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
+              {projects.length} NODES
+            </span>
+          </div>
+          <p className="text-xs text-[#64748B] mt-0.5 font-mono">
+            MANAGE_ENDPOINTS // CONFIGURE_PAYLOADS // TRIGGER_SIMULATIONS
           </p>
         </div>
-        <Button
+
+        <button
           onClick={() => router.push("/projects/new")}
-          className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm transition-all self-start sm:self-auto"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          New Project
-        </Button>
+          <Plus className="h-3.5 w-3.5" />
+          <span>New Simulation Node</span>
+        </button>
       </div>
 
-      {/* Empty State */}
+      {/* Grid of Simulation Nodes */}
       {projects.length === 0 ? (
-        <Card className="bg-white border-blue-100 shadow-md">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="h-20 w-20 rounded-full bg-blue-50 flex items-center justify-center mb-4">
-              <Plus className="h-10 w-10 text-blue-500" />
-            </div>
-            <p className="text-slate-600 mb-4 text-lg font-medium">
-              No projects yet
-            </p>
-            <p className="text-slate-500 text-sm mb-6">
-              Create your first IoT simulation project to get started
-            </p>
-            <Button
-              onClick={() => router.push("/projects/new")}
-              className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Your First Project
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="p-12 text-center bg-white border border-[#E2E8F0] rounded-md shadow-hairline">
+          <Cpu className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+          <h3 className="font-mono text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+            NO_NODES_CONFIGURED
+          </h3>
+          <p className="text-xs text-[#64748B] mt-1 max-w-sm mx-auto font-sans">
+            Create your first IoT node to start dispatching HTTP requests, publishing MQTT telemetry, or streaming WebSockets.
+          </p>
+          <button
+            onClick={() => router.push("/projects/new")}
+            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm transition-all"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Create First Node</span>
+          </button>
+        </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project, index) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projects.map((project) => {
             const isRunning = runningProjects[project.id] ?? false;
             const isLoading = actionLoading[project.id] ?? false;
             const status = projectStatus[project.id] ?? "idle";
 
-            const statusConfig = {
-              running: {
-                label: "Running",
-                dot: "bg-green-500 animate-pulse",
-                text: "text-green-700",
-                bg: "bg-green-50",
-                border: "border-green-200",
-              },
-              stopped: {
-                label: "Stopped",
-                dot: "bg-red-500",
-                text: "text-red-700",
-                bg: "bg-red-50",
-                border: "border-red-200",
-              },
-              idle: {
-                label: "Idle",
-                dot: "bg-slate-400",
-                text: "text-slate-600",
-                bg: "bg-slate-50",
-                border: "border-slate-200",
-              },
-            };
-            const cfg = statusConfig[status];
-
             return (
-              <motion.div
+              <div
                 key={project.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+                className="bg-white border border-[#E2E8F0] hover:border-[#CBD5E1] rounded-md shadow-hairline flex flex-col justify-between transition-all"
               >
-                <Card
-                  className={`bg-white border shadow-md hover:shadow-lg transition-all duration-200 ${cfg.border} h-[280px] flex flex-col`}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-lg text-slate-800 truncate">
-                          {project.name}
-                        </CardTitle>
-                        <CardDescription className="mt-1 text-slate-600 line-clamp-2 text-sm">
-                          {project.description || "No description"}
-                        </CardDescription>
+                {/* Node Card Header */}
+                <div className="p-4 border-b border-[#F1F5F9]">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        {getProtocolBadge(project.protocol)}
+                        {isRunning ? (
+                          <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            LIVE
+                          </span>
+                        ) : status === "stopped" ? (
+                          <span className="font-mono text-[10px] font-medium text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
+                            STOPPED
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[10px] text-slate-500 bg-slate-50 px-1.5 py-0.2 rounded border border-slate-200">
+                            STANDBY
+                          </span>
+                        )}
                       </div>
-                      {/* Status badge top-right */}
-                      <div
-                        className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.text} border ${cfg.border} shrink-0`}
-                      >
-                        <div className={`h-2 w-2 rounded-full ${cfg.dot}`} />
-                        {cfg.label}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex-1 flex flex-col justify-between pt-0">
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Protocol</span>
-                        <span
-                          className={`font-medium ${getProtocolColor(project.protocol)}`}
-                        >
-                          {project.protocol}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Host</span>
-                        <span className="font-medium text-slate-700 truncate ml-2 max-w-[180px]">
-                          {project.host}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Last Activity</span>
-                        <span className="text-xs text-slate-600">
-                          {project.lastActivity
-                            ? formatDate(project.lastActivity)
-                            : "Never"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 mt-4">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+                      <h3
                         onClick={() => router.push(`/projects/${project.id}`)}
+                        className="font-bold text-sm text-[#0F172A] truncate hover:text-[#2563EB] cursor-pointer transition-colors"
                       >
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
-                      </Button>
-
-                      {!isRunning ? (
-                        <Button
-                          size="sm"
-                          onClick={() => handleStart(project.id)}
-                          disabled={isLoading}
-                          className="flex-1 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white"
-                        >
-                          <Play className="h-3 w-3 mr-1" />
-                          {isLoading ? "..." : "Start"}
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleStop(project.id)}
-                          disabled={isLoading}
-                          className="flex-1 bg-red-500 hover:bg-red-600"
-                        >
-                          <Square className="h-3 w-3 mr-1" />
-                          {isLoading ? "..." : "Stop"}
-                        </Button>
-                      )}
-
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={async () => {
-                          const isConfirmed = await confirm(
-                            `Are you sure you want to delete "${project.name}"? All payload configurations, simulation history, and logs will be permanently removed.`,
-                            "Delete Project"
-                          );
-                          if (isConfirmed) {
-                            stopPolling(project.id);
-                            await deleteProject(project.id);
-                            toast.success("Project deleted successfully!");
-                          }
-                        }}
-                        disabled={isRunning}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                        {project.name}
+                      </h3>
+                      <p className="text-xs text-[#64748B] mt-0.5 line-clamp-1">
+                        {project.description || "No description provided."}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+                  </div>
+                </div>
+
+                {/* Node Metadata Table (Monospace tabular) */}
+                <div className="p-4 space-y-2 text-xs font-mono bg-[#F8FAFC]/50 flex-1">
+                  <div className="flex items-center justify-between text-[#64748B]">
+                    <span>HOST / TARGET:</span>
+                    <span className="text-[#0F172A] font-semibold truncate max-w-[170px]">
+                      {project.host || "localhost"}
+                    </span>
+                  </div>
+
+                  {project.topic && (
+                    <div className="flex items-center justify-between text-[#64748B]">
+                      <span>MQTT_TOPIC:</span>
+                      <span className="text-emerald-700 font-semibold truncate max-w-[170px]">
+                        {project.topic}
+                      </span>
+                    </div>
+                  )}
+
+                  {project.endpoint && (
+                    <div className="flex items-center justify-between text-[#64748B]">
+                      <span>ENDPOINT:</span>
+                      <span className="text-[#2563EB] font-semibold truncate max-w-[170px]">
+                        {project.endpoint}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-[#64748B]">
+                    <span>LAST_EVENT:</span>
+                    <span className="text-slate-600 text-[11px]">
+                      {project.lastActivity ? formatDate(project.lastActivity) : "NEVER"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Node Actions Bar */}
+                <div className="p-3 border-t border-[#E2E8F0] bg-white flex items-center gap-2">
+                  <button
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                    className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-medium px-3 py-1.5 rounded border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC] transition-colors"
+                  >
+                    <Edit className="h-3 w-3" />
+                    <span>Config</span>
+                  </button>
+
+                  {!isRunning ? (
+                    <button
+                      onClick={() => handleStart(project.id)}
+                      disabled={isLoading}
+                      className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-1.5 rounded bg-[#0F172A] text-white hover:bg-[#1E293B] disabled:opacity-50 transition-all shadow-xs"
+                    >
+                      <Play className="h-3 w-3 fill-current" />
+                      <span>{isLoading ? "Starting..." : "Start"}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleStop(project.id)}
+                      disabled={isLoading}
+                      className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold px-3 py-1.5 rounded bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 transition-all shadow-xs"
+                    >
+                      <Square className="h-3 w-3 fill-current" />
+                      <span>{isLoading ? "Stopping..." : "Halt"}</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={async () => {
+                      const ok = await confirm(
+                        `Delete simulation node "${project.name}" permanently?`,
+                        "Delete Node"
+                      );
+                      if (ok) deleteProject(project.id);
+                    }}
+                    className="p-1.5 rounded text-[#94A3B8] hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                    title="Delete Node"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>

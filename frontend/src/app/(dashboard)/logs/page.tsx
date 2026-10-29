@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { motion } from "framer-motion";
 import {
   ScrollText,
   RefreshCw,
@@ -13,10 +12,11 @@ import {
   Info,
   Zap,
   Filter,
+  Terminal,
+  Activity,
+  Layers,
+  FileCode,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useProjectStore } from "@/store/projectStore";
 import toast from "react-hot-toast";
@@ -36,31 +36,23 @@ interface Log {
 
 const TYPE_CONFIG = {
   request: {
-    label: "Request",
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/20",
+    label: "REQ",
+    badgeClass: "bg-blue-50 text-blue-800 border-blue-200",
     icon: Info,
   },
   response: {
-    label: "Response",
-    color: "text-green-400",
-    bg: "bg-green-500/10",
-    border: "border-green-500/20",
+    label: "RES",
+    badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200",
     icon: CheckCircle,
   },
   error: {
-    label: "Error",
-    color: "text-red-400",
-    bg: "bg-red-500/10",
-    border: "border-red-500/20",
+    label: "ERR",
+    badgeClass: "bg-rose-50 text-rose-800 border-rose-200",
     icon: AlertCircle,
   },
   event: {
-    label: "Event",
-    color: "text-purple-400",
-    bg: "bg-purple-500/10",
-    border: "border-purple-500/20",
+    label: "EVT",
+    badgeClass: "bg-purple-50 text-purple-800 border-purple-200",
     icon: Zap,
   },
 };
@@ -72,18 +64,17 @@ export default function LogsPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [projectFilter, setProjectFilter] = useState<string>("all");
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const autoRefreshRef = useRef<NodeJS.Timeout | null>(null);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
 
   useEffect(() => {
     fetchProjects();
     fetchLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -98,11 +89,11 @@ export default function LogsPage() {
     return () => {
       if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
     };
-  }, [autoRefresh]);
+  }, [autoRefresh, typeFilter, projectFilter]);
 
   const fetchLogs = async () => {
     try {
-      const params = new URLSearchParams({ limit: "200" });
+      const params = new URLSearchParams({ limit: "300" });
       if (typeFilter !== "all") params.append("type", typeFilter);
       if (projectFilter !== "all") params.append("projectId", projectFilter);
 
@@ -117,15 +108,15 @@ export default function LogsPage() {
 
   useEffect(() => {
     fetchLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter, projectFilter]);
 
   const handleClearLogs = async (projectId?: string) => {
-    if (!projectId) return;
+    if (!projectId || projectId === "all") return;
+    if (!confirm("Purge all logs for this project node?")) return;
     try {
       await api.delete(`/logs/project/${projectId}/clear`);
       setLogs((prev) => prev.filter((l) => l.projectId !== projectId));
-      toast.success("Logs cleared!");
+      toast.success("Node logs cleared");
     } catch {
       toast.error("Failed to clear logs");
     }
@@ -136,387 +127,347 @@ export default function LogsPage() {
       search === "" ||
       log.message.toLowerCase().includes(search.toLowerCase()) ||
       log.project?.name.toLowerCase().includes(search.toLowerCase()) ||
-      log.protocol.toLowerCase().includes(search.toLowerCase());
+      log.protocol.toLowerCase().includes(search.toLowerCase()) ||
+      (log.payload && log.payload.toLowerCase().includes(search.toLowerCase()));
     return matchSearch;
   });
 
-  // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentLogs = filtered.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [search, typeFilter, projectFilter, itemsPerPage]);
 
-  const handleItemsPerPageChange = (value: number) => {
-    setItemsPerPage(value);
-    setCurrentPage(1);
-  };
-
-  const formatTime = (ts: string) => {
-    const d = new Date(ts);
-    return d.toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
-
-  const formatDate = (ts: string) => {
-    const d = new Date(ts);
-    return d.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   const stats = {
     total: logs.length,
-    errors: logs.filter((l) => l.type === "error").length,
     requests: logs.filter((l) => l.type === "request").length,
-    events: logs.filter((l) => l.type === "event").length,
+    responses: logs.filter((l) => l.type === "response").length,
+    errors: logs.filter((l) => l.type === "error").length,
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Logs & Monitoring</h1>
-          <p className="text-muted-foreground">
-            Real-time activity logs for all your IoT simulations
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant={autoRefresh ? "default" : "outline"}
-            size="sm"
-            onClick={() => setAutoRefresh(!autoRefresh)}
-          >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${autoRefresh ? "animate-spin" : ""}`}
-            />
-            {autoRefresh ? "Live" : "Auto Refresh"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={fetchLogs}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { label: "Total Logs", value: stats.total, color: "text-foreground" },
-          { label: "Requests", value: stats.requests, color: "text-blue-400" },
-          { label: "Events", value: stats.events, color: "text-purple-400" },
-          { label: "Errors", value: stats.errors, color: "text-red-400" },
-        ].map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-          >
-            <Card className="glass">
-              <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <Card className="glass">
-        <CardContent className="pt-4 pb-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search logs..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+    <div className="space-y-4">
+      {/* Precision Instrument Header */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md p-4 shadow-hairline">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded bg-slate-100 text-[#0F172A] border border-slate-200">
+              <ScrollText className="h-5 w-5" />
             </div>
-
-            {/* Type Filter */}
-            <div className="flex items-center gap-1">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              {["all", "request", "response", "error", "event"].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTypeFilter(t)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    typeFilter === t
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  {t === "all" ? "All" : t.charAt(0).toUpperCase() + t.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            {/* Project Filter */}
-            <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-            >
-              <option value="all">All Projects</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-
-            {/* Clear logs for selected project */}
-            {projectFilter !== "all" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                onClick={() => handleClearLogs(projectFilter)}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Clear
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Logs List */}
-      <Card className="glass">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">
-              {filtered.length} log{filtered.length !== 1 ? "s" : ""}
-              {search && ` matching "${search}"`}
-            </CardTitle>
-            {autoRefresh && (
-              <div className="flex items-center gap-1.5 text-xs text-green-400">
-                <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-                Live updating
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-[#0F172A] tracking-tight">
+                  Telemetry Audit &amp; Event Logs
+                </h1>
+                {autoRefresh ? (
+                  <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    LIVE_STREAMING (3S)
+                  </span>
+                ) : (
+                  <span className="font-mono text-[10px] font-medium px-2 py-0.5 rounded bg-slate-50 text-slate-500 border border-slate-200">
+                    PAUSED
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary" />
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <ScrollText className="h-12 w-12 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">
-                {logs.length === 0
-                  ? "No logs yet. Start a simulation to see logs here."
-                  : "No logs match your filters."}
+              <p className="text-xs text-[#64748B] font-mono mt-0.5">
+                BUFFER: {logs.length} RECORDS{" // "}ACTIVE_FILTERS: TYPE [{typeFilter.toUpperCase()}
+                ] NODE [{projectFilter}]
               </p>
             </div>
-          ) : (
-            <>
-              <div className="space-y-1.5 max-h-[600px] overflow-y-auto pr-1">
-                {currentLogs.map((log) => {
-                  const cfg = TYPE_CONFIG[log.type] || TYPE_CONFIG.event;
-                  const Icon = cfg.icon;
-                  const isExpanded = expandedLog === log.id;
+          </div>
 
-                  return (
-                    <motion.div
-                      key={log.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className={`border rounded-lg overflow-hidden ${cfg.border} bg-card/50`}
-                    >
-                      <button
-                        className="w-full text-left p-3 flex items-start gap-3 hover:bg-muted/20 transition-colors"
-                        onClick={() =>
-                          setExpandedLog(isExpanded ? null : log.id)
-                        }
+          {/* Action Header Buttons */}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`px-3 py-1.5 rounded text-xs font-mono font-medium border flex items-center gap-1.5 transition-colors ${
+                autoRefresh
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                  : "bg-white text-[#475569] border-[#CBD5E1] hover:bg-[#F8FAFC]"
+              }`}
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${autoRefresh ? "animate-spin" : ""}`}
+              />
+              <span>{autoRefresh ? "STREAM_ACTIVE" : "RESUME_STREAM"}</span>
+            </button>
+
+            <button
+              onClick={fetchLogs}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium text-[#0F172A] bg-white border border-[#CBD5E1] hover:bg-[#F8FAFC]"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              <span>SYNC_NOW</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 4 Cells Hairline Metrics Ribbon */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 bg-white border border-[#E2E8F0] rounded-md divide-y lg:divide-y-0 lg:divide-x divide-[#E2E8F0] shadow-hairline overflow-hidden">
+        <div className="p-3.5">
+          <span className="font-mono text-[10px] font-bold text-[#64748B] uppercase block mb-1">
+            TOTAL_BUFFERED_LOGS
+          </span>
+          <span className="font-mono text-xl font-bold text-[#0F172A] tabular-nums">
+            {stats.total.toLocaleString()}
+          </span>
+        </div>
+
+        <div className="p-3.5">
+          <span className="font-mono text-[10px] font-bold text-[#64748B] uppercase block mb-1">
+            HTTP / WS / MQTT REQUESTS
+          </span>
+          <span className="font-mono text-xl font-bold text-[#2563EB] tabular-nums">
+            {stats.requests.toLocaleString()}
+          </span>
+        </div>
+
+        <div className="p-3.5">
+          <span className="font-mono text-[10px] font-bold text-[#64748B] uppercase block mb-1">
+            SUCCESSFUL_ACKS
+          </span>
+          <span className="font-mono text-xl font-bold text-emerald-700 tabular-nums">
+            {stats.responses.toLocaleString()}
+          </span>
+        </div>
+
+        <div className="p-3.5 bg-rose-50/20">
+          <span className="font-mono text-[10px] font-bold text-[#64748B] uppercase block mb-1">
+            TRANSMISSION_ERRORS
+          </span>
+          <span className="font-mono text-xl font-bold text-rose-700 tabular-nums">
+            {stats.errors.toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Filters Station */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+          <input
+            placeholder="Search log messages, payload keys, endpoints..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-8 pl-8 pr-2.5 font-mono text-xs border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
+          />
+        </div>
+
+        {/* Type Filter Buttons */}
+        <div className="flex items-center gap-1 font-mono text-[11px]">
+          {["all", "request", "response", "error", "event"].map((t) => (
+            <button
+              key={t}
+              onClick={() => setTypeFilter(t)}
+              className={`px-2.5 py-1 rounded font-semibold uppercase transition-colors ${
+                typeFilter === t
+                  ? "bg-[#0F172A] text-white"
+                  : "bg-white text-[#64748B] border border-[#CBD5E1] hover:bg-[#F8FAFC]"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* Project Select & Clear */}
+        <div className="flex items-center gap-2">
+          <select
+            className="h-8 px-2.5 border border-[#CBD5E1] rounded text-xs font-mono bg-white focus:border-[#2563EB] outline-none"
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+          >
+            <option value="all">ALL NODES</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+
+          {projectFilter !== "all" && (
+            <button
+              onClick={() => handleClearLogs(projectFilter)}
+              className="inline-flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100"
+              title="Purge logs for this node"
+            >
+              <Trash2 className="h-3 w-3" />
+              <span>PURGE</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Logs Teleprinter Stream Table */}
+      <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden flex flex-col">
+        <div className="px-4 py-2.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Terminal className="h-4 w-4 text-[#0F172A]" />
+            <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+              TELEPRINTER_STREAM
+            </span>
+            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-bold">
+              {filtered.length} MATCHING
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 font-mono text-[10px] text-[#64748B]">
+            <span>ROWS_PER_PAGE:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="h-6 px-1 border border-[#CBD5E1] rounded bg-white text-xs"
+            >
+              <option value={10}>10</option>
+              <option value={15}>15</option>
+              <option value={30}>30</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+            <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+              BUFFERING_STREAM...
+            </span>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 font-mono text-xs space-y-2">
+            <ScrollText className="h-10 w-10 mx-auto opacity-25" />
+            <p className="uppercase text-xs font-bold tracking-wider">NO_LOG_RECORDS_FOUND</p>
+            <p className="text-[11px] font-sans text-slate-400 max-w-sm mx-auto">
+              No activity logs match the current query filter. Run a simulation or clear filters.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[#F1F5F9] font-mono text-xs">
+            {currentLogs.map((log) => {
+              const cfg = TYPE_CONFIG[log.type] || TYPE_CONFIG.event;
+              const isExpanded = expandedLog === log.id;
+
+              return (
+                <div key={log.id} className="transition-colors hover:bg-[#F8FAFC]">
+                  <div
+                    onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+                    className="p-3 flex items-start justify-between gap-3 cursor-pointer select-none"
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase shrink-0 mt-0.5 ${cfg.badgeClass}`}
                       >
-                        <div
-                          className={`p-1.5 rounded-md ${cfg.bg} mt-0.5 shrink-0`}
+                        {cfg.label}
+                      </span>
+
+                      <span className="text-[11px] text-slate-400 tabular-nums shrink-0 mt-0.5">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+
+                      <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 shrink-0 mt-0.5">
+                        {log.protocol}
+                      </span>
+
+                      {log.project && (
+                        <span className="text-[11px] font-semibold text-[#0F172A] truncate max-w-[140px] shrink-0 mt-0.5">
+                          {log.project.name}
+                        </span>
+                      )}
+
+                      <span className="text-xs font-sans text-[#334155] truncate max-w-xl mt-0.5">
+                        {log.message}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {log.statusCode && (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded font-bold border ${
+                            log.statusCode >= 400
+                              ? "bg-rose-50 text-rose-800 border-rose-200"
+                              : "bg-emerald-50 text-emerald-800 border-emerald-200"
+                          }`}
                         >
-                          <Icon className={`h-3.5 w-3.5 ${cfg.color}`} />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={`text-xs font-medium px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color}`}
-                            >
-                              {cfg.label}
-                            </span>
-                            <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
-                              {log.protocol}
-                            </span>
-                            {log.project && (
-                              <span className="text-xs text-muted-foreground">
-                                {log.project.name}
-                              </span>
-                            )}
-                            {log.statusCode && (
-                              <span
-                                className={`text-xs font-mono ${log.statusCode >= 400 ? "text-red-400" : "text-green-400"}`}
-                              >
-                                {log.statusCode}
-                              </span>
-                            )}
-                            {log.latency && (
-                              <span className="text-xs text-muted-foreground">
-                                {log.latency}ms
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm mt-1 truncate">{log.message}</p>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <p className="text-xs text-muted-foreground font-mono">
-                            {formatTime(log.timestamp)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(log.timestamp)}
-                          </p>
-                          <ChevronDown
-                            className={`h-3.5 w-3.5 text-muted-foreground ml-auto mt-1 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                          />
-                        </div>
-                      </button>
-
-                      {/* Expanded payload */}
-                      {isExpanded && log.payload && (
-                        <div className="border-t border-border px-3 pb-3 pt-2">
-                          <p className="text-xs text-muted-foreground mb-1.5 font-medium">
-                            Payload:
-                          </p>
-                          <pre className="text-xs bg-muted p-2 rounded-md overflow-x-auto max-h-[200px] overflow-y-auto">
-                            {(() => {
-                              try {
-                                return JSON.stringify(
-                                  JSON.parse(log.payload!),
-                                  null,
-                                  2,
-                                );
-                              } catch {
-                                return log.payload;
-                              }
-                            })()}
-                          </pre>
-                        </div>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
-
-              {/* Pagination Controls */}
-              {filtered.length > 0 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-blue-50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-600">Show:</span>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) =>
-                        handleItemsPerPageChange(Number(e.target.value))
-                      }
-                      className="px-3 py-1.5 text-sm border border-blue-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400"
-                    >
-                      <option value={10}>10</option>
-                      <option value={15}>15</option>
-                      <option value={20}>20</option>
-                    </select>
-                    <span className="text-sm text-slate-600">
-                      entries per page
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-600">
-                      Showing {indexOfFirstItem + 1} to{" "}
-                      {Math.min(indexOfLastItem, filtered.length)} of{" "}
-                      {filtered.length} logs
-                    </span>
-
-                    <div className="flex items-center gap-1 ml-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="h-8 w-8 p-0 border-blue-200 text-slate-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        ‹
-                      </Button>
-
-                      {/* Page Numbers */}
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                        (page) => {
-                          if (
-                            page === 1 ||
-                            page === totalPages ||
-                            (page >= currentPage - 1 && page <= currentPage + 1)
-                          ) {
-                            return (
-                              <Button
-                                key={page}
-                                variant={
-                                  currentPage === page ? "default" : "outline"
-                                }
-                                size="sm"
-                                onClick={() => setCurrentPage(page)}
-                                className={`h-8 w-8 p-0 ${
-                                  currentPage === page
-                                    ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white"
-                                    : "border-blue-200 text-slate-700 hover:bg-blue-50"
-                                }`}
-                              >
-                                {page}
-                              </Button>
-                            );
-                          } else if (
-                            page === currentPage - 2 ||
-                            page === currentPage + 2
-                          ) {
-                            return (
-                              <span key={page} className="px-1 text-slate-400">
-                                ...
-                              </span>
-                            );
-                          }
-                          return null;
-                        },
+                          {log.statusCode}
+                        </span>
                       )}
 
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="h-8 w-8 p-0 border-blue-200 text-slate-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        ›
-                      </Button>
+                      {log.latency && (
+                        <span className="text-[10px] text-[#64748B]">
+                          {log.latency}ms
+                        </span>
+                      )}
+
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 text-slate-400 transition-transform ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                      />
                     </div>
                   </div>
+
+                  {/* Expanded Payload Viewer */}
+                  {isExpanded && log.payload && (
+                    <div className="px-4 pb-3 pt-1 border-t border-[#F1F5F9] bg-[#F8FAFC]">
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#64748B] mb-1">
+                        <FileCode className="h-3 w-3" />
+                        <span>PAYLOAD_DETAILS</span>
+                      </div>
+                      <pre className="p-3 bg-white border border-[#E2E8F0] rounded text-xs font-mono text-[#0F172A] max-h-56 overflow-auto leading-relaxed">
+                        {(() => {
+                          try {
+                            return JSON.stringify(JSON.parse(log.payload!), null, 2);
+                          } catch {
+                            return log.payload;
+                          }
+                        })()}
+                      </pre>
+                    </div>
+                  )}
                 </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Industrial Pagination Bar */}
+        {filtered.length > 0 && (
+          <div className="px-4 py-2.5 border-t border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between font-mono text-xs">
+            <span className="text-[#64748B] text-[11px]">
+              SHOWING {indexOfFirstItem + 1} - {Math.min(indexOfLastItem, filtered.length)} OF{" "}
+              {filtered.length} RECORDS
+            </span>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-2.5 py-1 rounded border border-[#CBD5E1] bg-white text-xs disabled:opacity-40 hover:bg-[#F8FAFC]"
+              >
+                PREV
+              </button>
+
+              <span className="px-2 text-[11px] font-bold text-[#0F172A]">
+                {currentPage} / {totalPages}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-2.5 py-1 rounded border border-[#CBD5E1] bg-white text-xs disabled:opacity-40 hover:bg-[#F8FAFC]"
+              >
+                NEXT
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

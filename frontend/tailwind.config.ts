@@ -18,86 +18,54 @@ const config: Config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           hover: "hsl(var(--primary-hover))",
-          light: "hsl(var(--primary-light))",
           foreground: "hsl(var(--primary-foreground))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
-          hover: "hsl(var(--secondary-hover))",
-          light: "hsl(var(--secondary-light))",
           foreground: "hsl(var(--secondary-foreground))",
         },
         accent: {
           DEFAULT: "hsl(var(--accent))",
-          hover: "hsl(var(--accent-hover))",
-          light: "hsl(var(--accent-light))",
           foreground: "hsl(var(--accent-foreground))",
-        },
-        highlight: {
-          DEFAULT: "hsl(var(--highlight))",
-          hover: "hsl(var(--highlight-hover))",
-          light: "hsl(var(--highlight-light))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
         },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Stormy Morning Palette
-        slate: {
-          50: "#F5F7FA",
-          100: "#E8EDF2",
-          200: "#D1DBE5",
-          300: "#B4C4D4",
-          400: "#8B9AA8",
-          500: "#5A6C7D",
-          600: "#384959",
-          700: "#2C3E50",
-        },
-        storm: {
-          primary: "#6A89A7",
-          accent: "#BDDDFC",
-          highlight: "#88BDF2",
-          dark: "#384959",
+        // Precision Engineering Light Palette
+        instrument: {
+          bg: "#F8FAFC",
+          panel: "#FFFFFF",
+          sidebar: "#FFFFFF",
+          border: "#E2E8F0",
+          borderStrong: "#CBD5E1",
+          ink: "#0F172A",
+          inkMuted: "#475569",
+          inkSubtle: "#94A3B8",
+          cobalt: "#2563EB",
+          teal: "#0D9488",
+          amber: "#EA580C",
+          green: "#16A34A",
+          red: "#DC2626",
         },
       },
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+        sans: ["var(--font-sans)", "Inter", "-apple-system", "sans-serif"],
+        mono: ["var(--font-mono)", "JetBrains Mono", "SF Mono", "monospace"],
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "6px",
+        md: "4px",
+        sm: "2px",
       },
-      keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
-        },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
-        },
-        spin: {
-          to: { transform: "rotate(360deg)" },
-        },
-      },
-      animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-        spin: "spin 0.8s linear infinite",
+      boxShadow: {
+        hairline: "0 1px 2px 0 rgba(15, 23, 42, 0.04)",
+        card: "0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05)",
+        popover: "0 4px 16px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04)",
       },
     },
   },

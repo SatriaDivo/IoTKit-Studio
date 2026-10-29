@@ -4,369 +4,202 @@
 
 @layer base {
   :root {
-    /* Stormy Morning Theme - Industrial IoT */
-    --background: 210 20% 98%; /* #F5F7FA - Light gray-blue background */
-    --foreground: 210 29% 24%; /* #2C3E50 - Dark slate text */
-    --card: 0 0% 100%; /* #FFFFFF - Pure white cards */
-    --card-foreground: 210 29% 24%; /* #2C3E50 - Dark slate text */
-    --popover: 0 0% 100%; /* #FFFFFF - White popover */
-    --popover-foreground: 210 29% 24%; /* #2C3E50 - Dark slate text */
+    /* Precision Engineering Light System */
+    --background: 210 40% 98%; /* #F8FAFC Chassis */
+    --foreground: 222 47% 11%; /* #0F172A Deep Ink */
+    
+    --card: 0 0% 100%; /* #FFFFFF Surface */
+    --card-foreground: 222 47% 11%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Primary - Slate Blue */
-    --primary: 206 23% 53%; /* #6A89A7 - Slate Blue */
-    --primary-hover: 206 26% 47%; /* #5a7997 - Darker slate */
-    --primary-light: 206 28% 63%; /* #8aa3bd - Lighter slate */
-    --primary-foreground: 0 0% 100%; /* #FFFFFF - White text on primary */
+    --primary: 222 47% 11%; /* #0F172A Deep Slate Control */
+    --primary-hover: 217 33% 17%; /* #1E293B */
+    --primary-foreground: 0 0% 100%;
 
-    /* Accent - Light Blue */
-    --accent: 206 89% 86%; /* #BDDDFC - Light Blue */
-    --accent-hover: 206 85% 81%; /* #a8d0f7 - Darker light blue */
-    --accent-light: 206 93% 91%; /* #d4e9fd - Lighter blue */
-    --accent-foreground: 210 25% 29%; /* #384959 - Dark slate text */
+    --secondary: 210 40% 96%; /* #F1F5F9 Technical Surface */
+    --secondary-hover: 214 32% 91%;
+    --secondary-foreground: 222 47% 11%;
 
-    /* Highlight - Sky Blue */
-    --highlight: 203 81% 73%; /* #88BDF2 - Sky Blue */
-    --highlight-hover: 203 77% 66%; /* #6faee8 - Darker sky */
-    --highlight-light: 203 85% 80%; /* #a8cef5 - Lighter sky */
+    --muted: 210 40% 96%; /* #F1F5F9 */
+    --muted-foreground: 215 16% 47%; /* #64748B */
 
-    /* Secondary - Dark Slate */
-    --secondary: 210 25% 29%; /* #384959 - Dark Slate */
-    --secondary-hover: 210 26% 23%; /* #2d3a47 - Darker slate */
-    --secondary-light: 210 24% 36%; /* #4a5d6f - Lighter slate */
-    --secondary-foreground: 0 0% 100%; /* #FFFFFF - White text */
+    --accent: 221 83% 53%; /* #2563EB Signal Cobalt */
+    --accent-hover: 224 76% 48%;
+    --accent-foreground: 0 0% 100%;
 
-    /* Neutral Colors */
-    --muted: 210 20% 93%; /* #E8EDF2 - Light gray-blue */
-    --muted-foreground: 210 17% 58%; /* #8B9AA8 - Medium gray */
+    --border: 214 32% 91%; /* #E2E8F0 Hairline */
+    --border-medium: 215 25% 82%; /* #CBD5E1 */
+    --border-dark: 215 16% 47%;
 
-    /* Text Colors */
-    --text-primary: 210 29% 24%; /* #2C3E50 - Dark slate */
-    --text-secondary: 210 17% 43%; /* #5A6C7D - Medium slate */
-    --text-tertiary: 210 17% 58%; /* #8B9AA8 - Light slate */
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.375rem;
 
-    /* Border Colors */
-    --border: 210 20% 87%; /* #D1DBE5 - Light border */
-    --border-medium: 210 24% 74%; /* #B4C4D4 - Medium border */
-    --border-dark: 210 17% 58%; /* #8B9AA8 - Dark border */
-
-    --input: 210 20% 87%; /* #D1DBE5 - Input border */
-    --ring: 206 23% 53%; /* #6A89A7 - Focus ring */
-    --radius: 0.5rem; /* 8px rounded corners */
-
-    /* Semantic Colors */
-    --success: 122 39% 49%; /* #4CAF50 - Green */
-    --success-bg: 122 39% 95%; /* #E8F5E9 - Light green */
-    --warning: 36 100% 50%; /* #FF9800 - Orange */
-    --warning-bg: 36 100% 94%; /* #FFF3E0 - Light orange */
-    --error: 4 90% 58%; /* #F44336 - Red */
-    --error-bg: 4 90% 95%; /* #FFEBEE - Light red */
-    --info: 207 90% 54%; /* #2196F3 - Blue */
-    --info-bg: 207 90% 94%; /* #E3F2FD - Light blue */
-
-    --destructive: 4 90% 58%; /* #F44336 - Red */
-    --destructive-foreground: 0 0% 100%; /* #FFFFFF - White text */
+    --success: 142 71% 38%; /* #16A34A */
+    --warning: 24 95% 48%; /* #EA580C */
+    --error: 0 84% 60%; /* #DC2626 */
+    --info: 221 83% 53%; /* #2563EB */
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
-    font-family:
-      "Inter",
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      sans-serif;
-    font-feature-settings:
-      "rlig" 1,
-      "calt" 1;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
-/* Custom scrollbar - Stormy Morning theme */
+/* Precision Hairline Scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-  border-radius: 10px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary) / 0.3);
-  border-radius: 10px;
-  transition: background-color 0.2s;
+  background: #CBD5E1;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.5);
+  background: #94A3B8;
 }
 
-/* Industrial card effect */
+/* Precision Instrument Components */
 .card-industrial {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
-  box-shadow: 0 2px 4px rgba(106, 137, 167, 0.08);
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .card-industrial:hover {
-  box-shadow: 0 4px 8px rgba(106, 137, 167, 0.12);
-  transition: box-shadow 0.2s;
+  border-color: #CBD5E1;
+  box-shadow: 0 2px 6px 0 rgba(15, 23, 42, 0.06);
 }
 
-/* Gradient header for cards */
-.card-header-gradient {
-  background: linear-gradient(
-    135deg,
-    hsl(var(--primary)) 0%,
-    hsl(var(--primary-hover)) 100%
-  );
-  color: hsl(var(--primary-foreground));
-}
-
-/* Soft shadow utilities */
 .shadow-industrial {
-  box-shadow: 0 2px 4px rgba(106, 137, 167, 0.08);
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04);
 }
 
 .shadow-industrial-lg {
-  box-shadow: 0 4px 8px rgba(106, 137, 167, 0.12);
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
 }
 
-/* Status badge styles */
-.badge-active {
-  @apply bg-[#4CAF50] text-white px-3 py-1 rounded-full text-xs font-medium;
-}
-
-.badge-inactive {
-  @apply bg-[#8B9AA8] text-white px-3 py-1 rounded-full text-xs font-medium;
-}
-
-.badge-warning {
-  @apply bg-[#FF9800] text-white px-3 py-1 rounded-full text-xs font-medium;
-}
-
-.badge-error {
-  @apply bg-[#F44336] text-white px-3 py-1 rounded-full text-xs font-medium;
-}
-
-.badge-info {
-  @apply bg-[#2196F3] text-white px-3 py-1 rounded-full text-xs font-medium;
-}
-
-/* Button styles - Industrial */
+/* Technical Tactile Buttons */
 .btn-primary {
-  @apply bg-[#6A89A7] hover:bg-[#5a7997] text-white font-medium px-5 py-2.5 rounded-lg transition-all duration-200;
-  box-shadow: 0 2px 4px rgba(106, 137, 167, 0.2);
-}
-
-.btn-primary:hover {
-  box-shadow: 0 4px 8px rgba(106, 137, 167, 0.3);
+  @apply inline-flex items-center justify-center font-medium text-xs uppercase tracking-wider px-4 py-2 rounded bg-[#0F172A] text-white border border-slate-900 hover:bg-[#1E293B] active:bg-[#0F172A] active:translate-y-[1px] transition-all duration-100;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
 .btn-secondary {
-  @apply bg-[#BDDDFC] hover:bg-[#a8d0f7] text-[#384959] font-medium px-5 py-2.5 rounded-lg border border-[#88BDF2] transition-all duration-200;
+  @apply inline-flex items-center justify-center font-medium text-xs uppercase tracking-wider px-4 py-2 rounded bg-white text-[#0F172A] border border-[#CBD5E1] hover:bg-[#F8FAFC] hover:border-[#94A3B8] active:translate-y-[1px] transition-all duration-100;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .btn-outline {
-  @apply bg-transparent hover:bg-[#F5F7FA] text-[#6A89A7] font-medium px-5 py-2.5 rounded-lg border-2 border-[#6A89A7] transition-all duration-200;
+  @apply inline-flex items-center justify-center font-medium text-xs uppercase tracking-wider px-4 py-2 rounded bg-transparent text-[#334155] border border-[#CBD5E1] hover:bg-[#F1F5F9] transition-all duration-100;
 }
 
-/* Input focus ring - Industrial */
+/* Technical Hardware Badges */
+.badge-active {
+  @apply inline-flex items-center gap-1.5 font-mono text-[11px] font-medium px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-800;
+}
+
+.badge-inactive {
+  @apply inline-flex items-center gap-1.5 font-mono text-[11px] font-medium px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-600;
+}
+
+.badge-warning {
+  @apply inline-flex items-center gap-1.5 font-mono text-[11px] font-medium px-2 py-0.5 rounded border border-amber-200 bg-amber-50 text-amber-800;
+}
+
+.badge-error {
+  @apply inline-flex items-center gap-1.5 font-mono text-[11px] font-medium px-2 py-0.5 rounded border border-rose-200 bg-rose-50 text-rose-800;
+}
+
+.badge-info {
+  @apply inline-flex items-center gap-1.5 font-mono text-[11px] font-medium px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-800;
+}
+
+/* Input Fields */
 .input-industrial {
-  @apply border-[#D1DBE5] focus:border-[#6A89A7] focus:ring-2 focus:ring-[#6A89A7]/20 transition-all duration-200;
+  @apply border-[#CBD5E1] bg-white text-[#0F172A] text-sm rounded focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-colors placeholder:text-slate-400;
 }
 
-/* Table styles - Industrial */
+/* Table - High-Density Precision Grid */
 .table-industrial {
-  @apply w-full bg-white border border-[#D1DBE5] rounded-lg overflow-hidden;
+  @apply w-full bg-white border border-[#E2E8F0] rounded overflow-hidden text-sm;
 }
 
 .table-industrial thead {
-  @apply bg-[#E8EDF2];
+  @apply bg-[#F8FAFC] border-b border-[#E2E8F0];
 }
 
 .table-industrial th {
-  @apply px-4 py-3 text-left text-[#384959] font-semibold text-sm;
+  @apply px-3.5 py-2.5 text-left text-[#475569] font-mono text-[11px] font-semibold uppercase tracking-wider;
 }
 
 .table-industrial td {
-  @apply px-4 py-3 text-[#5A6C7D] text-sm border-b border-[#E8EDF2];
+  @apply px-3.5 py-2.5 text-[#1E293B] border-b border-[#F1F5F9] text-xs;
 }
 
-.table-industrial tr:hover {
-  @apply bg-[#F5F7FA];
+.table-industrial tr:last-child td {
+  @apply border-b-0;
 }
 
-/* Sidebar styles - Industrial */
+.table-industrial tr:hover td {
+  @apply bg-[#F8FAFC];
+}
+
+/* Sidebar Styling - Precision Light */
 .sidebar-industrial {
-  @apply bg-[#384959] text-white;
+  @apply bg-[#FFFFFF] border-r border-[#E2E8F0] text-[#0F172A];
 }
 
 .sidebar-item {
-  @apply text-[#B4C4D4] px-5 py-3 transition-all duration-200 cursor-pointer;
+  @apply text-[#475569] px-3 py-2 rounded text-xs font-medium transition-colors duration-150 flex items-center gap-2.5;
 }
 
 .sidebar-item:hover {
-  @apply bg-[#BDDDFC]/10 text-[#BDDDFC];
+  @apply bg-[#F1F5F9] text-[#0F172A];
 }
 
 .sidebar-item.active {
-  @apply bg-[#88BDF2]/15 text-[#88BDF2];
-  border-left: 3px solid #88bdf2;
+  @apply bg-[#F1F5F9] text-[#0F172A] font-semibold border-l-2 border-[#2563EB];
 }
 
-/* Custom Scrollbar for Dark Sidebar */
-.sidebar-industrial nav::-webkit-scrollbar {
-  width: 6px;
-}
-.sidebar-industrial nav::-webkit-scrollbar-track {
-  background: transparent;
-}
-.sidebar-industrial nav::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-}
-.sidebar-industrial nav::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* Code preview - Industrial */
+/* Code Preview Terminal */
 .code-preview {
-  background: hsl(var(--muted));
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.5rem;
-  font-family: "JetBrains Mono", "Fira Code", "Monaco", monospace;
-  font-size: 0.875rem;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 4px;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8125rem;
   line-height: 1.5;
-  color: hsl(var(--text-primary));
+  color: #0F172A;
 }
 
-/* Metric card - Industrial IoT style */
-.metric-card {
-  @apply bg-white border border-[#D1DBE5] rounded-lg p-5 shadow-industrial;
-}
-
-.metric-card:hover {
-  @apply shadow-industrial-lg;
-  transition: box-shadow 0.2s;
-}
-
-.metric-value {
-  @apply text-3xl font-bold text-[#384959];
-}
-
-.metric-label {
-  @apply text-sm text-[#8B9AA8] mt-1;
-}
-
-/* Chart container */
-.chart-container {
-  @apply bg-white border border-[#D1DBE5] rounded-lg p-5;
-}
-
-/* Loading spinner - Industrial */
-.spinner-industrial {
-  border: 3px solid hsl(var(--muted));
-  border-top-color: hsl(var(--primary));
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+/* Telemetry Signal Pulse Indicator */
+@keyframes beaconPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
   }
 }
 
-/* Progress bar - Industrial */
-.progress-bar {
-  @apply bg-[#E8EDF2] rounded-full h-2 overflow-hidden;
-}
-
-.progress-fill {
-  @apply bg-gradient-to-r from-[#6A89A7] to-[#88BDF2] h-full transition-all duration-300;
-}
-
-/* Toast notification - Industrial */
-.toast-industrial {
-  @apply bg-white border border-[#D1DBE5] rounded-lg shadow-industrial-lg p-4;
-}
-
-/* Form label - Industrial */
-.form-label {
-  @apply text-sm font-medium text-[#384959] mb-1.5 block;
-}
-
-/* Divider */
-.divider-industrial {
-  @apply border-t border-[#D1DBE5] my-4;
-}
-
-/* Panel header */
-.panel-header {
-  @apply bg-gradient-to-r from-[#6A89A7] to-[#5a7997] text-white px-5 py-4 rounded-t-lg;
-}
-
-/* Data grid */
-.data-grid {
-  @apply grid gap-4;
-}
-
-/* Status indicator dot */
-.status-dot {
-  @apply inline-block w-2 h-2 rounded-full mr-2;
-}
-
-.status-dot.active {
-  @apply bg-[#4CAF50];
-  box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
-}
-
-.status-dot.inactive {
-  @apply bg-[#8B9AA8];
-}
-
-.status-dot.error {
-  @apply bg-[#F44336];
-  box-shadow: 0 0 8px rgba(244, 67, 54, 0.5);
-}
-
-/* Utility classes */
-.text-primary {
-  color: #2c3e50;
-}
-
-.text-secondary {
-  color: #5a6c7d;
-}
-
-.text-tertiary {
-  color: #8b9aa8;
-}
-
-.bg-primary {
-  background-color: #6a89a7;
-}
-
-.bg-accent {
-  background-color: #bdddfc;
-}
-
-.bg-highlight {
-  background-color: #88bdf2;
-}
-
-.bg-secondary {
-  background-color: #384959;
-}
-
-.border-primary {
-  border-color: #d1dbe5;
+.beacon-pulse {
+  animation: beaconPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

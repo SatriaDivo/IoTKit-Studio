@@ -35,8 +35,13 @@ export default function DashboardLayout({
   // Show loading spinner while checking auth
   if (checking) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100/20">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+      <div className="flex h-screen items-center justify-center bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+          <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+            INITIALIZING_ENGINE...
+          </span>
+        </div>
       </div>
     );
   }
@@ -46,12 +51,12 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-blue-50/30 via-white to-blue-100/20">
+    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
       {/* Sidebar - Hidden on mobile by default */}
       <div
         className={`${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out`}
+        } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 transition-transform duration-200 ease-in-out`}
       >
         <Sidebar collapsed={sidebarCollapsed} />
       </div>
@@ -59,7 +64,7 @@ export default function DashboardLayout({
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          className="lg:hidden fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -72,7 +77,7 @@ export default function DashboardLayout({
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           sidebarCollapsed={sidebarCollapsed}
         />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto px-6 py-5">
           <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
