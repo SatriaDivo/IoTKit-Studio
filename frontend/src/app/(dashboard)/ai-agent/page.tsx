@@ -26,6 +26,7 @@ import {
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
 import { usePopupStore } from "@/store/popupStore";
+import { useProjectStore } from "@/store/projectStore";
 import MarkdownRenderer from "@/components/ui/markdown-renderer";
 
 interface Message {
@@ -422,6 +423,14 @@ export default function AIAgentPage() {
           )
         );
 
+        if (actionTask.action === "CREATE_PROJECT") {
+          try {
+            useProjectStore.getState().fetchProjects();
+            localStorage.setItem("iotkit_projects_updated_at", Date.now().toString());
+            window.dispatchEvent(new CustomEvent("iotkit:project-created", { detail: result.data.result }));
+          } catch {}
+        }
+
         await new Promise((resolve) => setTimeout(resolve, 400));
       } catch (error: any) {
         setMessages((prev) =>
@@ -447,6 +456,12 @@ export default function AIAgentPage() {
         break;
       }
     }
+
+    try {
+      useProjectStore.getState().fetchProjects();
+      localStorage.setItem("iotkit_projects_updated_at", Date.now().toString());
+      window.dispatchEvent(new CustomEvent("iotkit:project-created"));
+    } catch {}
   };
 
   const getTaskTitle = (action: string, params: any): string => {

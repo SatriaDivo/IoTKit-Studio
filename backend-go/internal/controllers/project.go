@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"iotkit-studio-go/internal/database"
+	ws "iotkit-studio-go/internal/websocket"
 )
 
 func GetProjects(c *fiber.Ctx) error {
@@ -74,6 +75,9 @@ func CreateProject(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create project"})
 	}
 
+	ws.HubInstance.Broadcast("projects", "project:created", project)
+	ws.HubInstance.Broadcast("global", "project:created", project)
+
 	return c.Status(201).JSON(project)
 }
 
@@ -110,6 +114,8 @@ func UpdateProject(c *fiber.Ctx) error {
 	})
 
 	database.DB.First(&project, "id = ?", id)
+	ws.HubInstance.Broadcast("projects", "project:updated", project)
+	ws.HubInstance.Broadcast("global", "project:updated", project)
 	return c.JSON(project)
 }
 
@@ -121,6 +127,9 @@ func DeleteProject(c *fiber.Ctx) error {
 	if result.RowsAffected == 0 {
 		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
 	}
+
+	ws.HubInstance.Broadcast("projects", "project:deleted", map[string]interface{}{"id": id})
+	ws.HubInstance.Broadcast("global", "project:deleted", map[string]interface{}{"id": id})
 
 	return c.JSON(fiber.Map{"message": "Project deleted"})
 }

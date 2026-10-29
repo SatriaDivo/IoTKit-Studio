@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm"
 
 	"iotkit-studio-go/internal/database"
+	ws "iotkit-studio-go/internal/websocket"
 )
 
 type ChatMessageInput struct {
@@ -631,6 +632,9 @@ func executeCreateProject(userID string, paramsBytes []byte) (any, error) {
 	if err := database.DB.Create(&project).Error; err != nil {
 		return nil, err
 	}
+
+	ws.HubInstance.Broadcast("projects", "project:created", project)
+	ws.HubInstance.Broadcast("global", "project:created", project)
 
 	return fiber.Map{
 		"projectId": project.ID,

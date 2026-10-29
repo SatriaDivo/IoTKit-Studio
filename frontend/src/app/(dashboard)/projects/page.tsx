@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Edit, Play, Square, Radio, Globe, Wifi, Cpu, Layers } from "lucide-react";
+import { Plus, Trash2, Edit, Play, Square, Radio, Globe, Wifi, Cpu, Layers, RefreshCw } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { formatDate } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -19,9 +19,87 @@ export default function ProjectsPage() {
   const intervalsRef = useRef<Record<string, NodeJS.Timeout>>({});
   const idleTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
   const confirm = usePopupStore((state) => state.confirm);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await fetchProjects();
+    } finally {
+      setTimeout(() => setIsSyncing(false), 500);
+    }
+  };
 
   useEffect(() => {
+    // 1. Initial fetch
     fetchProjects().finally(() => setLoading(false));
+
+    // 2. Cross-tab sync: detect when AI agent creates/updates projects in another tab
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "iotkit_projects_updated_at") {
+        fetchProjects();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    // 3. Same-tab custom event
+    const handleCustomEvent = () => {
+      fetchProjects();
+    };
+    window.addEventListener("iotkit:project-created", handleCustomEvent);
+
+    // 4. Tab focus & visibility change: auto-refresh when user switches back to this tab
+    const handleFocus = () => {
+      fetchProjects();
+    };
+    window.addEventListener("focus", handleFocus);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchProjects();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // 5. Background polling while standing by on /projects (every 3.5s)
+    const pollTimer = setInterval(() => {
+      fetchProjects();
+    }, 3500);
+
+    // 6. WebSocket real-time event listener
+    let ws: WebSocket | null = null;
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        ws?.send(JSON.stringify({ action: "subscribe", room: "projects" }));
+      };
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (
+            payload.event === "project:created" ||
+            payload.event === "project:deleted" ||
+            payload.event === "project:updated"
+          ) {
+            fetchProjects();
+          }
+        } catch {}
+      };
+    } catch {}
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("iotkit:project-created", handleCustomEvent);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      clearInterval(pollTimer);
+      if (ws) {
+        try {
+          ws.close();
+        } catch {}
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -251,13 +329,24 @@ export default function ProjectsPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => router.push("/projects/new")}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm transition-all self-start sm:self-auto"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>New Simulation Node</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-medium text-[#475569] bg-white border border-[#CBD5E1] hover:bg-[#F8FAFC] transition-colors active:scale-95 disabled:opacity-50"
+            title="Refresh nodes & status"
+          >
+            <RefreshCw className={`h-3 w-3 ${isSyncing ? "animate-spin" : ""}`} />
+            <span>SYNC</span>
+          </button>
+          <button
+            onClick={() => router.push("/projects/new")}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm transition-all"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>New Simulation Node</span>
+          </button>
+        </div>
       </div>
 
       {/* Grid of Simulation Nodes */}
