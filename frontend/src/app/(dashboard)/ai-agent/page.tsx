@@ -193,6 +193,8 @@ export default function AIAgentPage() {
   useEffect(() => {
     if (currentSessionId) {
       loadSessionMessages(currentSessionId);
+    } else {
+      setMessages([]);
     }
   }, [currentSessionId]);
 
@@ -213,9 +215,10 @@ export default function AIAgentPage() {
 
   const loadSessionMessages = async (sessionId: string) => {
     try {
-      const response = await api.get(`/ai-agent/sessions/current`);
-      if (response.data.session && response.data.session.messages) {
-        const msgs = response.data.session.messages.map((m: any) => ({
+      const response = await api.get(`/ai-agent/sessions/${sessionId}`);
+      const rawMessages = response.data?.session?.messages || response.data?.session?.Messages || [];
+      if (Array.isArray(rawMessages) && rawMessages.length > 0) {
+        const msgs = rawMessages.map((m: any) => ({
           id: m.id,
           role: m.role,
           content: m.content,
@@ -258,12 +261,12 @@ export default function AIAgentPage() {
 
     try {
       await api.delete(`/ai-agent/sessions/${sessionId}`);
-      setSessions(sessions.filter((s) => s.id !== sessionId));
+      const remainingSessions = sessions.filter((s) => s.id !== sessionId);
+      setSessions(remainingSessions);
 
       if (currentSessionId === sessionId) {
-        if (sessions.length > 1) {
-          const nextSession = sessions.find((s) => s.id !== sessionId);
-          setCurrentSessionId(nextSession?.id || null);
+        if (remainingSessions.length > 0) {
+          setCurrentSessionId(remainingSessions[0].id);
         } else {
           setCurrentSessionId(null);
           setMessages([]);
