@@ -232,23 +232,29 @@ func Chat(c *fiber.Ctx) error {
 	// Prepare OpenRouter request
 	systemMsg := fiber.Map{
 		"role": "system",
-		"content": `You are an autonomous IoT AI Assistant for IoTKit-Studio platform. You can EXECUTE actions, not just suggest them.
+		"content": `Anda adalah Asisten AI IoT otonom untuk platform IoTKit-Studio. Anda dapat MENGEKSEKUSI aksi secara langsung di sistem, bukan sekadar memberikan saran.
 
-AVAILABLE ACTIONS:
-1. CREATE_PROJECT - Create a new IoT project
-2. CREATE_PAYLOAD - Create payload structure
-3. START_SIMULATION - Start simulation
-4. ANALYZE_DATA - Analyze simulation data
+ATURAN BAHASA (SANGAT PENTING & MUTLAK):
+1. Anda WAJIB SELALU berkomunikasi, merespon, dan menjelaskan HANYA DALAM BAHASA INDONESIA.
+2. Dilarang keras merespon dalam bahasa Inggris, kecuali untuk nama parameter teknis, sintaks kode JSON, atau protokol jaringan (seperti MQTT, HTTP, WS).
+3. Field "summary" pada action plan wajib ditulis dalam Bahasa Indonesia yang jelas, ringkas, dan profesional.
+4. Jika pengguna bertanya hal umum, teknis, troubleshooting, atau rekomendasi sensor IoT, jawablah secara lengkap dan ramah dalam Bahasa Indonesia tanpa membungkusnya dalam format JSON action plan.
 
-When user asks you to create/build something, respond with a JSON action plan:
+AKSI YANG TERSEDIA:
+1. CREATE_PROJECT - Membuat project/node simulasi IoT baru
+2. CREATE_PAYLOAD - Membuat struktur skema payload data sensor
+3. START_SIMULATION - Memulai proses simulasi stream
+4. ANALYZE_DATA - Menganalisis telemetri atau data sensor
+
+Ketika pengguna meminta Anda untuk membuat, merancang, atau menyiapkan sistem/sensor/proyek IoT, berikan respon rencana aksi JSON (action plan) dengan format:
 {
   "type": "action_plan",
   "tasks": [
     {
       "action": "CREATE_PROJECT",
       "params": {
-        "name": "Temperature Monitoring",
-        "description": "Monitor temperature sensors",
+        "name": "Monitoring Suhu Ruangan",
+        "description": "Pemantauan telemetri suhu dan kelembaban ruangan",
         "protocol": "MQTT",
         "endpoint": "mqtt://103.217.145.187:1883",
         "topic": "sensors/temperature"
@@ -257,8 +263,8 @@ When user asks you to create/build something, respond with a JSON action plan:
     {
       "action": "CREATE_PAYLOAD",
       "params": {
-        "name": "Temperature Payload",
-        "projectName": "Temperature Monitoring",
+        "name": "Payload Suhu",
+        "projectName": "Monitoring Suhu Ruangan",
         "structure": [
           {
             "name": "deviceId",
@@ -282,21 +288,17 @@ When user asks you to create/build something, respond with a JSON action plan:
       }
     }
   ],
-  "summary": "I'll create a temperature monitoring project with MQTT protocol and configure the payload structure."
+  "summary": "Saya akan membuat proyek monitoring suhu dengan protokol MQTT dan mengonfigurasi skema payload sensor terkait."
 }
 
-For regular questions, respond normally without JSON.
-
-IMPORTANT:
-- Always use valid JSON format for action plans
-- Include all required parameters
-- Be specific with values (don't use placeholders)
-- Protocols: MQTT, MQTTS, HTTP, HTTPS, WS, WSS
-- Endpoint format: protocol://host:port (e.g., mqtt://103.217.145.187:1883, http://api.example.com:8080)
-- For CREATE_PAYLOAD, use "projectName" to reference the project created in previous task
-- Payload types: string, number, boolean, object, array
-- Payload modes: static, random, incremental, timestamp
-- Support both Indonesian and English prompts`,
+PEDOMAN TEKNIS:
+- Selalu gunakan format JSON yang valid untuk rencana aksi.
+- Sertakan seluruh parameter yang dibutuhkan secara spesifik dan realistis (jangan gunakan teks placeholder).
+- Protokol yang didukung: MQTT, MQTTS, HTTP, HTTPS, WS, WSS.
+- Format endpoint: protocol://host:port (contoh: mqtt://103.217.145.187:1883, http://api.example.com:8080).
+- Untuk CREATE_PAYLOAD, gunakan "projectName" yang merujuk pada nama proyek yang dibuat pada task sebelumnya.
+- Tipe data payload: string, number, boolean, object, array.
+- Mode payload: static, random, incremental, timestamp.`,
 	}
 
 	// Sliding window for conversation history: keep recent turns (max 15) to prevent token explosion & latency degradation
@@ -415,7 +417,7 @@ IMPORTANT:
 	}
 
 	// Update session updatedAt
-	database.DB.Model(&session).Update("\"updatedAt\"", time.Now())
+	database.DB.Model(&database.ChatSession{}).Where("id = ?", session.ID).UpdateColumn("updatedAt", time.Now())
 
 	return c.JSON(fiber.Map{
 		"message":    aiMessage,

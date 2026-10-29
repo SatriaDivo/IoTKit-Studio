@@ -363,38 +363,38 @@ export default function AIAgentPage() {
   const getTaskTitle = (action: string, params: any): string => {
     switch (action) {
       case "CREATE_PROJECT":
-        return `PROVISION_NODE: ${params.name} (${params.protocol || "HTTP"})`;
+        return `BUAT_NODE_PROYEK: ${params.name} (${params.protocol || "HTTP"})`;
       case "CREATE_PAYLOAD":
-        return `SYNTHESIZE_SCHEMA: ${params.name}`;
+        return `RANCANG_SKEMA_PAYLOAD: ${params.name}`;
       case "START_SIMULATION":
-        return `INITIATE_STREAMING_DAEMON`;
+        return `MULAI_DAEMON_SIMULASI`;
       case "ANALYZE_DATA":
-        return `RUN_TELEMETRY_INSPECTION`;
+        return `INSPEKSI_TELEMETRI_DATA`;
       default:
-        return `EXECUTE_${action}`;
+        return `EKSEKUSI_${action}`;
     }
   };
 
   const suggestions = [
     {
-      title: "FACTORY_DHT22_MQTT",
-      desc: "Industrial greenhouse monitoring with DHT22 temperature and humidity telemetry over MQTT topic.",
+      title: "MONITORING_DHT22_MQTT",
+      desc: "Pemantauan suhu & kelembaban greenhouse industri dengan sensor DHT22 melalui topik MQTT.",
       prompt: "Buatkan project monitoring suhu dan kelembaban ruangan dengan sensor DHT22 menggunakan protocol MQTT topic factory/sensor/dht22",
     },
     {
-      title: "FLEET_GPS_HTTP",
-      desc: "Fleet vehicle tracking with latitude, longitude, velocity, and battery voltage over HTTP POST.",
-      prompt: "Create a GPS fleet tracking simulation project sending lat, lng, speed, and battery over HTTP endpoint /api/telemetry/gps",
+      title: "PELACAKAN_GPS_HTTP",
+      desc: "Pelacakan armada logistik kendaraan: koordinat latitude, longitude, kecepatan, dan voltase baterai via HTTP POST.",
+      prompt: "Buatkan proyek simulasi pelacakan GPS armada kendaraan yang mengirimkan koordinat latitude, longitude, kecepatan kendaraan, dan level baterai ke endpoint HTTP /api/telemetry/gps",
     },
     {
       title: "HVAC_SMART_BUILDING_WS",
-      desc: "Building climate control with setpoint, chiller status, and compressor power over WebSocket.",
+      desc: "Sistem iklim gedung cerdas: temperatur chiller, status kipas blower, dan daya listrik via WebSocket stream.",
       prompt: "Buat project HVAC smart building untuk monitor suhu chiller, status fan, dan daya listrik menggunakan WebSocket",
     },
     {
-      title: "TURBINE_VIBRATION_MQTT",
-      desc: "High-frequency industrial turbine bearing vibration and RPM telemetry with anomaly thresholds.",
-      prompt: "Create industrial vibration sensor project with MQTT for turbine bearing acceleration and RPM monitoring",
+      title: "GETARAN_TURBIN_MQTT",
+      desc: "Telemetri getaran bearing turbin frekuensi tinggi dan RPM dengan ambang batas anomali industri.",
+      prompt: "Buatkan proyek monitoring getaran turbin industri menggunakan protokol MQTT untuk memantau akselerasi getaran bearing dan kecepatan putaran RPM",
     },
   ];
 
@@ -554,10 +554,10 @@ export default function AIAgentPage() {
                 <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center space-y-2 p-8">
                   <Cpu className="h-10 w-10 opacity-20" />
                   <p className="uppercase text-xs font-bold tracking-wider text-[#0F172A]">
-                    PROMPT_SYNTHESIZER_READY
+                    ASISTEN_AI_IOT_SIAP
                   </p>
                   <p className="text-[11px] font-sans text-slate-500 max-w-sm">
-                    Enter natural language requirements below or choose a template preset from the panel on the right to synthesize nodes, payloads, and streaming daemons.
+                    Tuliskan kebutuhan sistem IoT dalam Bahasa Indonesia di bawah atau pilih preset direktif di panel kanan untuk merancang node proyek, skema payload, dan simulasi secara otomatis.
                   </p>
                 </div>
               ) : (
@@ -658,8 +658,8 @@ export default function AIAgentPage() {
                   }
                   placeholder={
                     isExhausted
-                      ? "Daily limit reached."
-                      : "Describe IoT system requirements (e.g. Buat project sensor getaran MQTT...)"
+                      ? "Batas penggunaan harian tercapai."
+                      : "Deskripsikan kebutuhan IoT Anda (contoh: Buatkan proyek monitoring tangki air level dengan sensor ultrasonik...)"
                   }
                   disabled={loading || isExhausted}
                   className="flex-1 h-9 px-3 text-xs font-mono bg-white border border-[#CBD5E1] rounded outline-none focus:border-[#2563EB]"
