@@ -8,6 +8,7 @@ import {
   PanelLeft,
   X,
   Bell,
+  Clock,
   Trash2,
   CheckCircle,
   AlertCircle,
@@ -52,6 +53,53 @@ export default function Header({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
+
+  // Real-time clock tick every second
+  useEffect(() => {
+    setCurrentDate(new Date());
+    const interval = setInterval(() => {
+      setCurrentDate(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatDateTime = (date: Date | null) => {
+    if (!date) {
+      return {
+        dateStr: "-- --- ----",
+        timeStr: "--:--:--",
+      };
+    }
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Agu",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des",
+    ];
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+
+    return {
+      dateStr: `${day} ${month} ${year}`,
+      timeStr: `${hours}:${minutes}:${seconds}`,
+    };
+  };
+
+  const { dateStr, timeStr } = formatDateTime(currentDate);
 
   // Subscribe to real-time events for live header alerts
   useEffect(() => {
@@ -237,7 +285,20 @@ export default function Header({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Live System Clock (Tanggal, Bulan, Tahun, Jam, Menit, Detik) */}
+          <div
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:py-1.5 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] font-mono text-[11px] sm:text-xs select-none shadow-2xs"
+            title="Waktu Sistem Operasional (Real-time Clock)"
+          >
+            <Clock className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+            <div className="flex items-center gap-1 sm:gap-1.5 leading-none">
+              <span className="text-[#475569] font-medium">{dateStr}</span>
+              <span className="text-[#94A3B8]">•</span>
+              <span className="text-[#0F172A] font-semibold tracking-wider">{timeStr}</span>
+            </div>
+          </div>
+
           {/* Notifications Dropdown */}
           <div className="relative">
             <button
