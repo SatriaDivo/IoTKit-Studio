@@ -111,14 +111,14 @@ func GetCurrentSession(c *fiber.Ctx) error {
 	var session database.ChatSession
 	err := database.DB.Preload("Messages", func(db *gorm.DB) *gorm.DB {
 		return db.Order("chat_messages.\"createdAt\" asc").Limit(100)
-	}).Where("\"userId\" = ? AND title = ?", userID, "Current Chat").First(&session).Error
+	}).Where("\"userId\" = ?", userID).Order("\"updatedAt\" desc").First(&session).Error
 
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			// Create new
+			// Create new default session
 			session = database.ChatSession{
 				UserID: userID,
-				Title:  "Current Chat",
+				Title:  fmt.Sprintf("Session %s", time.Now().Format("15:04")),
 			}
 			if err := database.DB.Create(&session).Error; err != nil {
 				return c.Status(500).JSON(fiber.Map{"error": "Failed to create default session"})
@@ -127,6 +127,26 @@ func GetCurrentSession(c *fiber.Ctx) error {
 		} else {
 			return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch session"})
 		}
+	}
+
+	return c.JSON(fiber.Map{"session": session})
+}
+
+// GetSessionByID returns a specific session by ID along with its messages
+func GetSessionByID(c *fiber.Ctx) error {
+	userID := c.Locals("userId").(string)
+	id := c.Params("id")
+
+	var session database.ChatSession
+	err := database.DB.Preload("Messages", func(db *gorm.DB) *gorm.DB {
+		return db.Order("chat_messages.\"createdAt\" asc").Limit(100)
+	}).Where("id = ? AND \"userId\" = ?", id, userID).First(&session).Error
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(404).JSON(fiber.Map{"error": "Session not found"})
+		}
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch session"})
 	}
 
 	return c.JSON(fiber.Map{"session": session})
@@ -145,7 +165,7 @@ func CreateSession(c *fiber.Ctx) error {
 
 	title := input.Title
 	if title == "" {
-		title = fmt.Sprintf("Chat %s", time.Now().Format("02/01/2006 15:04:05"))
+		title = fmt.Sprintf("Session %s", time.Now().Format("15:04"))
 	}
 
 	session := database.ChatSession{
@@ -156,6 +176,7 @@ func CreateSession(c *fiber.Ctx) error {
 	if err := database.DB.Create(&session).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create session"})
 	}
+	session.Messages = []database.ChatMessage{}
 
 	return c.Status(201).JSON(fiber.Map{"session": session})
 }
@@ -164,6 +185,9 @@ func CreateSession(c *fiber.Ctx) error {
 func DeleteSession(c *fiber.Ctx) error {
 	userID := c.Locals("userId").(string)
 	id := c.Params("id")
+
+	// Delete associated messages first
+	database.DB.Where("\"sessionId\" = ?", id).Delete(&database.ChatMessage{})
 
 	result := database.DB.Where("id = ? AND \"userId\" = ?", id, userID).Delete(&database.ChatSession{})
 	if result.Error != nil {

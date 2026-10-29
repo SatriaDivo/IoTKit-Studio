@@ -92,6 +92,7 @@ func Setup(app *fiber.App) {
 	aiAgent := protected.Group("/ai-agent")
 	aiAgent.Get("/sessions", controllers.GetSessions)
 	aiAgent.Get("/sessions/current", controllers.GetCurrentSession)
+	aiAgent.Get("/sessions/:id", controllers.GetSessionByID)
 	aiAgent.Post("/sessions", controllers.CreateSession)
 	aiAgent.Delete("/sessions/:id", controllers.DeleteSession)
 	aiAgent.Post("/chat", controllers.Chat)
