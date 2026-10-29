@@ -25,6 +25,7 @@ import {
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
 import { usePopupStore } from "@/store/popupStore";
+import MarkdownRenderer from "@/components/ui/markdown-renderer";
 
 interface Message {
   id: string;
@@ -594,9 +595,13 @@ export default function AIAgentPage() {
                         </span>
                       </div>
 
-                      <p className="text-xs font-sans text-[#0F172A] whitespace-pre-wrap leading-relaxed">
-                        {message.content}
-                      </p>
+                      {isUser ? (
+                        <p className="text-xs font-sans text-[#0F172A] whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                        </p>
+                      ) : (
+                        <MarkdownRenderer content={message.content} />
+                      )}
 
                       {/* Action Plan Tasks Matrix */}
                       {message.tasks && message.tasks.length > 0 && (

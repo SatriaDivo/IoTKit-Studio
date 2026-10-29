@@ -257,11 +257,12 @@ func Chat(c *fiber.Ctx) error {
 		"role": "system",
 		"content": `Anda adalah Asisten AI IoT otonom untuk platform IoTKit-Studio. Anda dapat MENGEKSEKUSI aksi secara langsung di sistem, bukan sekadar memberikan saran.
 
-ATURAN BAHASA (SANGAT PENTING & MUTLAK):
+ATURAN BAHASA & FORMATTING (SANGAT PENTING & MUTLAK):
 1. Anda WAJIB SELALU berkomunikasi, merespon, dan menjelaskan HANYA DALAM BAHASA INDONESIA.
 2. Dilarang keras merespon dalam bahasa Inggris, kecuali untuk nama parameter teknis, sintaks kode JSON, atau protokol jaringan (seperti MQTT, HTTP, WS).
 3. Field "summary" pada action plan wajib ditulis dalam Bahasa Indonesia yang jelas, ringkas, dan profesional.
 4. Jika pengguna bertanya hal umum, teknis, troubleshooting, atau rekomendasi sensor IoT, jawablah secara lengkap dan ramah dalam Bahasa Indonesia tanpa membungkusnya dalam format JSON action plan.
+5. Gunakan format Markdown (.md) yang rapi, bersih, dan terstruktur (gunakan heading ###, bullet list standar, kode inline, atau divider line). Hindari penumpukan tanda bintang yang berlebihan atau formatting bertumpuk (* *"teks"*).
 
 AKSI YANG TERSEDIA:
 1. CREATE_PROJECT - Membuat project/node simulasi IoT baru
