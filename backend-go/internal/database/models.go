@@ -132,7 +132,7 @@ type Log struct {
 	Latency    *int      `json:"latency"`
 	Timestamp  time.Time `gorm:"default:now()" json:"timestamp"`
 	ProjectID  string    `gorm:"not null" json:"projectId"`
-	Project    Project   `gorm:"foreignKey:ProjectID" json:"-"`
+	Project    *Project  `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
 }
 
 func (Log) TableName() string { return "Log" }

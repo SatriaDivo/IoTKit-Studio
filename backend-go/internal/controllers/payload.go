@@ -10,9 +10,12 @@ import (
 
 func GetPayloadsByProject(c *fiber.Ctx) error {
 	projectID := c.Params("projectId")
+	userID := c.Locals("userId").(string)
 
 	var payloads []database.Payload
-	database.DB.Where("\"projectId\" = ?", projectID).Order("\"createdAt\" DESC").Find(&payloads)
+	database.DB.Joins("JOIN \"Project\" ON \"Payload\".\"projectId\" = \"Project\".\"id\"").
+		Where("\"Payload\".\"projectId\" = ? AND \"Project\".\"userId\" = ?", projectID, userID).
+		Order("\"Payload\".\"createdAt\" DESC").Find(&payloads)
 
 	return c.JSON(payloads)
 }
@@ -24,9 +27,17 @@ type PayloadInput struct {
 }
 
 func CreatePayload(c *fiber.Ctx) error {
+	userID := c.Locals("userId").(string)
+
 	var input PayloadInput
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	// Verify project ownership
+	var project database.Project
+	if err := database.DB.Where("id = ? AND \"userId\" = ?", input.ProjectID, userID).First(&project).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
 	}
 
 	var structureStr string
@@ -56,9 +67,12 @@ func CreatePayload(c *fiber.Ctx) error {
 
 func UpdatePayload(c *fiber.Ctx) error {
 	id := c.Params("id")
+	userID := c.Locals("userId").(string)
 
 	var payload database.Payload
-	if err := database.DB.First(&payload, "id = ?", id).Error; err != nil {
+	if err := database.DB.Joins("JOIN \"Project\" ON \"Payload\".\"projectId\" = \"Project\".\"id\"").
+		Where("\"Payload\".id = ? AND \"Project\".\"userId\" = ?", id, userID).
+		First(&payload).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Payload not found"})
 	}
 
@@ -90,11 +104,15 @@ func UpdatePayload(c *fiber.Ctx) error {
 
 func DeletePayload(c *fiber.Ctx) error {
 	id := c.Params("id")
+	userID := c.Locals("userId").(string)
 
-	result := database.DB.Delete(&database.Payload{}, "id = ?", id)
-	if result.RowsAffected == 0 {
+	var payload database.Payload
+	if err := database.DB.Joins("JOIN \"Project\" ON \"Payload\".\"projectId\" = \"Project\".\"id\"").
+		Where("\"Payload\".id = ? AND \"Project\".\"userId\" = ?", id, userID).
+		First(&payload).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Payload not found"})
 	}
 
+	database.DB.Delete(&payload)
 	return c.JSON(fiber.Map{"message": "Payload deleted"})
 }

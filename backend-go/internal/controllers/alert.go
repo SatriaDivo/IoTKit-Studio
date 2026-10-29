@@ -11,6 +11,12 @@ import (
 // GET /api/alerts/rules/project/:projectId
 func GetAlertRulesByProject(c *fiber.Ctx) error {
 	projectID := c.Params("projectId")
+	userID := c.Locals("userId").(string)
+
+	var project database.Project
+	if err := database.DB.Where("id = ? AND \"userId\" = ?", projectID, userID).First(&project).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
+	}
 
 	var rules []database.AlertRule
 	if err := database.DB.Where("\"projectId\" = ?", projectID).Order("\"createdAt\" DESC").Find(&rules).Error; err != nil {
@@ -22,6 +28,8 @@ func GetAlertRulesByProject(c *fiber.Ctx) error {
 
 // POST /api/alerts/rules
 func CreateAlertRule(c *fiber.Ctx) error {
+	userID := c.Locals("userId").(string)
+
 	var input struct {
 		Name      string `json:"name"`
 		ProjectID string `json:"projectId"`
@@ -37,6 +45,12 @@ func CreateAlertRule(c *fiber.Ctx) error {
 
 	if input.Name == "" || input.ProjectID == "" || input.Field == "" || input.Operator == "" || input.Value == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "All fields are required"})
+	}
+
+	// Verify project ownership
+	var project database.Project
+	if err := database.DB.Where("id = ? AND \"userId\" = ?", input.ProjectID, userID).First(&project).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
 	}
 
 	rule := database.AlertRule{
@@ -59,6 +73,7 @@ func CreateAlertRule(c *fiber.Ctx) error {
 // PUT /api/alerts/rules/:id
 func UpdateAlertRule(c *fiber.Ctx) error {
 	id := c.Params("id")
+	userID := c.Locals("userId").(string)
 
 	var input struct {
 		Name     *string `json:"name"`
@@ -74,7 +89,9 @@ func UpdateAlertRule(c *fiber.Ctx) error {
 	}
 
 	var rule database.AlertRule
-	if err := database.DB.First(&rule, "id = ?", id).Error; err != nil {
+	if err := database.DB.Joins("JOIN \"Project\" ON \"AlertRule\".\"projectId\" = \"Project\".\"id\"").
+		Where("\"AlertRule\".id = ? AND \"Project\".\"userId\" = ?", id, userID).
+		First(&rule).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Alert rule not found"})
 	}
 
@@ -109,9 +126,12 @@ func UpdateAlertRule(c *fiber.Ctx) error {
 // DELETE /api/alerts/rules/:id
 func DeleteAlertRule(c *fiber.Ctx) error {
 	id := c.Params("id")
+	userID := c.Locals("userId").(string)
 
 	var rule database.AlertRule
-	if err := database.DB.First(&rule, "id = ?", id).Error; err != nil {
+	if err := database.DB.Joins("JOIN \"Project\" ON \"AlertRule\".\"projectId\" = \"Project\".\"id\"").
+		Where("\"AlertRule\".id = ? AND \"Project\".\"userId\" = ?", id, userID).
+		First(&rule).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Alert rule not found"})
 	}
 
@@ -125,6 +145,12 @@ func DeleteAlertRule(c *fiber.Ctx) error {
 // GET /api/alerts/history/project/:projectId
 func GetAlertHistoryByProject(c *fiber.Ctx) error {
 	projectID := c.Params("projectId")
+	userID := c.Locals("userId").(string)
+
+	var project database.Project
+	if err := database.DB.Where("id = ? AND \"userId\" = ?", projectID, userID).First(&project).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
+	}
 
 	var history []database.AlertLog
 	if err := database.DB.Where("\"projectId\" = ?", projectID).Order("\"timestamp\" DESC").Find(&history).Error; err != nil {
@@ -137,6 +163,12 @@ func GetAlertHistoryByProject(c *fiber.Ctx) error {
 // POST /api/alerts/history/clear/:projectId
 func ClearAlertHistoryByProject(c *fiber.Ctx) error {
 	projectID := c.Params("projectId")
+	userID := c.Locals("userId").(string)
+
+	var project database.Project
+	if err := database.DB.Where("id = ? AND \"userId\" = ?", projectID, userID).First(&project).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
+	}
 
 	if err := database.DB.Where("\"projectId\" = ?", projectID).Delete(&database.AlertLog{}).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to clear alert history"})

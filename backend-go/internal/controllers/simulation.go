@@ -28,9 +28,11 @@ func StartSimulation(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	// Fetch project
+	userID := c.Locals("userId").(string)
+
+	// Fetch project with ownership verification
 	var project database.Project
-	if err := database.DB.First(&project, "id = ?", body.ProjectID).Error; err != nil {
+	if err := database.DB.Where("id = ? AND \"userId\" = ?", body.ProjectID, userID).First(&project).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
 	}
 
@@ -100,6 +102,12 @@ func StopSimulation(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
+	userID := c.Locals("userId").(string)
+	var project database.Project
+	if err := database.DB.Where("id = ? AND \"userId\" = ?", body.ProjectID, userID).First(&project).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
+	}
+
 	simulation.Manager.Stop(body.ProjectID)
 
 	now := time.Now()
@@ -115,6 +123,12 @@ func StopSimulation(c *fiber.Ctx) error {
 
 func GetSimulationStatus(c *fiber.Ctx) error {
 	projectID := c.Params("projectId")
+	userID := c.Locals("userId").(string)
+
+	var project database.Project
+	if err := database.DB.Where("id = ? AND \"userId\" = ?", projectID, userID).First(&project).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
+	}
 
 	running := simulation.Manager.IsRunning(projectID)
 	stats := simulation.Manager.GetStats(projectID)
@@ -141,15 +155,20 @@ func GetSimulationStatus(c *fiber.Ctx) error {
 }
 
 func GetSimulationStats(c *fiber.Ctx) error {
+	userID := c.Locals("userId").(string)
+
 	var stats struct {
 		TotalSent    int64 `json:"totalSent" gorm:"column:totalSent"`
 		SuccessCount int64 `json:"successCount" gorm:"column:successCount"`
 		ErrorCount   int64 `json:"errorCount" gorm:"column:errorCount"`
 	}
 
-	// Query sum from database using camelCase column names matching the Prisma schema
-	err := database.DB.Model(&database.Simulation{}).
-		Select("COALESCE(SUM(\"totalSent\"), 0) as \"totalSent\", COALESCE(SUM(\"successCount\"), 0) as \"successCount\", COALESCE(SUM(\"errorCount\"), 0) as \"errorCount\"").
+	// Query sum from database filtered by user's projects
+	query := database.DB.Model(&database.Simulation{}).
+		Joins("JOIN \"Project\" ON \"Simulation\".\"projectId\" = \"Project\".\"id\"").
+		Where("\"Project\".\"userId\" = ?", userID)
+
+	err := query.Select("COALESCE(SUM(\"Simulation\".\"totalSent\"), 0) as \"totalSent\", COALESCE(SUM(\"Simulation\".\"successCount\"), 0) as \"successCount\", COALESCE(SUM(\"Simulation\".\"errorCount\"), 0) as \"errorCount\"").
 		Scan(&stats).Error
 
 	if err != nil {

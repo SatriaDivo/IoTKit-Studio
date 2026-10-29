@@ -98,8 +98,10 @@ export default function AnalyticsPage() {
       let totalLatency = 0;
       let latencyCount = 0;
 
+      const currentProjects = useProjectStore.getState().projects;
+
       await Promise.all(
-        projects.map(async (p) => {
+        currentProjects.map(async (p) => {
           try {
             const res = await api.get(`/simulations/status/${p.id}`);
             if (res.data.isRunning) activeCount++;

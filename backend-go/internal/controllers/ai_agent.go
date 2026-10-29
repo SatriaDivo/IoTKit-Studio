@@ -299,8 +299,15 @@ IMPORTANT:
 - Support both Indonesian and English prompts`,
 	}
 
+	// Sliding window for conversation history: keep recent turns (max 15) to prevent token explosion & latency degradation
+	history := input.ConversationHistory
+	const maxHistoryTurns = 15
+	if len(history) > maxHistoryTurns {
+		history = history[len(history)-maxHistoryTurns:]
+	}
+
 	apiMessages := []fiber.Map{systemMsg}
-	for _, h := range input.ConversationHistory {
+	for _, h := range history {
 		apiMessages = append(apiMessages, fiber.Map{
 			"role":    h.Role,
 			"content": h.Content,
@@ -350,9 +357,20 @@ IMPORTANT:
 	}
 
 	if resp.StatusCode != 200 {
+		var openRouterErr struct {
+			Error struct {
+				Message string `json:"message"`
+				Code    any    `json:"code"`
+			} `json:"error"`
+		}
+		errMsg := string(respBytes)
+		if json.Unmarshal(respBytes, &openRouterErr) == nil && openRouterErr.Error.Message != "" {
+			errMsg = openRouterErr.Error.Message
+		}
+
 		return c.Status(resp.StatusCode).JSON(fiber.Map{
-			"error":   "API Error",
-			"message": string(respBytes),
+			"error":   "AI Provider Error",
+			"message": errMsg,
 		})
 	}
 

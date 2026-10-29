@@ -102,7 +102,11 @@ export default function DashboardPage() {
         const logs: ActivityLog[] = response.data.map((log: any) => ({
           id: log.id,
           timestamp: log.timestamp || log.createdAt,
-          project: log.projectName || log.project?.name || "Global Stream",
+          project:
+            log.project?.name ||
+            log.projectName ||
+            useProjectStore.getState().projects.find((p) => p.id === log.projectId)?.name ||
+            "Node Telemetry",
           protocol: log.protocol || "HTTP",
           payloadSize: log.payloadSize || "--",
           status: log.type === "error" || log.statusCode >= 400 ? "error" : "success",

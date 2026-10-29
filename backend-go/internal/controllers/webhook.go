@@ -33,7 +33,7 @@ func WebhookGenerate(c *fiber.Ctx) error {
 		"webhookEnabled": true,
 	})
 
-	webhookURL := fmt.Sprintf("http://localhost:4000/api/webhook/%s", token)
+	webhookURL := fmt.Sprintf("%s/api/webhook/%s", c.BaseURL(), token)
 
 	return c.JSON(fiber.Map{
 		"token":          token,
@@ -92,7 +92,7 @@ func WebhookGetInfo(c *fiber.Ctx) error {
 
 	var webhookURL *string
 	if project.WebhookToken != nil && *project.WebhookToken != "" {
-		url := fmt.Sprintf("http://localhost:4000/api/webhook/%s", *project.WebhookToken)
+		url := fmt.Sprintf("%s/api/webhook/%s", c.BaseURL(), *project.WebhookToken)
 		webhookURL = &url
 	}
 

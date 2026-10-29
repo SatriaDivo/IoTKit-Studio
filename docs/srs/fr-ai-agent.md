@@ -11,10 +11,11 @@ Fitur Asisten AI (berbasis Gemini) merupakan nilai jual utama (*core feature*) I
 - Jika pengguna mengetik, misalnya: *"Buatkan saya project MQTT ke broker.hivemq.com port 1883 dengan nama Sensor Suhu"*, AI Agent harus bisa secara otonom memanggil fungsi backend untuk membuatkan data proyek tersebut di *database*.
 - Setelah proyek selesai dibuat oleh AI, Agent memberikan konfirmasi beserta tautan menuju proyek tersebut di dalam antarmuka percakapan.
 
-## 3. Persistent Chat History
-- Seluruh riwayat percakapan (`ChatSession` dan `ChatMessage`) harus disimpan di dalam *database* PostgreSQL.
-- Riwayat *chat* dimuat kembali ketika *user* masuk ulang, sehingga konteks pembicaraan tidak hilang (*persistent context*).
+## 3. Persistent Chat History & Context Sliding Window
+- Seluruh riwayat percakapan (`ChatSession` dan `ChatMessage`) disimpan persisten di dalam *database* PostgreSQL.
+- Riwayat *chat* dimuat kembali ketika *user* membuka kembali sesi percakapan (*persistent context*).
+- Sistem menerapkan mekanisme **Context Sliding Window (maksimal 15 pesan percakapan terakhir)** saat meneruskan konteks ke LLM via OpenRouter, guna mencegah lonjakan konsumsi token (*token explosion*), menjaga latensi tetap rendah, dan menghindari galat *context length exceeded* pada percakapan panjang.
 
-## 4. Auto-Cleanup Scheduler
-- Untuk mencegah penumpukan data *chat* di server, terdapat fungsi penjadwal (*CRON Job / Scheduler*) yang berjalan di *backend* (setiap pukul 00:00).
-- Penjadwal ini bertugas menghapus sesi *chat* lama yang sudah tidak relevan (*auto-delete*).
+## 4. Unlimited Prompts & Session Management
+- Sistem beroperasi dalam mode **Unlimited**, tanpa pembatasan kuota prompt harian.
+- Pengguna dapat membuat sesi baru atau menghapus riwayat sesi lama secara manual melalui antarmuka (*Purge Session*).

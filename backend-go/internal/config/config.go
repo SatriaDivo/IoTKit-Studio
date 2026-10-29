@@ -20,7 +20,12 @@ type Config struct {
 var AppConfig Config
 
 func Load() {
-	godotenv.Load()
+	// Try loading .env from current directory, backend-go/.env, or root .env
+	for _, envFile := range []string{".env", "backend-go/.env", "../.env"} {
+		if err := godotenv.Load(envFile); err == nil {
+			break
+		}
+	}
 
 	AppConfig = Config{
 		Port:            getEnv("PORT", "4000"),

@@ -32,7 +32,7 @@
 
 - **AI Agent**: Autonomous project creation using natural language (Indonesian & English)
 - **Chat History**: Persistent chat sessions with PostgreSQL storage
-- **Auto-cleanup**: Daily chat cleanup at 00:00
+- **Unlimited Prompts**: Uncapped prompts with sliding window context memory
 
 #### UI/UX
 
@@ -204,7 +204,7 @@ iotkit-studio/
 
 - AI Agent chat history
 - Persistent storage in PostgreSQL
-- Auto-cleanup daily at 00:00
+- Persistent session logs (no auto-deletion)
 
 **AlertRule** ✅ **NEW**
 
@@ -446,7 +446,7 @@ The AI Agent feature allows users to create projects using natural language.
 
 - Multi-language support (Indonesian & English)
 - Chat history persistence (PostgreSQL)
-- Auto-delete old chats (daily at 00:00 via cron job)
+- Unlimited daily prompts with 15-turn sliding window
 - Real-time task execution
 - Session management
 
