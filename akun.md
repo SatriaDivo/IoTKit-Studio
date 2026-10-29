@@ -92,6 +92,27 @@ curl -X POST http://localhost:4000/api/auth/login \
 
 ---
 
+## 🤖 Konfigurasi AI Provider (9router)
+
+AI Agent terintegrasi dengan gateway AI 9router (OpenAI-compatible) dan model performa tinggi:
+
+| Parameter | Nilai Konfigurasi | Keterangan |
+| :--- | :--- | :--- |
+| **Provider** | `9router` | Gateway AI berkecepatan tinggi |
+| **Base URL** | `https://9router.stdv.biz.id/v1` | Endpoint OpenAI-compatible |
+| **API Key** | `sk-84d12d9b527f4129-fv075i-ca4bd20c` | Token autentikasi |
+| **Model** | `ag/gemini-3.8-flash-high` | Model multimodal cepat & akurat |
+| **Bahasa Respon** | Bahasa Indonesia (Mutlak) | Semua prompt & action plan otomatis diterjemahkan |
+
+Variabel lingkungan telah diset di `backend-go/.env`:
+```env
+AI_BASE_URL=https://9router.stdv.biz.id/v1
+AI_API_KEY=sk-84d12d9b527f4129-fv075i-ca4bd20c
+AI_MODEL=ag/gemini-3.8-flash-high
+```
+
+---
+
 ## ⚙️ Menjalankan Layanan Lokal
 
 Jika layanan belum aktif di background, jalankan dua terminal berikut:

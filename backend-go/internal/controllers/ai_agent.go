@@ -176,7 +176,35 @@ func DeleteSession(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true})
 }
 
-// Chat calls OpenRouter API with history and processes instructions
+// getAIConfig retrieves base URL, API key, and model from environment variables
+// Supports 9router, OpenRouter, or any OpenAI-compatible API gateway
+func getAIConfig() (baseURL, apiKey, model string) {
+	apiKey = os.Getenv("AI_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("OPENROUTER_API_KEY")
+	}
+
+	baseURL = os.Getenv("AI_BASE_URL")
+	if baseURL == "" {
+		baseURL = os.Getenv("OPENROUTER_BASE_URL")
+	}
+	if baseURL == "" {
+		baseURL = "https://9router.stdv.biz.id/v1"
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	model = os.Getenv("AI_MODEL")
+	if model == "" {
+		model = os.Getenv("OPENROUTER_MODEL")
+	}
+	if model == "" {
+		model = "ag/gemini-3.8-flash-high"
+	}
+
+	return baseURL, apiKey, model
+}
+
+// Chat calls AI completion API with history and processes instructions
 func Chat(c *fiber.Ctx) error {
 	userID := c.Locals("userId").(string)
 
@@ -189,16 +217,11 @@ func Chat(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Message is required"})
 	}
 
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	model := os.Getenv("OPENROUTER_MODEL")
-	if model == "" {
-		model = "anthropic/claude-3.5-sonnet"
-	}
-
+	baseURL, apiKey, model := getAIConfig()
 	if apiKey == "" {
 		return c.Status(500).JSON(fiber.Map{
-			"error":   "OpenRouter API key not configured",
-			"message": "Please add OPENROUTER_API_KEY to your .env file",
+			"error":   "AI API key not configured",
+			"message": "Please configure AI_API_KEY or OPENROUTER_API_KEY in your .env file",
 		})
 	}
 
@@ -325,6 +348,7 @@ PEDOMAN TEKNIS:
 		"messages":    apiMessages,
 		"temperature": 0.7,
 		"max_tokens":  2000,
+		"stream":      false,
 	}
 
 	jsonBytes, err := json.Marshal(reqBody)
@@ -332,7 +356,7 @@ PEDOMAN TEKNIS:
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to serialize request"})
 	}
 
-	req, err := http.NewRequest("POST", "https://openrouter.ai/api/v1/chat/completions", bytes.NewBuffer(jsonBytes))
+	req, err := http.NewRequest("POST", baseURL+"/chat/completions", bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create API request"})
 	}
@@ -349,7 +373,7 @@ PEDOMAN TEKNIS:
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to communicate with OpenRouter"})
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to communicate with AI provider"})
 	}
 	defer resp.Body.Close()
 
@@ -359,15 +383,15 @@ PEDOMAN TEKNIS:
 	}
 
 	if resp.StatusCode != 200 {
-		var openRouterErr struct {
+		var providerErr struct {
 			Error struct {
 				Message string `json:"message"`
 				Code    any    `json:"code"`
 			} `json:"error"`
 		}
 		errMsg := string(respBytes)
-		if json.Unmarshal(respBytes, &openRouterErr) == nil && openRouterErr.Error.Message != "" {
-			errMsg = openRouterErr.Error.Message
+		if json.Unmarshal(respBytes, &providerErr) == nil && providerErr.Error.Message != "" {
+			errMsg = providerErr.Error.Message
 		}
 
 		return c.Status(resp.StatusCode).JSON(fiber.Map{
@@ -376,21 +400,26 @@ PEDOMAN TEKNIS:
 		})
 	}
 
-	var openrouterResponse struct {
+	var chatResponse struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Role             string `json:"role"`
+				Content          string `json:"content"`
+				ReasoningContent string `json:"reasoning_content"`
 			} `json:"message"`
 		} `json:"choices"`
 		Model string `json:"model"`
 		Usage any    `json:"usage"`
 	}
 
-	if err := json.Unmarshal(respBytes, &openrouterResponse); err != nil || len(openrouterResponse.Choices) == 0 {
+	if err := json.Unmarshal(respBytes, &chatResponse); err != nil || len(chatResponse.Choices) == 0 {
 		return c.Status(500).JSON(fiber.Map{"error": "Invalid AI response structure"})
 	}
 
-	aiMessage := openrouterResponse.Choices[0].Message.Content
+	aiMessage := chatResponse.Choices[0].Message.Content
+	if aiMessage == "" && chatResponse.Choices[0].Message.ReasoningContent != "" {
+		aiMessage = chatResponse.Choices[0].Message.ReasoningContent
+	}
 
 	// Check if response contains an action plan JSON block
 	var actionPlan map[string]any
@@ -424,8 +453,8 @@ PEDOMAN TEKNIS:
 		"actionPlan": actionPlan,
 		"sessionId":  session.ID,
 		"messageId":  assistantMessage.ID,
-		"model":      openrouterResponse.Model,
-		"usage":      openrouterResponse.Usage,
+		"model":      chatResponse.Model,
+		"usage":      chatResponse.Usage,
 	})
 }
 
@@ -662,14 +691,14 @@ func executeAnalyzeData(userID string, paramsBytes []byte) (any, error) {
 	}, nil
 }
 
-// GetModels lists available models from OpenRouter
+// GetModels lists available models from AI Provider
 func GetModels(c *fiber.Ctx) error {
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	baseURL, apiKey, _ := getAIConfig()
 	if apiKey == "" {
-		return c.Status(500).JSON(fiber.Map{"error": "OpenRouter API key not configured"})
+		return c.Status(500).JSON(fiber.Map{"error": "AI Provider API key not configured"})
 	}
 
-	req, err := http.NewRequest("GET", "https://openrouter.ai/api/v1/models", nil)
+	req, err := http.NewRequest("GET", baseURL+"/models", nil)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create API request"})
 	}
@@ -679,7 +708,7 @@ func GetModels(c *fiber.Ctx) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch models from OpenRouter"})
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch models from AI provider"})
 	}
 	defer resp.Body.Close()
 
@@ -690,7 +719,7 @@ func GetModels(c *fiber.Ctx) error {
 
 	var rawJSON json.RawMessage
 	if err := json.Unmarshal(respBytes, &rawJSON); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse OpenRouter response"})
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse models response"})
 	}
 
 	return c.JSON(rawJSON)
@@ -698,9 +727,9 @@ func GetModels(c *fiber.Ctx) error {
 
 // GetUsage returns user usage stats for the day (unlimited mode)
 func GetUsage(c *fiber.Ctx) error {
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	_, apiKey, currentModel := getAIConfig()
 	if apiKey == "" {
-		return c.Status(500).JSON(fiber.Map{"error": "OpenRouter API key not configured"})
+		return c.Status(500).JSON(fiber.Map{"error": "AI Provider API key not configured"})
 	}
 
 	userID := c.Locals("userId").(string)
@@ -712,11 +741,6 @@ func GetUsage(c *fiber.Ctx) error {
 		Joins("JOIN chat_sessions ON chat_messages.\"sessionId\" = chat_sessions.id").
 		Where("chat_messages.role = ? AND chat_messages.\"createdAt\" >= ? AND chat_sessions.\"userId\" = ?", "user", today, userID).
 		Count(&dailyCount)
-
-	currentModel := os.Getenv("OPENROUTER_MODEL")
-	if currentModel == "" {
-		currentModel = "anthropic/claude-3.5-sonnet"
-	}
 
 	return c.JSON(fiber.Map{
 		"limit":        -1,

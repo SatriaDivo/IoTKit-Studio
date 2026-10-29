@@ -77,6 +77,7 @@ export default function AIAgentPage() {
     used: number;
     remaining: number;
     unlimited?: boolean;
+    currentModel?: string;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isExhausted =
@@ -423,36 +424,48 @@ export default function AIAgentPage() {
             </div>
           </div>
 
-          {/* Usage Quota Cells */}
+          {/* Usage Quota & Model Badges */}
           {usage && (
-            <div className="flex items-center gap-2 bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1.5 rounded font-mono text-xs">
-              <span className="text-[#64748B] text-[10px] uppercase">
-                DAILY_BUDGET:
-              </span>
-              {usage.unlimited || usage.limit < 0 ? (
-                <span className="font-bold text-emerald-600 flex items-center gap-1.5">
-                  <span>UNLIMITED</span>
-                  <span className="text-[#64748B] font-normal text-[11px]">
-                    ({usage.used} USED)
+            <div className="flex items-center gap-2">
+              {usage.currentModel && (
+                <div className="hidden sm:flex items-center gap-1.5 bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1.5 rounded font-mono text-xs">
+                  <span className="text-[#64748B] text-[10px] uppercase">
+                    MODEL:
                   </span>
-                </span>
-              ) : (
-                <>
                   <span className="font-bold text-[#0F172A]">
-                    {usage.remaining}/{usage.limit} REMAINING
+                    {usage.currentModel}
                   </span>
-                  <div className="flex gap-1 ml-1">
-                    {Array.from({ length: usage.limit }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-2 w-3 rounded-xs ${
-                          i < usage.used ? "bg-slate-200" : "bg-emerald-600"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </>
+                </div>
               )}
+              <div className="flex items-center gap-2 bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-1.5 rounded font-mono text-xs">
+                <span className="text-[#64748B] text-[10px] uppercase">
+                  DAILY_BUDGET:
+                </span>
+                {usage.unlimited || usage.limit < 0 ? (
+                  <span className="font-bold text-emerald-600 flex items-center gap-1.5">
+                    <span>UNLIMITED</span>
+                    <span className="text-[#64748B] font-normal text-[11px]">
+                      ({usage.used} USED)
+                    </span>
+                  </span>
+                ) : (
+                  <>
+                    <span className="font-bold text-[#0F172A]">
+                      {usage.remaining}/{usage.limit} REMAINING
+                    </span>
+                    <div className="flex gap-1 ml-1">
+                      {Array.from({ length: usage.limit }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`h-2 w-3 rounded-xs ${
+                            i < usage.used ? "bg-slate-200" : "bg-emerald-600"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
