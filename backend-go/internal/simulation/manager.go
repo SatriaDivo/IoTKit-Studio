@@ -802,6 +802,225 @@ func generatePayload(fields []PayloadField, chaosMode bool, chaosProbability flo
 	return result
 }
 
+// LeafField represents a single flattened column in the synthetic dataset.
+type LeafField struct {
+	ColumnName string
+	Field      PayloadField
+}
+
+func getLeafFields(fields []PayloadField, prefix string) []LeafField {
+	var leaves []LeafField
+	for _, f := range fields {
+		if f.Name == "__dataset_mode__" {
+			continue
+		}
+		fullName := f.Name
+		if prefix != "" {
+			fullName = prefix + "." + f.Name
+		}
+		if strings.ToLower(f.Type) == "object" && len(f.Children) > 0 {
+			leaves = append(leaves, getLeafFields(f.Children, fullName)...)
+		} else {
+			leaves = append(leaves, LeafField{
+				ColumnName: fullName,
+				Field:      f,
+			})
+		}
+	}
+	return leaves
+}
+
+// GenerateSyntheticCSV generates tabular CSV data based on payload fields with a hard cap on size.
+func GenerateSyntheticCSV(fields []PayloadField, rowCount int, chaosMode bool, chaosProbability float64, chaosFields []string, maxSizeBytes int64) ([]byte, int, error) {
+	if rowCount <= 0 {
+		rowCount = 100
+	}
+	if maxSizeBytes <= 0 {
+		maxSizeBytes = 3 * 1024 * 1024 // 3MB default
+	}
+
+	leaves := getLeafFields(fields, "")
+
+	// If no fields provided, supply standard industrial sensor fields
+	if len(leaves) == 0 {
+		defaultMinT, defaultMaxT := 20.0, 85.0
+		defaultMinH, defaultMaxH := 30.0, 90.0
+		defaultMinP, defaultMaxP := 980.0, 1040.0
+		defaultMinV, defaultMaxV := 3.1, 3.6
+
+		leaves = []LeafField{
+			{ColumnName: "timestamp", Field: PayloadField{Name: "timestamp", Type: "string", Mode: "timestamp"}},
+			{ColumnName: "device_id", Field: PayloadField{Name: "device_id", Type: "string", Mode: "static", Value: "SENSOR-NODE-01"}},
+			{ColumnName: "temperature", Field: PayloadField{Name: "temperature", Type: "number", Mode: "random", Min: &defaultMinT, Max: &defaultMaxT}},
+			{ColumnName: "humidity", Field: PayloadField{Name: "humidity", Type: "number", Mode: "random", Min: &defaultMinH, Max: &defaultMaxH}},
+			{ColumnName: "pressure", Field: PayloadField{Name: "pressure", Type: "number", Mode: "random", Min: &defaultMinP, Max: &defaultMaxP}},
+			{ColumnName: "voltage", Field: PayloadField{Name: "voltage", Type: "number", Mode: "random", Min: &defaultMinV, Max: &defaultMaxV}},
+			{ColumnName: "status", Field: PayloadField{Name: "status", Type: "string", Mode: "static", Value: "OPERATIONAL"}},
+		}
+	}
+
+	var buf bytes.Buffer
+	writer := csv.NewWriter(&buf)
+
+	// Write CSV Header
+	headers := make([]string, len(leaves))
+	for idx, lf := range leaves {
+		headers[idx] = lf.ColumnName
+	}
+	if err := writer.Write(headers); err != nil {
+		return nil, 0, err
+	}
+
+	baseTime := time.Now().Add(-time.Duration(rowCount) * time.Second)
+
+	for i := 0; i < rowCount; i++ {
+		rowTime := baseTime.Add(time.Duration(i) * time.Second)
+		row := make([]string, len(leaves))
+
+		for colIdx, lf := range leaves {
+			row[colIdx] = formatColumnValue(lf.Field, i, rowTime, chaosMode, chaosProbability, chaosFields)
+		}
+
+		if err := writer.Write(row); err != nil {
+			return nil, 0, err
+		}
+
+		// Check buffer size periodically to avoid uncontrolled memory/size growth
+		if i%25 == 0 {
+			writer.Flush()
+			if int64(buf.Len()) > maxSizeBytes {
+				return nil, 0, fmt.Errorf("ukuran data yang dihasilkan melebihi batas maksimal 3MB (%d bytes)", maxSizeBytes)
+			}
+		}
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return nil, 0, err
+	}
+
+	if int64(buf.Len()) > maxSizeBytes {
+		return nil, 0, fmt.Errorf("ukuran data yang dihasilkan melebihi batas maksimal 3MB (%d bytes)", maxSizeBytes)
+	}
+
+	return buf.Bytes(), rowCount, nil
+}
+
+func formatColumnValue(f PayloadField, rowIdx int, rowTime time.Time, chaosMode bool, chaosProbability float64, chaosFields []string) string {
+	fieldType := strings.ToLower(f.Type)
+	fieldMode := strings.ToLower(f.Mode)
+
+	// Specific handler for timestamp fields
+	if fieldMode == "timestamp" || strings.ToLower(f.Name) == "timestamp" {
+		if fieldType == "number" {
+			return fmt.Sprintf("%d", rowTime.UnixMilli())
+		}
+		return rowTime.Format(time.RFC3339)
+	}
+
+	switch fieldType {
+	case "number":
+		minV := 0.0
+		maxV := 100.0
+		if f.Min != nil {
+			minV = *f.Min
+		}
+		if f.Max != nil {
+			maxV = *f.Max
+		}
+
+		var val float64
+		switch fieldMode {
+		case "static":
+			if f.Value != nil {
+				switch typedVal := f.Value.(type) {
+				case float64:
+					val = typedVal
+				case float32:
+					val = float64(typedVal)
+				case int:
+					val = float64(typedVal)
+				case string:
+					if pf, err := strconv.ParseFloat(typedVal, 64); err == nil {
+						val = pf
+					}
+				}
+			}
+		case "incremental":
+			seed := minV
+			if f.Value != nil {
+				switch typedVal := f.Value.(type) {
+				case float64:
+					seed = typedVal
+				case int:
+					seed = float64(typedVal)
+				case string:
+					if pf, err := strconv.ParseFloat(typedVal, 64); err == nil {
+						seed = pf
+					}
+				}
+			}
+			val = seed + float64(rowIdx)
+		default: // random
+			val = minV + rand.Float64()*(maxV-minV)
+		}
+
+		// Chaos Injector
+		if chaosMode && fieldMode == "random" && rand.Float64()*100 < chaosProbability {
+			val = maxV * 10.0
+		}
+
+		// Format float to 2 decimal places if fractional, else int
+		if val == math.Trunc(val) {
+			return fmt.Sprintf("%.0f", val)
+		}
+		return fmt.Sprintf("%.2f", math.Round(val*100)/100)
+
+	case "boolean":
+		var val bool
+		switch fieldMode {
+		case "static":
+			if f.Value != nil {
+				if vb, ok := f.Value.(bool); ok {
+					val = vb
+				} else if vs, ok := f.Value.(string); ok {
+					val = vs == "true"
+				}
+			}
+		default:
+			val = rand.Float64() > 0.5
+		}
+
+		if chaosMode && fieldMode == "random" && rand.Float64()*100 < chaosProbability {
+			val = !val
+		}
+		return fmt.Sprintf("%t", val)
+
+	case "string":
+		switch fieldMode {
+		case "static":
+			if f.Value != nil {
+				return fmt.Sprintf("%v", f.Value)
+			}
+			return ""
+		case "incremental":
+			prefix := "node"
+			if f.Value != nil && fmt.Sprintf("%v", f.Value) != "" {
+				prefix = fmt.Sprintf("%v", f.Value)
+			}
+			return fmt.Sprintf("%s_%d", prefix, rowIdx+1)
+		default: // random
+			return fmt.Sprintf("val_%d", rand.Intn(1000000))
+		}
+
+	default:
+		if f.Value != nil {
+			return fmt.Sprintf("%v", f.Value)
+		}
+		return ""
+	}
+}
+
 func injectSwarmID(payload map[string]interface{}, vuID int) {
 	for key, val := range payload {
 		lk := strings.ToLower(key)

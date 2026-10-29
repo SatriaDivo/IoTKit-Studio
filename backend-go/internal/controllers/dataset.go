@@ -7,13 +7,27 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
 	"iotkit-studio-go/internal/config"
 	"iotkit-studio-go/internal/database"
+	"iotkit-studio-go/internal/simulation"
 )
+
+// MaxDatasetSizeBytes enforces maximum 3MB file size for datasets (3,145,728 bytes).
+const MaxDatasetSizeBytes = 3 * 1024 * 1024
+
+func formatFileSize(bytes int64) string {
+	if bytes < 1024 {
+		return fmt.Sprintf("%d B", bytes)
+	} else if bytes < 1024*1024 {
+		return fmt.Sprintf("%.2f KB", float64(bytes)/1024.0)
+	}
+	return fmt.Sprintf("%.2f MB", float64(bytes)/(1024.0*1024.0))
+}
 
 func GetDatasets(c *fiber.Ctx) error {
 	var datasets []database.Dataset
@@ -38,6 +52,13 @@ func UploadDataset(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "fileName, moduleName, and content are required"})
 	}
 
+	fileSizeBytes := int64(len(body.Content))
+	if fileSizeBytes > MaxDatasetSizeBytes {
+		return c.Status(400).JSON(fiber.Map{
+			"error": fmt.Sprintf("Ukuran file (%s) melebihi batas maksimal 3MB (3,145,728 bytes)", formatFileSize(fileSizeBytes)),
+		})
+	}
+
 	finalName := body.FileName
 	if body.Name != "" && strings.TrimSpace(body.Name) != "" {
 		finalName = strings.TrimSpace(body.Name)
@@ -60,8 +81,6 @@ func UploadDataset(c *fiber.Ctx) error {
 	if nonEmpty > 1 {
 		loadedRows = nonEmpty - 1 // subtract header
 	}
-
-	fileSizeBytes := int64(len(body.Content))
 
 	// Write file to disk
 	fileID := uuid.New().String()
@@ -164,5 +183,145 @@ func GetDatasetPreview(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"rows":      lines,
 		"totalRows": dataset.LoadedRows,
+	})
+}
+
+// DownloadDataset allows downloading a CSV dataset file directly from disk.
+func DownloadDataset(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var dataset database.Dataset
+	if err := database.DB.First(&dataset, "id = ?", id).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Dataset tidak ditemukan"})
+	}
+
+	if _, err := os.Stat(dataset.FilePath); os.IsNotExist(err) {
+		return c.Status(404).JSON(fiber.Map{"error": "File dataset tidak ditemukan di server"})
+	}
+
+	downloadName := dataset.FileName
+	if !strings.HasSuffix(strings.ToLower(downloadName), ".csv") {
+		downloadName += ".csv"
+	}
+
+	c.Set("Content-Type", "text/csv; charset=utf-8")
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", downloadName))
+	return c.Download(dataset.FilePath, downloadName)
+}
+
+// GenerateDataset creates synthetic CSV telemetry data with option to save to vault or download directly.
+// Hard cap: 3MB (3,145,728 bytes).
+func GenerateDataset(c *fiber.Ctx) error {
+	var input struct {
+		Name             string                     `json:"name"`
+		ModuleName       string                     `json:"moduleName"`
+		RowCount         int                        `json:"rowCount"`
+		SaveToDataset    bool                       `json:"saveToDataset"`
+		PayloadStructure []simulation.PayloadField `json:"payloadStructure"`
+		ChaosMode        bool                       `json:"chaosMode"`
+		ChaosProbability float64                    `json:"chaosProbability"`
+		ChaosFields      []string                   `json:"chaosFields"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Format input JSON tidak valid"})
+	}
+
+	if input.RowCount <= 0 {
+		input.RowCount = 100
+	}
+	if input.RowCount > 50000 {
+		return c.Status(400).JSON(fiber.Map{"error": "Jumlah baris maksimal yang diizinkan adalah 50.000"})
+	}
+
+	cleanName := strings.TrimSpace(input.Name)
+	if cleanName == "" {
+		cleanName = fmt.Sprintf("Synthetic_Dataset_%s", time.Now().Format("20060102_150405"))
+	}
+
+	cleanModule := strings.TrimSpace(input.ModuleName)
+	if cleanModule == "" {
+		cleanModule = "telemetry"
+	}
+
+	csvBytes, actualRows, err := simulation.GenerateSyntheticCSV(
+		input.PayloadStructure,
+		input.RowCount,
+		input.ChaosMode,
+		input.ChaosProbability,
+		input.ChaosFields,
+		MaxDatasetSizeBytes,
+	)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	fileSizeBytes := int64(len(csvBytes))
+	if fileSizeBytes > MaxDatasetSizeBytes {
+		return c.Status(400).JSON(fiber.Map{
+			"error": fmt.Sprintf("Ukuran data (%s) melebihi batas maksimal 3MB (3,145,728 bytes)", formatFileSize(fileSizeBytes)),
+		})
+	}
+
+	fileName := cleanName
+	if !strings.HasSuffix(strings.ToLower(fileName), ".csv") {
+		fileName += ".csv"
+	}
+
+	// 1. OPSI: JIKA DISIMPAN KE DATASET VAULT
+	if input.SaveToDataset {
+		fileID := uuid.New().String()
+		uploadDir := config.AppConfig.UploadDir
+		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Gagal menyiapkan direktori penyimpanan dataset"})
+		}
+		destPath := filepath.Join(uploadDir, fileID+".csv")
+
+		if err := os.WriteFile(destPath, csvBytes, 0644); err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Gagal menyimpan file dataset ke disk"})
+		}
+
+		h := sha256.New()
+		h.Write(csvBytes)
+		checksum := fmt.Sprintf("%x", h.Sum(nil))
+
+		relPath := fmt.Sprintf("uploads/datasets/%s.csv", fileID)
+
+		dataset := database.Dataset{
+			Name:             cleanName,
+			ModuleName:       cleanModule,
+			FileName:         fileName,
+			FilePath:         destPath,
+			FilePathRelative: &relPath,
+			FileSizeBytes:    fileSizeBytes,
+			ChecksumSha256:   checksum,
+			LoadedRows:       actualRows,
+			IsActive:         true,
+		}
+
+		if err := database.DB.Create(&dataset).Error; err != nil {
+			os.Remove(destPath)
+			return c.Status(500).JSON(fiber.Map{"error": "Gagal menyimpan data dataset ke database"})
+		}
+
+		return c.Status(201).JSON(fiber.Map{
+			"saved":         true,
+			"dataset":       dataset,
+			"csvContent":    string(csvBytes),
+			"fileName":      fileName,
+			"fileSizeBytes": fileSizeBytes,
+			"rowCount":      actualRows,
+			"message":       "Dataset berhasil di-generate, disimpan ke vault, dan siap diunduh",
+		})
+	}
+
+	// 2. OPSI: JIKA TIDAK DISIMPAN KE DATASET (HANYA DOWNLOAD LANGSUNG)
+	return c.JSON(fiber.Map{
+		"saved":         false,
+		"csvContent":    string(csvBytes),
+		"fileName":      fileName,
+		"fileSizeBytes": fileSizeBytes,
+		"rowCount":      actualRows,
+		"message":       "Data berhasil di-generate dan siap diunduh (tidak disimpan ke vault)",
 	})
 }

@@ -462,7 +462,10 @@ export default function AlertsPage() {
 
       {/* Deploy Rule Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div
+          style={{ margin: 0 }}
+          className="fixed inset-0 m-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        >
           <div className="bg-white border border-[#CBD5E1] rounded-md shadow-popover max-w-md w-full overflow-hidden">
             <div className="px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
               <span className="font-mono text-xs font-bold text-[#0F172A] uppercase">

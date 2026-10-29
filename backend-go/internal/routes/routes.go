@@ -43,7 +43,9 @@ func Setup(app *fiber.App) {
 	datasets := protected.Group("/datasets")
 	datasets.Get("/", controllers.GetDatasets)
 	datasets.Post("/upload", controllers.UploadDataset)
+	datasets.Post("/generate", controllers.GenerateDataset)
 	datasets.Get("/:id/preview", controllers.GetDatasetPreview)
+	datasets.Get("/:id/download", controllers.DownloadDataset)
 	datasets.Put("/:id/name", controllers.UpdateDatasetName)
 	datasets.Delete("/:id", controllers.DeleteDataset)
 

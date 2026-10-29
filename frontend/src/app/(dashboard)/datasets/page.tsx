@@ -14,6 +14,10 @@ import {
   Layers,
   FileSpreadsheet,
   CheckCircle2,
+  Download,
+  Sparkles,
+  X,
+  ShieldAlert,
 } from "lucide-react";
 import { usePopupStore } from "@/store/popupStore";
 
@@ -26,6 +30,14 @@ export default function DatasetsPage() {
   const [datasetName, setDatasetName] = useState("");
   const confirm = usePopupStore((state) => state.confirm);
   const prompt = usePopupStore((state) => state.prompt);
+
+  // Generate Synthetic Dataset State
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genRows, setGenRows] = useState(500);
+  const [genSaveToVault, setGenSaveToVault] = useState(true);
+  const [genName, setGenName] = useState("");
+  const [genModuleName, setGenModuleName] = useState("industrial");
 
   useEffect(() => {
     fetchDatasets();
@@ -46,9 +58,9 @@ export default function DatasetsPage() {
   const handleUpload = async () => {
     if (!file) return toast.error("Please select a CSV file");
 
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB limit
     if (file.size > MAX_FILE_SIZE) {
-      return toast.error("File is too large. Maximum size is 50MB.");
+      return toast.error("Ukuran file melebihi batas maksimal 3MB (3,145,728 bytes).");
     }
 
     setUploading(true);
@@ -72,6 +84,74 @@ export default function DatasetsPage() {
       toast.error(error.response?.data?.error || "Failed to upload dataset");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDownload = async (dataset: any) => {
+    try {
+      toast.loading("Mengunduh dataset...", { id: "download" });
+      const res = await api.get(`/datasets/${dataset.id}/download`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv;charset=utf-8;" }));
+      const link = document.createElement("a");
+      link.href = url;
+      let fileName = dataset.fileName || `${dataset.name}.csv`;
+      if (!fileName.toLowerCase().endsWith(".csv")) {
+        fileName += ".csv";
+      }
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Dataset berhasil diunduh", { id: "download" });
+    } catch {
+      toast.error("Gagal mengunduh dataset", { id: "download" });
+    }
+  };
+
+  const handleGenerateDataset = async () => {
+    if (genRows <= 0) {
+      return toast.error("Jumlah baris harus lebih dari 0");
+    }
+    if (genRows > 50000) {
+      return toast.error("Jumlah baris maksimal adalah 50.000");
+    }
+
+    setGenerating(true);
+    try {
+      const res = await api.post("/datasets/generate", {
+        name: genName.trim() || undefined,
+        moduleName: genModuleName.trim() || "industrial",
+        rowCount: Number(genRows),
+        saveToDataset: genSaveToVault,
+      });
+
+      // Trigger file download
+      const blob = new Blob([res.data.csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", res.data.fileName || "synthetic-dataset.csv");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      if (res.data.saved) {
+        toast.success("Dataset berhasil di-generate, disimpan ke vault, dan diunduh!");
+        fetchDatasets();
+      } else {
+        toast.success("Data berhasil di-generate dan langsung diunduh (tidak disimpan ke vault).");
+      }
+
+      setShowGenerateModal(false);
+      setGenName("");
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Gagal membuat dataset sintetis");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -144,6 +224,16 @@ export default function DatasetsPage() {
               </p>
             </div>
           </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowGenerateModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-xs"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              <span>GENERATE_DATASET</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -156,7 +246,9 @@ export default function DatasetsPage() {
               <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
                 INGEST_CSV_DATASET
               </span>
-              <span className="font-mono text-[10px] text-[#64748B]">MAX 50MB</span>
+              <span className="font-mono text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                MAX 3MB
+              </span>
             </div>
 
             <div className="p-4 space-y-3.5 text-xs">
@@ -191,7 +283,7 @@ export default function DatasetsPage() {
 
               <div>
                 <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
-                  CSV SOURCE FILE
+                  CSV SOURCE FILE (MAKS. 3MB)
                 </label>
                 <input
                   id="csv-file-upload"
@@ -229,7 +321,7 @@ export default function DatasetsPage() {
                   ) : (
                     <>
                       <Upload className="h-3.5 w-3.5" />
-                      <span>Ingest Telemetry Records</span>
+                      <span>INGEST_DATASET</span>
                     </>
                   )}
                 </button>
@@ -240,12 +332,12 @@ export default function DatasetsPage() {
 
         {/* Datasets Inventory Table (8 cols) */}
         <div className="lg:col-span-8 space-y-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden flex flex-col">
-            <div className="px-4 py-2.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+          <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
               <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-4 w-4 text-[#0F172A]" />
+                <Database className="h-4 w-4 text-[#0F172A]" />
                 <span className="font-mono text-xs font-bold text-[#0F172A] uppercase tracking-wider">
-                  REGISTERED_DATASET_ARCHIVE
+                  REGISTERED_DATASETS_INVENTORY
                 </span>
               </div>
               <span className="font-mono text-[10px] text-[#64748B]">
@@ -267,7 +359,7 @@ export default function DatasetsPage() {
                   NO_DATASETS_REGISTERED
                 </p>
                 <p className="text-[11px] font-sans text-slate-400 max-w-sm mx-auto">
-                  Upload CSV files from the panel on the left to replay historical IoT telemetry sequences in simulations.
+                  Upload CSV files or click GENERATE_DATASET to create synthetic industrial telemetry data.
                 </p>
               </div>
             ) : (
@@ -280,7 +372,7 @@ export default function DatasetsPage() {
                       <th className="py-2 px-3 font-semibold text-right">ROWS</th>
                       <th className="py-2 px-3 font-semibold text-right">SIZE</th>
                       <th className="py-2 px-3 font-semibold text-right">DATE</th>
-                      <th className="py-2 px-3 font-semibold text-center w-20">ACTIONS</th>
+                      <th className="py-2 px-3 font-semibold text-center w-24">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F1F5F9] font-mono">
@@ -314,6 +406,13 @@ export default function DatasetsPage() {
                         <td className="py-2.5 px-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
+                              onClick={() => handleDownload(dataset)}
+                              className="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              title="Download Dataset (CSV)"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                            <button
                               onClick={() => handleRename(dataset.id, dataset.name)}
                               className="p-1 rounded text-slate-400 hover:text-[#2563EB] hover:bg-blue-50 transition-colors"
                               title="Rename Identifier"
@@ -338,6 +437,187 @@ export default function DatasetsPage() {
           </div>
         </div>
       </div>
+
+      {/* Generate Synthetic Dataset Modal */}
+      {showGenerateModal && (
+        <div
+          style={{ margin: 0 }}
+          className="fixed inset-0 m-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
+        >
+          <div className="bg-white border border-[#CBD5E1] rounded-lg shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded bg-blue-100 text-blue-700">
+                  <FileSpreadsheet className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[#0F172A] tracking-tight">
+                    Generate Synthetic Telemetry Dataset
+                  </h3>
+                  <p className="font-mono text-[10px] text-[#64748B]">
+                    Hasilkan data IoT realistis berformat CSV dengan batas maksimal 3MB
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGenerateModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <div className="p-5 space-y-4 text-xs">
+              {/* Row Count */}
+              <div>
+                <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                  JUMLAH BARIS DATA (ROW COUNT)
+                </label>
+                <input
+                  type="number"
+                  min="10"
+                  max="50000"
+                  value={genRows}
+                  onChange={(e) => setGenRows(parseInt(e.target.value) || 0)}
+                  className="w-full h-8 px-2.5 font-mono border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
+                />
+                <span className="text-[10px] text-[#64748B] mt-1 block font-mono">
+                  Estimasi ukuran file: ~{((genRows * 85) / 1024).toFixed(1)} KB (Maksimal: 3,072 KB / 3MB)
+                </span>
+              </div>
+
+              {/* Pilihan Simpan ke Dataset Vault atau Tidak */}
+              <div className="space-y-2">
+                <label className="font-mono text-[10px] text-[#64748B] uppercase block">
+                  PILIHAN PENYIMPANAN DATASET
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div
+                    onClick={() => setGenSaveToVault(true)}
+                    className={`p-3 rounded border cursor-pointer transition-all ${
+                      genSaveToVault
+                        ? "bg-blue-50/50 border-blue-500 ring-1 ring-blue-500"
+                        : "bg-white border-[#E2E8F0] hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <input
+                        type="radio"
+                        checked={genSaveToVault}
+                        onChange={() => setGenSaveToVault(true)}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="font-semibold text-xs text-[#0F172A]">
+                        Simpan ke Vault & Download
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#64748B] leading-relaxed pl-5">
+                      Data disimpan permanen di database vault sehingga dapat di-replay dalam simulasi & diunduh kapan saja.
+                    </p>
+                  </div>
+
+                  <div
+                    onClick={() => setGenSaveToVault(false)}
+                    className={`p-3 rounded border cursor-pointer transition-all ${
+                      !genSaveToVault
+                        ? "bg-blue-50/50 border-blue-500 ring-1 ring-blue-500"
+                        : "bg-white border-[#E2E8F0] hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <input
+                        type="radio"
+                        checked={!genSaveToVault}
+                        onChange={() => setGenSaveToVault(false)}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="font-semibold text-xs text-[#0F172A]">
+                        Hanya Download CSV Langsung
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#64748B] leading-relaxed pl-5">
+                      Data langsung diunduh ke komputer Anda tanpa disimpan ke database/vault untuk menghemat ruang penyimpanan.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Conditional Inputs if Save to Vault is Checked */}
+              {genSaveToVault && (
+                <div className="space-y-3 p-3 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
+                  <div>
+                    <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                      NAMA DATASET VAULT
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Synthetic_Factory_Telemetry"
+                      value={genName}
+                      onChange={(e) => setGenName(e.target.value)}
+                      className="w-full h-8 px-2.5 font-sans border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                      KATEGORI / MODUL
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. industrial, sensors, iot"
+                      value={genModuleName}
+                      onChange={(e) => setGenModuleName(e.target.value)}
+                      className="w-full h-8 px-2.5 font-sans border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 3MB Hard Cap Notice */}
+              <div className="p-2.5 rounded bg-amber-50 border border-amber-200 flex items-start gap-2 text-amber-900 font-mono text-[11px]">
+                <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">BATASAN MAKSIMAL: 3 MB (3,145,728 BYTES)</span>
+                  <p className="text-[10px] text-amber-700 font-sans mt-0.5">
+                    Data yang di-generate dijaga agar tidak melebihi 3MB untuk menjamin integritas memori dan kestabilan transmisi data.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="px-5 py-3 border-t border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowGenerateModal(false)}
+                className="px-3 py-1.5 text-xs font-mono font-medium text-slate-600 hover:text-slate-800 bg-white border border-[#CBD5E1] rounded hover:bg-slate-50 transition-colors"
+              >
+                BATAL
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateDataset}
+                disabled={generating}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded shadow-xs transition-colors disabled:opacity-50"
+              >
+                {generating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>MEMPROSES_DATA...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    <span>GENERATE & UNDUH CSV</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -526,7 +526,10 @@ export default function UsersManagementPage() {
 
       {/* CREATE USER MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div
+          style={{ margin: 0 }}
+          className="fixed inset-0 m-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+        >
           <div className="bg-white rounded-lg border border-[#CBD5E1] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
               <div className="flex items-center gap-2">
@@ -683,7 +686,10 @@ export default function UsersManagementPage() {
 
       {/* EDIT USER MODAL */}
       {showEditModal && editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div
+          style={{ margin: 0 }}
+          className="fixed inset-0 m-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+        >
           <div className="bg-white rounded-lg border border-[#CBD5E1] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
               <div className="flex items-center gap-2">
@@ -793,7 +799,10 @@ export default function UsersManagementPage() {
 
       {/* RESET PASSWORD MODAL */}
       {showResetModal && resetTargetUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div
+          style={{ margin: 0 }}
+          className="fixed inset-0 m-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+        >
           <div className="bg-white rounded-lg border border-[#CBD5E1] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="px-5 py-4 border-b border-[#E2E8F0] flex items-center justify-between bg-amber-50/50">
               <div className="flex items-center gap-2">
@@ -819,7 +828,7 @@ export default function UsersManagementPage() {
               <div className="p-3 bg-amber-50/70 border border-amber-200 rounded text-xs text-amber-900 flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  This will immediately invalidate the operator's current password. Ensure you
+                  This will immediately invalidate the operator&apos;s current password. Ensure you
                   securely provide them the new credential.
                 </div>
               </div>
@@ -894,7 +903,10 @@ export default function UsersManagementPage() {
 
       {/* DELETE CONFIRMATION MODAL */}
       {showDeleteModal && deleteTargetUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div
+          style={{ margin: 0 }}
+          className="fixed inset-0 m-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+        >
           <div className="bg-white rounded-lg border border-rose-200 shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="px-5 py-4 border-b border-rose-100 flex items-center justify-between bg-rose-50/60">
               <div className="flex items-center gap-2">

@@ -88,3 +88,20 @@ export interface DashboardStats {
   totalPayloadSent: number;
   connectedDevices: number;
 }
+
+export interface Dataset {
+  id: string;
+  name: string;
+  moduleName: string;
+  fileName: string;
+  filePath: string;
+  filePathRelative?: string;
+  fileSizeBytes: number;
+  checksumSha256: string;
+  delimiter?: string;
+  loadedRows: number;
+  skippedRows: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

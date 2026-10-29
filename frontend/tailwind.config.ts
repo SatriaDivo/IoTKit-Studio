@@ -67,6 +67,12 @@ const config: Config = {
         card: "0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.05)",
         popover: "0 4px 16px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04)",
       },
+      backdropBlur: {
+        xs: "4px",
+        sm: "4px",
+        md: "8px",
+        lg: "16px",
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],
