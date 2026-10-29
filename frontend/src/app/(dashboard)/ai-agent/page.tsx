@@ -20,6 +20,7 @@ import {
   Radio,
   Sliders,
   ChevronRight,
+  Database,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
@@ -525,8 +526,8 @@ export default function AIAgentPage() {
             </div>
 
             <div className="p-2.5 border-t border-[#E2E8F0] bg-[#F8FAFC] text-center font-mono text-[10px] text-[#64748B]">
-              <Clock className="h-3 w-3 inline mr-1" />
-              <span>DB_AUTO_CLEANUP @ 00:00</span>
+              <Database className="h-3 w-3 inline mr-1 text-[#64748B]" />
+              <span>PERSISTENT_POSTGRES_STORE</span>
             </div>
           </div>
         </div>

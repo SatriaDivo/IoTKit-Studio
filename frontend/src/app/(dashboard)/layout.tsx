@@ -47,7 +47,16 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated) {
-    return null;
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+          <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+            AUTHENTICATION_REQUIRED // REDIRECTING_TO_LOGIN...
+          </span>
+        </div>
+      </div>
+    );
   }
 
   return (

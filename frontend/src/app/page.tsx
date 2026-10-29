@@ -1,24 +1,49 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 
 export default function Home() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, checkAuth } = useAuthStore();
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/dashboard");
-    } else {
-      router.push("/login");
+    let mounted = true;
+    const verify = async () => {
+      try {
+        await checkAuth();
+      } finally {
+        if (mounted) {
+          setChecking(false);
+        }
+      }
+    };
+    verify();
+    return () => {
+      mounted = false;
+    };
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (!checking) {
+      if (isAuthenticated) {
+        router.replace("/dashboard");
+      } else {
+        router.replace("/login");
+      }
     }
-  }, [isAuthenticated, router]);
+  }, [checking, isAuthenticated, router]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+    <div className="flex h-screen items-center justify-center bg-[#F8FAFC]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-6 w-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
+          CONNECTING_GATEWAY // DISPATCHING_ROUTE...
+        </span>
+      </div>
     </div>
   );
 }

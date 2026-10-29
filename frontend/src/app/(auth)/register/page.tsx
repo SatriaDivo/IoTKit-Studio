@@ -3,18 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Cpu, ArrowRight, ShieldCheck, Activity } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -34,122 +27,159 @@ export default function RegisterPage() {
       await register(email, password, name);
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err.response?.data?.error || "Registration failed");
+      setError(err.response?.data?.error || "Registration failed. Please check your data.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-cyan-50 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <Card className="border-blue-100 shadow-lg">
-          <CardHeader className="space-y-3 pb-6">
-            <div className="flex justify-center mb-2">
-              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg">
-                <svg
-                  className="h-10 w-10 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] bg-[radial-gradient(#E2E8F0_1px,transparent_1px)] [background-size:20px_20px] p-4">
+      {/* Precision Frame Container */}
+      <div className="w-full max-w-md">
+        {/* Terminal Header Info */}
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+            <span className="font-mono text-[11px] text-slate-500 font-semibold tracking-wider uppercase">
+              PROVISIONING_PORTAL // DISPATCH
+            </span>
+          </div>
+          <span className="font-mono text-[10px] text-slate-400 bg-slate-200/60 px-2 py-0.5 rounded border border-slate-300/50">
+            ENCLAVE: ACTIVE
+          </span>
+        </div>
+
+        {/* Industrial Register Console */}
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+          {/* Card Top Banner */}
+          <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-xs">
+                <Cpu className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                  IoTKit Studio
+                  <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200/60">
+                    PROVISION
+                  </span>
+                </h1>
+                <p className="text-xs text-slate-500">
+                  Register New System Operator Node
+                </p>
               </div>
             </div>
-            <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
-              IoTKit-Studio
-            </CardTitle>
-            <CardDescription className="text-center text-slate-600">
-              Create an account to get started
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            <Activity className="h-4 w-4 text-slate-400" />
+          </div>
+
+          <div className="p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-slate-700 font-medium">
-                  Name (Optional)
-                </Label>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="name" className="font-mono text-xs uppercase tracking-wider text-slate-600 font-medium">
+                    Operator Handle / Name
+                  </Label>
+                  <span className="font-mono text-[10px] text-slate-400">OPTIONAL</span>
+                </div>
                 <Input
                   id="name"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Operator Lead"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+                  className="h-10 bg-white font-mono text-xs border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700 font-medium">
-                  Email
-                </Label>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="email" className="font-mono text-xs uppercase tracking-wider text-slate-600 font-medium">
+                    Operator Identity / Email
+                  </Label>
+                  <span className="font-mono text-[10px] text-slate-400">REQUIRED</span>
+                </div>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="operator@iotkit.local"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+                  className="h-10 bg-white font-mono text-xs border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
               </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="password"
-                  className="text-slate-700 font-medium"
-                >
-                  Password
-                </Label>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="font-mono text-xs uppercase tracking-wider text-slate-600 font-medium">
+                    Access Secret / Password
+                  </Label>
+                  <span className="font-mono text-[10px] text-slate-400">MIN 8 CHARS</span>
+                </div>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="border-blue-200 focus:border-blue-400 focus:ring-blue-400/20"
+                  className="h-10 bg-white font-mono text-xs border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
               </div>
+
               {error && (
-                <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-sm text-red-700">{error}</p>
+                <div className="p-3 rounded-lg bg-red-50/80 border border-red-200 flex items-start gap-2 text-xs text-red-800">
+                  <div className="h-1.5 w-1.5 rounded-full bg-red-600 mt-1.5 shrink-0" />
+                  <span className="font-mono">{error}</span>
                 </div>
               )}
+
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200"
                 disabled={loading}
+                className="w-full h-10 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs uppercase tracking-wider font-semibold rounded-lg shadow-xs flex items-center justify-center gap-2 transition-colors"
               >
-                {loading ? "Creating account..." : "Register"}
+                {loading ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>PROVISIONING_OPERATOR...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>REGISTER OPERATOR</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </Button>
             </form>
-            <div className="mt-6 text-center text-sm text-slate-600">
-              Already have an account?{" "}
+
+            <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span className="text-slate-500">Already provisioned?</span>
               <Link
                 href="/login"
-                className="text-blue-600 hover:text-blue-700 font-semibold hover:underline"
+                className="font-mono text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
               >
-                Login
+                LOGIN_OPERATOR &rarr;
               </Link>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-slate-500 mt-6">
-          © 2026 IoTKit-Studio. All rights reserved.
-        </p>
-      </motion.div>
+          {/* Sub-footer status bar */}
+          <div className="px-6 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
+              PBKDF2 / BCRYPT_HASH
+            </span>
+            <span>BACKEND: GO FIBER // :4000</span>
+          </div>
+        </div>
+
+        {/* Global Footer */}
+        <div className="mt-6 text-center font-mono text-[11px] text-slate-400">
+          IoTKit Studio &bull; Precision Industrial Simulation Suite &bull; 2026
+        </div>
+      </div>
     </div>
   );
 }
