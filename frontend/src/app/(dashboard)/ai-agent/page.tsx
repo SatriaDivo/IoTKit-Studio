@@ -542,19 +542,6 @@ export default function AIAgentPage() {
 
         {/* Right Badges & Presets Toggle */}
         <div className="flex items-center gap-2 shrink-0">
-          {usage && (
-            <div className="hidden lg:flex items-center gap-1.5 bg-[#F8FAFC] border border-[#E2E8F0] px-2.5 py-1 rounded font-mono text-[10px]">
-              <span className="text-[#64748B]">MODEL:</span>
-              <span className="font-bold text-[#0F172A]">
-                {usage.currentModel || "ag/gemini-3.8-flash-high"}
-              </span>
-              <span className="text-slate-300 mx-1">|</span>
-              <span className="text-[#64748B]">BUDGET:</span>
-              <span className="font-bold text-emerald-600">UNLIMITED</span>
-              <span className="text-slate-400 font-normal">({usage.used} USED)</span>
-            </div>
-          )}
-
           {/* Right Sidebar Toggle Button */}
           <button
             onClick={toggleRightSidebar}
