@@ -21,6 +21,8 @@ import {
   Activity,
   ExternalLink,
   RefreshCw,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import toast from "react-hot-toast";
@@ -35,6 +37,7 @@ export default function MQTTInspectorPage() {
   const [clientId, setClientId] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [topicInput, setTopicInput] = useState("");
   const [subscribedTopics, setSubscribedTopics] = useState<string[]>([
     "iotkit/test/#",
@@ -779,13 +782,23 @@ export default function MQTTInspectorPage() {
                   <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
                     PASSWORD (OPTIONAL)
                   </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isConnected}
-                    className="w-full h-8 px-2 font-mono border border-[#CBD5E1] rounded bg-white outline-none"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isConnected}
+                      className="w-full h-8 px-2 pr-7 font-mono border border-[#CBD5E1] rounded bg-white outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      title={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                    >
+                      {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
