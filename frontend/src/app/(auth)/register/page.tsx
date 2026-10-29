@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Cpu, ArrowRight, ShieldCheck, Activity } from "lucide-react";
+import { Cpu, ArrowRight, ShieldCheck, Activity, Eye, EyeOff } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,19 +15,36 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (password.length < 8) {
+      setError("Password minimal 8 karakter.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Konfirmasi password tidak cocok dengan password yang dimasukkan.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await register(email, password, name);
+      await register(email.trim(), password, name.trim());
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err.response?.data?.error || "Registration failed. Please check your data.");
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Pendaftaran gagal. Periksa kembali data Anda."
+      );
     } finally {
       setLoading(false);
     }
@@ -66,7 +83,7 @@ export default function RegisterPage() {
                   </span>
                 </h1>
                 <p className="text-xs text-slate-500">
-                  Register New System Operator Node
+                  Registrasi Operator Node Sistem Baru
                 </p>
               </div>
             </div>
@@ -78,14 +95,14 @@ export default function RegisterPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="name" className="font-mono text-xs uppercase tracking-wider text-slate-600 font-medium">
-                    Operator Handle / Name
+                    Nama Operator / Alias
                   </Label>
-                  <span className="font-mono text-[10px] text-slate-400">OPTIONAL</span>
+                  <span className="font-mono text-[10px] text-slate-400">OPSIONAL</span>
                 </div>
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Operator Lead"
+                  placeholder="Lead Operator"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="h-10 bg-white font-mono text-xs border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
@@ -95,14 +112,14 @@ export default function RegisterPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="email" className="font-mono text-xs uppercase tracking-wider text-slate-600 font-medium">
-                    Operator Identity / Email
+                    Email Operator
                   </Label>
-                  <span className="font-mono text-[10px] text-slate-400">REQUIRED</span>
+                  <span className="font-mono text-[10px] text-slate-400">WAJIB</span>
                 </div>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="name@example.com"
+                  placeholder="operator@iotkit.local"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -113,17 +130,46 @@ export default function RegisterPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="font-mono text-xs uppercase tracking-wider text-slate-600 font-medium">
-                    Access Secret / Password
+                    Password Akses
                   </Label>
-                  <span className="font-mono text-[10px] text-slate-400">MIN 8 CHARS</span>
+                  <span className="font-mono text-[10px] text-slate-400">MIN. 8 KARAKTER</span>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    className="h-10 pr-9 bg-white font-mono text-xs border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="confirmPassword" className="font-mono text-xs uppercase tracking-wider text-slate-600 font-medium">
+                    Konfirmasi Password
+                  </Label>
+                  <span className="font-mono text-[10px] text-slate-400">COCOKKAN</span>
                 </div>
                 <Input
-                  id="password"
-                  type="password"
+                  id="confirmPassword"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  minLength={8}
                   className="h-10 bg-white font-mono text-xs border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
               </div>
@@ -138,16 +184,16 @@ export default function RegisterPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-10 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs uppercase tracking-wider font-semibold rounded-lg shadow-xs flex items-center justify-center gap-2 transition-colors"
+                className="w-full h-10 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-mono text-xs uppercase tracking-wider font-semibold rounded-lg shadow-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 {loading ? (
                   <>
                     <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>PROVISIONING_OPERATOR...</span>
+                    <span>MEMPROSES_REGISTRASI...</span>
                   </>
                 ) : (
                   <>
-                    <span>REGISTER OPERATOR</span>
+                    <span>DAFTARKAN OPERATOR</span>
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
@@ -155,12 +201,12 @@ export default function RegisterPage() {
             </form>
 
             <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-500">Already provisioned?</span>
+              <span className="text-slate-500">Sudah memiliki akun operator?</span>
               <Link
                 href="/login"
                 className="font-mono text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
               >
-                LOGIN_OPERATOR &rarr;
+                LOGIN OPERATOR &rarr;
               </Link>
             </div>
           </div>

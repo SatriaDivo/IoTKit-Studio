@@ -16,6 +16,7 @@ type User struct {
 	Email     string    `gorm:"uniqueIndex;not null" json:"email"`
 	Password  string    `gorm:"not null" json:"-"`
 	Name      *string   `json:"name"`
+	Role      string    `gorm:"default:'operator'" json:"role"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 	Projects  []Project `gorm:"foreignKey:UserID" json:"projects,omitempty"`

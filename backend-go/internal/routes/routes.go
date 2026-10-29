@@ -102,4 +102,12 @@ func Setup(app *fiber.App) {
 
 	// PDF Reports (auth required)
 	protected.Post("/reports/export", controllers.ExportPDFReport)
+
+	// User Management (Admin only)
+	users := protected.Group("/users", middleware.RequireAdmin)
+	users.Get("/", controllers.GetUsers)
+	users.Post("/", controllers.CreateUser)
+	users.Put("/:id", controllers.UpdateUser)
+	users.Post("/:id/reset-password", controllers.ResetUserPassword)
+	users.Delete("/:id", controllers.DeleteUser)
 }

@@ -49,10 +49,24 @@ func Connect() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// AutoMigrate new AlertRule, AlertLog and WebhookMap tables
-	err = DB.AutoMigrate(&AlertRule{}, &AlertLog{}, &WebhookMap{})
+	// AutoMigrate new AlertRule, AlertLog, WebhookMap and User schema
+	err = DB.AutoMigrate(&AlertRule{}, &AlertLog{}, &WebhookMap{}, &User{})
 	if err != nil {
-		log.Printf("Failed to run GORM auto-migration for Alert tables: %v", err)
+		log.Printf("Failed to run GORM auto-migration: %v", err)
+	}
+
+	// Ensure any legacy users without a role receive 'operator'
+	DB.Model(&User{}).Where("role IS NULL OR role = ''").Update("role", "operator")
+
+	// If no admin user exists, automatically promote the primary/first user to admin
+	var adminCount int64
+	DB.Model(&User{}).Where("role = ?", "admin").Count(&adminCount)
+	if adminCount == 0 {
+		var firstUser User
+		if err := DB.Order("\"createdAt\" asc").First(&firstUser).Error; err == nil {
+			DB.Model(&firstUser).Update("role", "admin")
+			log.Printf("[DB] Automatically designated first user '%s' as admin", firstUser.Email)
+		}
 	}
 
 	sqlDB, _ := DB.DB()

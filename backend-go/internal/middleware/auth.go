@@ -8,6 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	"iotkit-studio-go/internal/config"
+	"iotkit-studio-go/internal/database"
 )
 
 func AuthMiddleware(c *fiber.Ctx) error {
@@ -34,6 +35,24 @@ func AuthMiddleware(c *fiber.Ctx) error {
 	}
 
 	c.Locals("userId", claims["userId"])
+	return c.Next()
+}
+
+func RequireAdmin(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userId").(string)
+	if !ok || userID == "" {
+		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	var user database.User
+	if err := database.DB.Select("role").First(&user, "id = ?", userID).Error; err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "User record not found"})
+	}
+
+	if user.Role != "admin" {
+		return c.Status(403).JSON(fiber.Map{"error": "Forbidden: Administrator role required"})
+	}
+
 	return c.Next()
 }
 

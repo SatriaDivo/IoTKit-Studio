@@ -14,6 +14,8 @@ import {
   Info,
   LogOut,
   User,
+  Users,
+  Shield,
   Radio,
   ExternalLink,
 } from "lucide-react";
@@ -350,9 +352,16 @@ export default function Header({
                 <p className="text-xs font-medium text-[#0F172A] leading-tight truncate max-w-[100px]">
                   {user?.name || "Operator"}
                 </p>
-                <p className="text-[10px] font-mono text-[#64748B] uppercase leading-none">
-                  ADMIN
-                </p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  {user?.role === "admin" && (
+                    <Shield className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />
+                  )}
+                  <p className={`text-[10px] font-mono uppercase leading-none font-semibold ${
+                    user?.role === "admin" ? "text-amber-600" : "text-[#64748B]"
+                  }`}>
+                    {user?.role?.toUpperCase() || "OPERATOR"}
+                  </p>
+                </div>
               </div>
             </button>
 
@@ -368,10 +377,22 @@ export default function Header({
                       {user?.name || "Operator"}
                     </p>
                     <p className="text-[11px] font-mono text-[#64748B] truncate">
-                      {user?.email || "operator@iotkit.io"}
+                      {user?.email || "name@example.com"}
                     </p>
                   </div>
                   <div className="py-1">
+                    {user?.role === "admin" && (
+                      <button
+                        onClick={() => {
+                          router.push("/users");
+                          setShowUserMenu(false);
+                        }}
+                        className="w-full px-3.5 py-1.5 text-xs text-[#0F172A] hover:bg-[#F8FAFC] flex items-center gap-2 font-medium"
+                      >
+                        <Users className="h-3.5 w-3.5 text-amber-600" />
+                        User Management
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         router.push("/settings");
@@ -380,7 +401,7 @@ export default function Header({
                       className="w-full px-3.5 py-1.5 text-xs text-[#334155] hover:bg-[#F8FAFC] flex items-center gap-2 font-medium"
                     >
                       <User className="h-3.5 w-3.5 text-[#64748B]" />
-                      Operator Settings
+                      Account Settings
                     </button>
                   </div>
                   <div className="py-1">

@@ -18,8 +18,10 @@ import {
   AlertTriangle,
   Radio,
   Cpu,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
+import { useAuthStore } from "@/store/authStore";
 
 interface NavItem {
   name: string;
@@ -76,6 +78,7 @@ const navigation: NavGroup[] = [
 
 export default function Sidebar({ collapsed = false }: SidebarProps) {
   const pathname = usePathname();
+  const user = useAuthStore((s) => s.user);
   const [collapsedGroups, setCollapsedGroups] = useState<{
     [key: string]: boolean;
   }>({});
@@ -83,6 +86,25 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
   const toggleGroup = (title: string) => {
     setCollapsedGroups((prev) => ({ ...prev, [title]: !prev[title] }));
   };
+
+  const currentNav: NavGroup[] = [
+    ...navigation,
+    ...(user?.role === "admin"
+      ? [
+          {
+            title: "Administration",
+            items: [
+              {
+                name: "User Management",
+                href: "/users",
+                icon: Users,
+                code: "USR",
+              },
+            ],
+          },
+        ]
+      : []),
+  ];
 
   return (
     <aside
@@ -117,7 +139,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
 
       {/* Navigation Groups */}
       <nav className="flex-1 px-2.5 py-3 space-y-4 overflow-y-auto">
-        {navigation.map((group) => {
+        {currentNav.map((group) => {
           const isCollapsed = collapsedGroups[group.title];
 
           return (
