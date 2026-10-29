@@ -28,9 +28,10 @@ func main() {
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
-		BodyLimit:    50 * 1024 * 1024, // 50MB
-		ServerHeader: "IoTKit-Studio-Go",
-		AppName:      "IoTKit Studio Backend (Go)",
+		BodyLimit:             50 * 1024 * 1024, // 50MB
+		DisableStartupMessage: true,
+		ServerHeader:          "",
+		AppName:               "IoTKit Studio",
 	})
 
 	// Middleware
@@ -53,15 +54,13 @@ func main() {
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"status":  "ok",
-			"engine":  "Go/Fiber",
-			"version": "1.0.0",
+			"status": "ok",
 		})
 	})
 
 	// Start server
 	addr := fmt.Sprintf(":%s", config.AppConfig.Port)
-	log.Printf("🚀 IoTKit Studio Go Backend running on http://localhost%s", addr)
-	log.Printf("📡 WebSocket available at ws://localhost%s/ws", addr)
+	log.Printf("IoTKit Studio Telemetry Service running on http://localhost%s", addr)
+	log.Printf("WebSocket gateway available at ws://localhost%s/ws", addr)
 	log.Fatal(app.Listen(addr))
 }

@@ -52,9 +52,8 @@ export default function Header({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [engineType, setEngineType] = useState<string>("Go/Fiber");
 
-  // Subscribe to real-time events for live header alerts (Go Native WebSocket or Node Socket.IO fallback)
+  // Subscribe to real-time events for live header alerts
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
     let socket: any = null;
@@ -67,10 +66,9 @@ export default function Header({
           .then((res) => res.json())
           .catch(() => ({}));
         
-        const isGo = healthRes.engine === "Go/Fiber";
-        setEngineType(isGo ? "Go/Fiber" : "Node/Express");
+        const isWsSupported = healthRes.status === "ok";
 
-        if (isGo) {
+        if (isWsSupported) {
           const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
           ws = new WebSocket(wsUrl);
 
@@ -233,11 +231,7 @@ export default function Header({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
             <span className="font-mono text-[11px] font-semibold text-[#0F172A] tracking-wider uppercase">
-              BUS_READY
-            </span>
-            <span className="text-[#CBD5E1]">/</span>
-            <span className="font-mono text-[10px] text-[#64748B] uppercase">
-              {engineType}
+              SYSTEM ONLINE
             </span>
           </div>
         </div>

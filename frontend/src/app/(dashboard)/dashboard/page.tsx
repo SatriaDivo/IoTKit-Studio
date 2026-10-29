@@ -227,7 +227,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <p className="text-xs text-[#64748B] mt-0.5 font-mono">
-            LIVE_DATA_STREAM // ENGINE: GO FIBER // MULTI-PROTOCOL SUITE
+            LIVE_DATA_STREAM // MULTI-PROTOCOL INDUSTRIAL SUITE
           </p>
         </div>
 
@@ -464,7 +464,7 @@ export default function DashboardPage() {
 
             {/* Quick Link Footer */}
             <div className="px-4 py-2 border-t border-[#E2E8F0] bg-white flex items-center justify-between text-[11px] font-mono text-[#64748B]">
-              <span>CORE_GATEWAY: GO_FIBER</span>
+              <span>TELEMETRY_STREAM: ACTIVE</span>
               <button
                 onClick={() => router.push("/analytics")}
                 className="text-[#2563EB] hover:underline flex items-center gap-1 font-semibold"

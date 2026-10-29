@@ -68,7 +68,7 @@ export const useMQTTStore = create<MQTTState>((set, get) => ({
         .then((res) => res.json())
         .catch(() => ({}));
       
-      const isGoEngine = healthRes.engine === "Go/Fiber";
+      const isGoEngine = healthRes.status === "ok";
       set({ isGo: isGoEngine });
 
       // Clean up previous client connections if any
@@ -104,7 +104,7 @@ export const useMQTTStore = create<MQTTState>((set, get) => ({
             const msg = JSON.parse(event.data);
             if (msg.event === "mqtt_connected") {
               set({ isConnected: true, isConnecting: false });
-              toast.success("Connected to MQTT Broker via Go Proxy!");
+              toast.success("Connected to MQTT Broker");
             } else if (msg.event === "mqtt_error") {
               set({ isConnecting: false, isConnected: false });
               toast.error(`MQTT Error: ${msg.data.message}`);
@@ -148,7 +148,7 @@ export const useMQTTStore = create<MQTTState>((set, get) => ({
 
         socket.on("mqtt-inspector:connected", () => {
           set({ isConnected: true, isConnecting: false });
-          toast.success("Connected to MQTT Broker via Node Proxy!");
+          toast.success("Connected to MQTT Broker");
         });
 
         socket.on("mqtt-inspector:error", (data: any) => {

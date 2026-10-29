@@ -45,7 +45,7 @@ export default function LoginPage() {
             </span>
           </div>
           <span className="font-mono text-[10px] text-slate-400 bg-slate-200/60 px-2 py-0.5 rounded border border-slate-300/50">
-            TLS_v1.3 // SHA256
+            TLS ENCRYPTED // SHA256
           </span>
         </div>
 
@@ -153,7 +153,7 @@ export default function LoginPage() {
               <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
               RBAC PROTECTED
             </span>
-            <span>BACKEND: GO FIBER // :4000</span>
+            <span>TELEMETRY GATEWAY // :4000</span>
           </div>
         </div>
 

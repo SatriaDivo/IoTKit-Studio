@@ -229,7 +229,7 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
             </div>
           </div>
           <div className="flex items-center justify-between text-[11px] text-[#475569] font-mono">
-            <span>GO/FIBER v1.0</span>
+            <span>TELEMETRY GATEWAY</span>
             <span className="text-[#94A3B8]">PORT: 4000</span>
           </div>
         </div>

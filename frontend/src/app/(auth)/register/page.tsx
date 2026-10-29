@@ -217,7 +217,7 @@ export default function RegisterPage() {
               <ShieldCheck className="h-3.5 w-3.5 text-slate-400" />
               PBKDF2 / BCRYPT_HASH
             </span>
-            <span>BACKEND: GO FIBER // :4000</span>
+            <span>TELEMETRY GATEWAY // :4000</span>
           </div>
         </div>
 

@@ -269,9 +269,9 @@ export default function ProjectDetailPage() {
           .then((res) => res.json())
           .catch(() => ({}));
 
-        const isGo = healthRes.engine === "Go/Fiber";
+        const isWsSupported = healthRes.status === "ok";
 
-        if (isGo) {
+        if (isWsSupported) {
           const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
           ws = new WebSocket(wsUrl);
 
