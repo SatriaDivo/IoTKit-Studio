@@ -286,7 +286,8 @@ export default function ProjectDetailPage() {
         const isWsSupported = healthRes.status === "ok";
 
         if (isWsSupported) {
-          const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
+          const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
+          const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws?token=${encodeURIComponent(token)}`;
           ws = new WebSocket(wsUrl);
 
           ws.onopen = () => {

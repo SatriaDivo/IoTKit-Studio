@@ -3,12 +3,17 @@ package websocket
 import (
 	"encoding/json"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
+
+	"iotkit-studio-go/internal/database"
+	"iotkit-studio-go/internal/middleware"
+	"iotkit-studio-go/internal/security"
 )
 
 type ActiveInspector struct {
@@ -109,17 +114,61 @@ func (h *Hub) BroadcastToProject(projectID string, event string, data interface{
 	h.Broadcast("project:"+projectID, event, data)
 }
 
-// SetupWebSocket registers WebSocket routes on the Fiber app
+// SetupWebSocket registers WebSocket routes on the Fiber app with strict authentication and authorization
 func SetupWebSocket(app *fiber.App) {
 	app.Use("/ws", func(c *fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) {
-			return c.Next()
+		if !websocket.IsWebSocketUpgrade(c) {
+			return fiber.ErrUpgradeRequired
 		}
-		return fiber.ErrUpgradeRequired
+
+		// 1. Extract token from query param "?token=..."
+		tokenStr := strings.TrimSpace(c.Query("token"))
+
+		// 2. Or from Authorization header "Bearer <token>"
+		if tokenStr == "" {
+			authHeader := strings.TrimSpace(c.Get("Authorization"))
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+			}
+		}
+
+		// 3. Or from Sec-WebSocket-Protocol "bearer.<token>"
+		if tokenStr == "" {
+			protocols := c.Get("Sec-WebSocket-Protocol")
+			for _, p := range strings.Split(protocols, ",") {
+				p = strings.TrimSpace(p)
+				if strings.HasPrefix(p, "bearer.") {
+					tokenStr = strings.TrimPrefix(p, "bearer.")
+					break
+				}
+			}
+		}
+
+		if tokenStr == "" {
+			return c.Status(401).JSON(fiber.Map{
+				"error": "Authentication token required for WebSocket connection (use ?token=<jwt> or Authorization header)",
+			})
+		}
+
+		userID, role, err := middleware.VerifyTokenWithRole(tokenStr)
+		if err != nil || userID == "" {
+			return c.Status(401).JSON(fiber.Map{"error": "Invalid or expired authentication token"})
+		}
+
+		c.Locals("userId", userID)
+		c.Locals("userRole", role)
+		return c.Next()
 	})
 
 	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
 		connMu := &sync.Mutex{}
+
+		userID, _ := c.Locals("userId").(string)
+		userRole, _ := c.Locals("userRole").(string)
+		if userID == "" {
+			c.Close()
+			return
+		}
 
 		defer func() {
 			HubInstance.UnsubscribeAll(c)
@@ -135,10 +184,10 @@ func SetupWebSocket(app *fiber.App) {
 			inspectorClientsMu.Unlock()
 
 			c.Close()
-			log.Println("[WS-Hub] Client disconnected")
+			log.Printf("[WS-Hub] Client disconnected (User: %s)", userID)
 		}()
 
-		log.Println("[WS-Hub] Client connected")
+		log.Printf("[WS-Hub] Authenticated client connected (User: %s, Role: %s)", userID, userRole)
 
 		for {
 			_, msg, err := c.ReadMessage()
@@ -165,23 +214,57 @@ func SetupWebSocket(app *fiber.App) {
 
 			switch payload.Action {
 			case "subscribe":
-				room := payload.Room
+				room := strings.TrimSpace(payload.Room)
 				if room == "" && payload.ProjectID != "" {
-					room = "project:" + payload.ProjectID
+					room = "project:" + strings.TrimSpace(payload.ProjectID)
 				}
-				if room != "" {
-					HubInstance.Subscribe(room, c)
+				if room == "" {
+					continue
 				}
+
+				// Authorization verification
+				if strings.HasPrefix(room, "project:") {
+					targetProjectID := strings.TrimPrefix(room, "project:")
+					if userRole != "admin" {
+						var count int64
+						database.DB.Model(&database.Project{}).Where("id = ? AND \"userId\" = ?", targetProjectID, userID).Count(&count)
+						if count == 0 {
+							sendEvent(c, connMu, "ws_error", map[string]string{
+								"error": "Forbidden: You do not have permission to subscribe to this project's events",
+							})
+							continue
+						}
+					}
+				} else if room == "global" {
+					if userRole != "admin" {
+						sendEvent(c, connMu, "ws_error", map[string]string{
+							"error": "Forbidden: Administrator role required to subscribe to global room",
+						})
+						continue
+					}
+				}
+
+				HubInstance.Subscribe(room, c)
+				sendEvent(c, connMu, "subscribed", map[string]string{"room": room})
+
 			case "unsubscribe":
-				room := payload.Room
+				room := strings.TrimSpace(payload.Room)
 				if room == "" && payload.ProjectID != "" {
-					room = "project:" + payload.ProjectID
+					room = "project:" + strings.TrimSpace(payload.ProjectID)
 				}
 				if room != "" {
 					HubInstance.Unsubscribe(room, c)
 				}
 
 			case "mqtt_connect":
+				// Validate broker against SSRF and unauthorized local network access
+				if err := security.ValidateBrokerURL(payload.Broker); err != nil {
+					sendEvent(c, connMu, "mqtt_error", map[string]string{
+						"message": "Connection blocked for security: " + err.Error(),
+					})
+					continue
+				}
+
 				// Disconnect any existing inspector for this connection first
 				inspectorClientsMu.Lock()
 				if active, exists := inspectorClients[c]; exists {

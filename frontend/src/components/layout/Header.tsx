@@ -117,12 +117,12 @@ export default function Header({
         const isWsSupported = healthRes.status === "ok";
 
         if (isWsSupported) {
-          const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
+          const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
+          const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws?token=${encodeURIComponent(token)}`;
           ws = new WebSocket(wsUrl);
 
           ws.onopen = () => {
             if (!active) return;
-            const token = localStorage.getItem("token") || "";
             fetch(`${API_URL}/api/projects`, {
               headers: { Authorization: `Bearer ${token}` },
             })

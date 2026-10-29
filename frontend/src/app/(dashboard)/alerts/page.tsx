@@ -9,7 +9,7 @@ import {
   Settings,
   Terminal,
   RefreshCw,
-  FolderKanban,
+  Folder,
   CheckCircle2,
   AlertTriangle,
   Radio,
@@ -45,6 +45,7 @@ interface AlertLog {
 
 export default function AlertsPage() {
   const [projects, setProjects] = useState<any[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [logs, setLogs] = useState<AlertLog[]>([]);
@@ -60,11 +61,14 @@ export default function AlertsPage() {
   const [ruleValue, setRuleValue] = useState("");
   const [ruleSeverity, setRuleSeverity] = useState<"info" | "warning" | "critical">("warning");
 
+  const currentProject = projects.find((p) => p.id === selectedProjectId);
+
   useEffect(() => {
     fetchProjects();
   }, []);
 
   const fetchProjects = async () => {
+    setProjectsLoading(true);
     try {
       const res = await api.get("/projects");
       const list = res.data.projects || [];
@@ -73,7 +77,9 @@ export default function AlertsPage() {
         setSelectedProjectId(list[0].id);
       }
     } catch {
-      toast.error("Failed to load nodes list");
+      toast.error("Failed to load projects list");
+    } finally {
+      setProjectsLoading(false);
     }
   };
 
@@ -114,6 +120,10 @@ export default function AlertsPage() {
 
   const handleCreateRule = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedProjectId) {
+      toast.error("Please select a project first");
+      return;
+    }
     if (!ruleName || !ruleField || !ruleValue) {
       toast.error("Please fill in all mandatory fields");
       return;
@@ -212,32 +222,53 @@ export default function AlertsPage() {
                 </span>
               </div>
               <p className="text-xs text-[#64748B] font-mono mt-0.5">
-                ACTIVE_RULES: {rules.filter((r) => r.isActive).length}/{rules.length}{" // "}ANOMALIES:{" "}
-                {logs.length} EVENTS
+                PROJECT: {currentProject ? currentProject.name.toUpperCase() : "NONE"}{" // "}
+                ACTIVE_RULES: {rules.filter((r) => r.isActive).length}/{rules.length}{" // "}
+                ANOMALIES: {logs.length} EVENTS
               </p>
             </div>
           </div>
 
-          {/* Node Selector & Action */}
+          {/* Project Selector & Action */}
           <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <FolderKanban className="h-3.5 w-3.5 text-[#64748B]" />
+            <div className="flex items-center border border-[#CBD5E1] rounded bg-white shadow-xs focus-within:border-[#2563EB] focus-within:ring-1 focus-within:ring-[#2563EB]/20 transition-all">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#F8FAFC] border-r border-[#CBD5E1] text-[#475569] select-none">
+                <Folder className="h-3.5 w-3.5 text-[#64748B]" />
+                <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#475569]">
+                  Project
+                </span>
+              </div>
               <select
-                className="h-8 px-2.5 border border-[#CBD5E1] rounded text-xs font-mono bg-white focus:border-[#2563EB] outline-none"
+                className="h-8 pl-2.5 pr-8 text-xs font-mono bg-white outline-none cursor-pointer text-[#0F172A] font-medium min-w-[180px] sm:min-w-[210px]"
                 value={selectedProjectId}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
+                disabled={projectsLoading || projects.length === 0}
               >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.protocol})
-                  </option>
-                ))}
+                {projectsLoading ? (
+                  <option value="">Loading projects...</option>
+                ) : projects.length === 0 ? (
+                  <option value="">No projects available</option>
+                ) : (
+                  projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.protocol.toUpperCase()})
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
             <button
-              onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] shadow-sm transition-all"
+              onClick={() => {
+                if (!selectedProjectId) {
+                  toast.error("Please create or select a project first");
+                  return;
+                }
+                setShowModal(true);
+              }}
+              disabled={projects.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all"
+              title={projects.length === 0 ? "Create a project first" : "Create new alert rule"}
             >
               <Plus className="h-3.5 w-3.5" />
               <span>New Rule</span>
@@ -286,6 +317,23 @@ export default function AlertsPage() {
                 FETCHING_RULES...
               </span>
             </div>
+          ) : !projectsLoading && projects.length === 0 ? (
+            <div className="p-12 text-center bg-white border border-[#E2E8F0] rounded-md shadow-hairline space-y-3">
+              <Folder className="h-10 w-10 text-slate-300 mx-auto" />
+              <h3 className="font-mono text-sm font-bold text-[#0F172A] uppercase">
+                NO_PROJECTS_FOUND
+              </h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto font-sans">
+                You need to create an IoT simulation project before configuring threshold alert rules.
+              </p>
+              <a
+                href="/projects/new"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-mono font-semibold text-white bg-[#0F172A] hover:bg-[#1E293B] rounded shadow-xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>CREATE_PROJECT</span>
+              </a>
+            </div>
           ) : rules.length === 0 ? (
             <div className="p-12 text-center bg-white border border-[#E2E8F0] rounded-md shadow-hairline space-y-3">
               <ShieldAlert className="h-10 w-10 text-slate-300 mx-auto" />
@@ -293,7 +341,7 @@ export default function AlertsPage() {
                 NO_ALERT_RULES_DEFINED
               </h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto font-sans">
-                Deploy threshold evaluation rules (e.g. temperature &gt; 80, tank_level &lt; 15) to intercept out-of-spec sensor conditions.
+                Deploy threshold evaluation rules (e.g. temperature &gt; 80, tank_level &lt; 15) to intercept out-of-spec sensor conditions for {currentProject?.name || "this project"}.
               </p>
               <button
                 onClick={() => setShowModal(true)}
@@ -480,6 +528,24 @@ export default function AlertsPage() {
             </div>
 
             <form onSubmit={handleCreateRule} className="p-4 space-y-3.5 text-xs">
+              <div>
+                <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
+                  TARGET SIMULATION PROJECT
+                </label>
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="w-full h-8 px-2 font-mono border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
+                  required
+                >
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.protocol.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="font-mono text-[10px] text-[#64748B] uppercase block mb-1">
                   RULE IDENTIFIER / NAME

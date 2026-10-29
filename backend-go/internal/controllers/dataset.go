@@ -29,13 +29,65 @@ func formatFileSize(bytes int64) string {
 	return fmt.Sprintf("%.2f MB", float64(bytes)/(1024.0*1024.0))
 }
 
+// findAuthorizedDataset checks ownership of dataset; allows admin or creator (F-03)
+func findAuthorizedDataset(c *fiber.Ctx, datasetID string) (*database.Dataset, error) {
+	userID, ok := c.Locals("userId").(string)
+	if !ok || userID == "" {
+		return nil, fiber.NewError(fiber.StatusUnauthorized, "Autentikasi diperlukan")
+	}
+
+	role, _ := c.Locals("userRole").(string)
+	isAdmin := role == "admin"
+	if !isAdmin {
+		var user database.User
+		if err := database.DB.Select("role").First(&user, "id = ?", userID).Error; err == nil && user.Role == "admin" {
+			isAdmin = true
+		}
+	}
+
+	var dataset database.Dataset
+	query := database.DB.Where("id = ?", datasetID)
+	if !isAdmin {
+		query = query.Where("\"userId\" = ?", userID)
+	}
+
+	if err := query.First(&dataset).Error; err != nil {
+		return nil, fiber.NewError(fiber.StatusNotFound, "Dataset tidak ditemukan")
+	}
+
+	return &dataset, nil
+}
+
 func GetDatasets(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userId").(string)
+	if !ok || userID == "" {
+		return c.Status(401).JSON(fiber.Map{"error": "Autentikasi diperlukan"})
+	}
+
+	role, _ := c.Locals("userRole").(string)
+	isAdmin := role == "admin"
+	if !isAdmin {
+		var user database.User
+		if err := database.DB.Select("role").First(&user, "id = ?", userID).Error; err == nil && user.Role == "admin" {
+			isAdmin = true
+		}
+	}
+
 	var datasets []database.Dataset
-	database.DB.Order("\"createdAt\" DESC").Find(&datasets)
+	query := database.DB.Order("\"createdAt\" DESC")
+	if !isAdmin {
+		query = query.Where("\"userId\" = ?", userID)
+	}
+	query.Find(&datasets)
 	return c.JSON(fiber.Map{"datasets": datasets})
 }
 
 func UploadDataset(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userId").(string)
+	if !ok || userID == "" {
+		return c.Status(401).JSON(fiber.Map{"error": "Autentikasi diperlukan"})
+	}
+
 	// Frontend sends JSON body: { fileName, moduleName, content, name }
 	var body struct {
 		FileName   string `json:"fileName"`
@@ -94,6 +146,26 @@ func UploadDataset(c *fiber.Ctx) error {
 
 	relPath := fmt.Sprintf("uploads/datasets/%s.csv", fileID)
 
+	var existing database.Dataset
+	if err := database.DB.Where("\"userId\" = ? AND \"moduleName\" = ? AND \"fileName\" = ?", userID, body.ModuleName, body.FileName).First(&existing).Error; err == nil {
+		os.Remove(existing.FilePath)
+		existing.Name = finalName
+		existing.FilePath = destPath
+		existing.FilePathRelative = &relPath
+		existing.FileSizeBytes = fileSizeBytes
+		existing.ChecksumSha256 = checksum
+		existing.LoadedRows = loadedRows
+		existing.UpdatedAt = time.Now()
+		if err := database.DB.Save(&existing).Error; err != nil {
+			os.Remove(destPath)
+			return c.Status(500).JSON(fiber.Map{"error": "Failed to update dataset record"})
+		}
+		return c.Status(200).JSON(fiber.Map{
+			"dataset": existing,
+			"message": "Dataset uploaded successfully",
+		})
+	}
+
 	dataset := database.Dataset{
 		Name:             finalName,
 		ModuleName:       body.ModuleName,
@@ -104,6 +176,7 @@ func UploadDataset(c *fiber.Ctx) error {
 		ChecksumSha256:   checksum,
 		LoadedRows:       loadedRows,
 		IsActive:         true,
+		UserID:           &userID,
 	}
 
 	if err := database.DB.Create(&dataset).Error; err != nil {
@@ -120,13 +193,13 @@ func UploadDataset(c *fiber.Ctx) error {
 func DeleteDataset(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var dataset database.Dataset
-	if err := database.DB.First(&dataset, "id = ?", id).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Dataset not found"})
+	dataset, err := findAuthorizedDataset(c, id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Dataset tidak ditemukan"})
 	}
 
 	os.Remove(dataset.FilePath)
-	database.DB.Delete(&dataset)
+	database.DB.Delete(dataset)
 
 	return c.JSON(fiber.Map{"message": "Dataset deleted successfully"})
 }
@@ -145,12 +218,12 @@ func UpdateDatasetName(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Name is required"})
 	}
 
-	var dataset database.Dataset
-	if err := database.DB.First(&dataset, "id = ?", id).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Dataset not found"})
+	dataset, err := findAuthorizedDataset(c, id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Dataset tidak ditemukan"})
 	}
 
-	database.DB.Model(&dataset).Update("name", strings.TrimSpace(body.Name))
+	database.DB.Model(dataset).Update("name", strings.TrimSpace(body.Name))
 
 	return c.JSON(fiber.Map{
 		"dataset": dataset,
@@ -162,9 +235,9 @@ func GetDatasetPreview(c *fiber.Ctx) error {
 	id := c.Params("id")
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 
-	var dataset database.Dataset
-	if err := database.DB.First(&dataset, "id = ?", id).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Dataset not found"})
+	dataset, err := findAuthorizedDataset(c, id)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Dataset tidak ditemukan"})
 	}
 
 	data, err := os.ReadFile(dataset.FilePath)
@@ -190,8 +263,8 @@ func GetDatasetPreview(c *fiber.Ctx) error {
 func DownloadDataset(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var dataset database.Dataset
-	if err := database.DB.First(&dataset, "id = ?", id).Error; err != nil {
+	dataset, err := findAuthorizedDataset(c, id)
+	if err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Dataset tidak ditemukan"})
 	}
 
@@ -270,6 +343,7 @@ func GenerateDataset(c *fiber.Ctx) error {
 
 	// 1. OPSI: JIKA DISIMPAN KE DATASET VAULT
 	if input.SaveToDataset {
+		userID, _ := c.Locals("userId").(string)
 		fileID := uuid.New().String()
 		uploadDir := config.AppConfig.UploadDir
 		if err := os.MkdirAll(uploadDir, 0755); err != nil {
@@ -297,6 +371,7 @@ func GenerateDataset(c *fiber.Ctx) error {
 			ChecksumSha256:   checksum,
 			LoadedRows:       actualRows,
 			IsActive:         true,
+			UserID:           &userID,
 		}
 
 		if err := database.DB.Create(&dataset).Error; err != nil {

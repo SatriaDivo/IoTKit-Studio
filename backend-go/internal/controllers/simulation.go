@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"iotkit-studio-go/internal/database"
+	"iotkit-studio-go/internal/security"
 	"iotkit-studio-go/internal/simulation"
 )
 
@@ -35,6 +36,13 @@ func StartSimulation(c *fiber.Ctx) error {
 	var project database.Project
 	if err := database.DB.Where("id = ? AND \"userId\" = ?", body.ProjectID, userID).First(&project).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Project not found"})
+	}
+
+	// SSRF check on target host (F-07)
+	if err := security.ValidateTargetHost(project.Host); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Simulasi ditolak karena host tujuan diblokir untuk keamanan: " + err.Error(),
+		})
 	}
 
 	if body.Interval == 0 {

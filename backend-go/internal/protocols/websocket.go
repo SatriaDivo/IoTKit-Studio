@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"iotkit-studio-go/internal/database"
+	"iotkit-studio-go/internal/security"
 	"iotkit-studio-go/internal/services"
 )
 
@@ -25,6 +26,10 @@ func NewWSClient(project *database.Project) *WSClient {
 }
 
 func (w *WSClient) Connect() error {
+	if err := security.ValidateTargetHost(w.project.Host); err != nil {
+		return fmt.Errorf("WebSocket connection aborted: %w", err)
+	}
+
 	scheme := "ws"
 	if w.project.Protocol == "WSS" || w.project.Protocol == "wss" {
 		scheme = "wss"

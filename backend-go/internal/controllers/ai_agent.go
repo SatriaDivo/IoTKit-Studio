@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm"
 
 	"iotkit-studio-go/internal/database"
+	"iotkit-studio-go/internal/security"
 	ws "iotkit-studio-go/internal/websocket"
 )
 
@@ -614,6 +615,10 @@ func executeCreateProject(userID string, paramsBytes []byte) (any, error) {
 		password = &params.Password
 	}
 
+	if err := security.ValidateTargetHost(host); err != nil {
+		return nil, fmt.Errorf("target host '%s' rejected for security: %w", host, err)
+	}
+
 	project := database.Project{
 		Name:        params.Name,
 		Description: desc,
@@ -633,8 +638,23 @@ func executeCreateProject(userID string, paramsBytes []byte) (any, error) {
 		return nil, err
 	}
 
-	ws.HubInstance.Broadcast("projects", "project:created", project)
-	ws.HubInstance.Broadcast("global", "project:created", project)
+	sanitized := map[string]interface{}{
+		"id":             project.ID,
+		"name":           project.Name,
+		"description":    project.Description,
+		"protocol":       project.Protocol,
+		"host":           project.Host,
+		"port":           project.Port,
+		"status":         project.Status,
+		"sslEnabled":     project.SSLEnabled,
+		"webhookEnabled": project.WebhookEnabled,
+		"userId":         project.UserID,
+		"createdAt":      project.CreatedAt,
+		"updatedAt":      project.UpdatedAt,
+	}
+
+	ws.HubInstance.Broadcast("projects", "project:created", sanitized)
+	ws.HubInstance.Broadcast("global", "project:created", sanitized)
 
 	return fiber.Map{
 		"projectId": project.ID,
@@ -672,6 +692,12 @@ func executeCreatePayload(userID string, paramsBytes []byte) (any, error) {
 
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID or name is required")
+	}
+
+	// Verify project ownership (F-04)
+	var project database.Project
+	if err := database.DB.Where("id = ? AND \"userId\" = ?", projectID, userID).First(&project).Error; err != nil {
+		return nil, fmt.Errorf("project not found or access denied")
 	}
 
 	payload := database.Payload{

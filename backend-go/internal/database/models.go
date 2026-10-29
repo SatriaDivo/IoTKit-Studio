@@ -149,6 +149,8 @@ func (l *Log) BeforeCreate(tx *gorm.DB) error {
 
 type Dataset struct {
 	ID               string     `gorm:"primaryKey;type:text" json:"id"`
+	UserID           *string    `gorm:"column:userId;type:text" json:"userId"`
+	User             *User      `gorm:"foreignKey:UserID" json:"-"`
 	Name             string     `gorm:"not null" json:"name"`
 	ModuleName       string     `gorm:"not null" json:"moduleName"`
 	FileName         string     `gorm:"not null" json:"fileName"`

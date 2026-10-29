@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Shield, AlertCircle, FolderKanban, Terminal, RefreshCw, Key } from "lucide-react";
+import { Plus, Shield, AlertCircle, Folder, Terminal, RefreshCw, Key } from "lucide-react";
 import { authConfigApi, AuthConfig, RefreshLog } from "@/lib/authConfigApi";
 import { api } from "@/lib/api";
 import AuthConfigModal from "@/components/auth/AuthConfigModal";
@@ -232,20 +232,25 @@ export default function AuthSettingsPage() {
       {/* Target Node Selector Ribbon */}
       <div className="bg-white border border-[#E2E8F0] rounded-md shadow-hairline p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2">
-          <FolderKanban className="h-4 w-4 text-[#64748B]" />
+          <Folder className="h-4 w-4 text-[#64748B]" />
           <span className="font-mono font-bold text-[#0F172A] text-xs">
-            SELECT_SIMULATION_NODE:
+            PROJECT_NODE:
           </span>
           <select
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="h-8 px-2.5 border border-[#CBD5E1] rounded text-xs font-mono bg-white focus:border-[#2563EB] outline-none"
+            className="h-8 px-2.5 border border-[#CBD5E1] rounded text-xs font-mono bg-white focus:border-[#2563EB] outline-none min-w-[200px]"
+            disabled={projects.length === 0}
           >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.protocol})
-              </option>
-            ))}
+            {projects.length === 0 ? (
+              <option value="">No projects available</option>
+            ) : (
+              projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.protocol.toUpperCase()})
+                </option>
+              ))
+            )}
           </select>
         </div>
 

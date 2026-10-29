@@ -1,7 +1,10 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 
 	"iotkit-studio-go/internal/controllers"
 	"iotkit-studio-go/internal/middleware"
@@ -10,16 +13,72 @@ import (
 func Setup(app *fiber.App) {
 	api := app.Group("/api")
 
+	// Rate Limiters (F-05, F-06)
+	loginLimiter := limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error": "Terlalu banyak percobaan login. Silakan coba lagi setelah 1 menit.",
+			})
+		},
+	})
+
+	registerLimiter := limiter.New(limiter.Config{
+		Max:        5,
+		Expiration: 15 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error": "Terlalu banyak percobaan pendaftaran akun. Silakan coba lagi nanti.",
+			})
+		},
+	})
+
+	aiChatLimiter := limiter.New(limiter.Config{
+		Max:        25,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			if userID, ok := c.Locals("userId").(string); ok && userID != "" {
+				return userID
+			}
+			return c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error": "Batas frekuensi permintaan AI chat tercapai (maks 25 req/menit). Silakan tunggu sebentar.",
+			})
+		},
+	})
+
+	webhookLimiter := limiter.New(limiter.Config{
+		Max:        60,
+		Expiration: 1 * time.Minute,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.Params("token") + "_" + c.IP()
+		},
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error": "Batas panggilan webhook tercapai (maks 60 req/menit per token).",
+			})
+		},
+	})
+
 	// Auth (public)
 	auth := api.Group("/auth")
-	auth.Post("/register", controllers.Register)
-	auth.Post("/login", controllers.Login)
+	auth.Post("/register", registerLimiter, controllers.Register)
+	auth.Post("/login", loginLimiter, controllers.Login)
 	auth.Get("/me", middleware.AuthMiddleware, controllers.GetMe)
 	auth.Get("/profile", middleware.AuthMiddleware, controllers.GetProfile)
 	auth.Put("/profile", middleware.AuthMiddleware, controllers.UpdateProfile)
 
-	// Public webhook receiver (no auth)
-	api.All("/webhook/:token", controllers.WebhookReceive)
+	// Public webhook receiver (no auth, rate limited + size limited)
+	api.All("/webhook/:token", webhookLimiter, controllers.WebhookReceive)
 
 	// Protected routes
 	protected := api.Use(middleware.AuthMiddleware)
@@ -97,7 +156,7 @@ func Setup(app *fiber.App) {
 	aiAgent.Get("/sessions/:id", controllers.GetSessionByID)
 	aiAgent.Post("/sessions", controllers.CreateSession)
 	aiAgent.Delete("/sessions/:id", controllers.DeleteSession)
-	aiAgent.Post("/chat", controllers.Chat)
+	aiAgent.Post("/chat", aiChatLimiter, controllers.Chat)
 	aiAgent.Post("/execute", controllers.ExecuteAction)
 	aiAgent.Get("/models", controllers.GetModels)
 	aiAgent.Get("/usage", controllers.GetUsage)

@@ -20,6 +20,7 @@ import (
 	"iotkit-studio-go/internal/database"
 	"iotkit-studio-go/internal/protocols"
 	"iotkit-studio-go/internal/rules"
+	"iotkit-studio-go/internal/security"
 	"iotkit-studio-go/internal/services"
 	ws "iotkit-studio-go/internal/websocket"
 )
@@ -1107,6 +1108,10 @@ func marshalPayloadOrdered(payload map[string]interface{}, fields []PayloadField
 }
 
 func sendHTTP(project *database.Project, payload interface{}) (int, bool, error) {
+	if err := security.ValidateTargetHost(project.Host); err != nil {
+		return 0, false, fmt.Errorf("HTTP destination blocked for security: %w", err)
+	}
+
 	body, _ := json.Marshal(payload)
 
 	scheme := "http"

@@ -1,8 +1,10 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -27,11 +29,16 @@ func Load() {
 		}
 	}
 
+	jwtSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	if len(jwtSecret) < 32 || jwtSecret == "secret" || jwtSecret == "your-super-secret-jwt-key-change-this-in-production" {
+		log.Fatal("FATAL SECURITY ERROR (F-01): JWT_SECRET must be configured with at least 32 characters of high-entropy secret. Weak defaults and placeholders are strictly prohibited.")
+	}
+
 	AppConfig = Config{
 		Port:            getEnv("PORT", "4000"),
 		Host:            getEnv("HOST", "localhost"),
 		DatabaseURL:     getEnv("DATABASE_URL", ""),
-		JWTSecret:       getEnv("JWT_SECRET", "secret"),
+		JWTSecret:       jwtSecret,
 		JWTExpiresHours: getEnvInt("JWT_EXPIRES_HOURS", 168),
 		CORSOrigin:      getEnv("CORS_ORIGIN", "http://localhost:3000"),
 		UploadDir:       getEnv("UPLOAD_DIR", "./uploads/datasets"),

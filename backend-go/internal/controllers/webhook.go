@@ -111,6 +111,14 @@ func WebhookReceive(c *fiber.Ctx) error {
 	token := c.Params("token")
 	body := c.Body()
 
+	// Enforce 256KB size limit on public webhook receiver (F-05)
+	const maxWebhookBodySize = 256 * 1024 // 256KB
+	if len(body) > maxWebhookBodySize {
+		return c.Status(413).JSON(fiber.Map{
+			"error": fmt.Sprintf("Ukuran payload webhook (%d bytes) melebihi batas maksimal 256KB", len(body)),
+		})
+	}
+
 	var project database.Project
 	if err := database.DB.Where("\"webhookToken\" = ?", token).First(&project).Error; err != nil || !project.WebhookEnabled {
 		return c.Status(404).JSON(fiber.Map{"error": "Webhook endpoint not found or disabled"})
@@ -121,6 +129,13 @@ func WebhookReceive(c *fiber.Ctx) error {
 	payloadStr := string(body)
 	byteSize := len(body)
 
+	// Truncate raw payload in database Log table to 4KB max to prevent storage exhaustion (F-05)
+	const maxStoredPayload = 4096
+	storedPayload := payloadStr
+	if len(storedPayload) > maxStoredPayload {
+		storedPayload = storedPayload[:maxStoredPayload] + fmt.Sprintf("... [truncated, total size: %d bytes]", byteSize)
+	}
+
 	statusCode := 200
 	latency := 0
 	msg := fmt.Sprintf("Incoming webhook from %s [%s] %dB", ip, method, byteSize)
@@ -129,7 +144,7 @@ func WebhookReceive(c *fiber.Ctx) error {
 		Type:       "webhook",
 		Protocol:   "HTTP",
 		Message:    msg,
-		Payload:    &payloadStr,
+		Payload:    &storedPayload,
 		StatusCode: &statusCode,
 		Latency:    &latency,
 		ProjectID:  project.ID,
@@ -154,13 +169,17 @@ func WebhookReceive(c *fiber.Ctx) error {
 				// Save secondary response log with mapped data
 				mappedJSONBytes, _ := json.Marshal(mappedData)
 				mappedJSONStr := string(mappedJSONBytes)
+				storedMapped := mappedJSONStr
+				if len(storedMapped) > maxStoredPayload {
+					storedMapped = storedMapped[:maxStoredPayload] + fmt.Sprintf("... [truncated, total size: %d bytes]", len(mappedJSONStr))
+				}
 				respMsg := "[Mapped Webhook] Telemetry mapped variables captured"
 
 				telemetryLog := database.Log{
 					Type:       "response",
 					Protocol:   "HTTP",
 					Message:    respMsg,
-					Payload:    &mappedJSONStr,
+					Payload:    &storedMapped,
 					StatusCode: &statusCode,
 					Latency:    &latency,
 					ProjectID:  project.ID,
@@ -188,7 +207,7 @@ func WebhookReceive(c *fiber.Ctx) error {
 			"id":            logEntry.ID,
 			"type":          logEntry.Type,
 			"message":       logEntry.Message,
-			"payload":       payloadStr,
+			"payload":       storedPayload,
 			"timestamp":     logEntry.Timestamp,
 			"parsedPayload": targetPayload,
 			"isMapped":      hasMap,

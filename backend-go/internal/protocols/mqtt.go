@@ -12,6 +12,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 
 	"iotkit-studio-go/internal/database"
+	"iotkit-studio-go/internal/security"
 	"iotkit-studio-go/internal/services"
 )
 
@@ -27,6 +28,10 @@ func NewMQTTClient(project *database.Project) *MQTTClient {
 }
 
 func (m *MQTTClient) Connect() error {
+	if err := security.ValidateTargetHost(m.project.Host); err != nil {
+		return fmt.Errorf("MQTT connection aborted: %w", err)
+	}
+
 	protocol := "tcp"
 	port := 1883
 	if m.project.Port != nil {

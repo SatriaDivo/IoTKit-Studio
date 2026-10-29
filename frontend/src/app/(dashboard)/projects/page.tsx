@@ -69,7 +69,8 @@ export default function ProjectsPage() {
     let ws: WebSocket | null = null;
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
+      const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws?token=${encodeURIComponent(token)}`;
       ws = new WebSocket(wsUrl);
       ws.onopen = () => {
         ws?.send(JSON.stringify({ action: "subscribe", room: "projects" }));

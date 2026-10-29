@@ -6,8 +6,28 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"iotkit-studio-go/internal/database"
+	"iotkit-studio-go/internal/security"
 	ws "iotkit-studio-go/internal/websocket"
 )
+
+func sanitizeProjectForBroadcast(p *database.Project) map[string]interface{} {
+	return map[string]interface{}{
+		"id":             p.ID,
+		"name":           p.Name,
+		"description":    p.Description,
+		"protocol":       p.Protocol,
+		"host":           p.Host,
+		"port":           p.Port,
+		"endpoint":       p.Endpoint,
+		"topic":          p.Topic,
+		"status":         p.Status,
+		"sslEnabled":     p.SSLEnabled,
+		"webhookEnabled": p.WebhookEnabled,
+		"userId":         p.UserID,
+		"createdAt":      p.CreatedAt,
+		"updatedAt":      p.UpdatedAt,
+	}
+}
 
 func GetProjects(c *fiber.Ctx) error {
 	userID := c.Locals("userId").(string)
@@ -54,6 +74,12 @@ func CreateProject(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
+	if err := security.ValidateTargetHost(input.Host); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Target host rejected for security: " + err.Error(),
+		})
+	}
+
 	project := database.Project{
 		Name:          input.Name,
 		Description:   input.Description,
@@ -75,8 +101,9 @@ func CreateProject(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create project"})
 	}
 
-	ws.HubInstance.Broadcast("projects", "project:created", project)
-	ws.HubInstance.Broadcast("global", "project:created", project)
+	sanitized := sanitizeProjectForBroadcast(&project)
+	ws.HubInstance.Broadcast("projects", "project:created", sanitized)
+	ws.HubInstance.Broadcast("global", "project:created", sanitized)
 
 	return c.Status(201).JSON(project)
 }
@@ -93,6 +120,14 @@ func UpdateProject(c *fiber.Ctx) error {
 	var input ProjectInput
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	if input.Host != "" {
+		if err := security.ValidateTargetHost(input.Host); err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Target host rejected for security: " + err.Error(),
+			})
+		}
 	}
 
 	now := time.Now()

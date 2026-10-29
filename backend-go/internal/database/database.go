@@ -49,11 +49,16 @@ func Connect() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// AutoMigrate new AlertRule, AlertLog, WebhookMap and User schema
-	err = DB.AutoMigrate(&AlertRule{}, &AlertLog{}, &WebhookMap{}, &User{})
+	// AutoMigrate new AlertRule, AlertLog, WebhookMap, User, and Dataset schema
+	err = DB.AutoMigrate(&AlertRule{}, &AlertLog{}, &WebhookMap{}, &User{}, &Dataset{})
 	if err != nil {
 		log.Printf("Failed to run GORM auto-migration: %v", err)
 	}
+
+	// Update Dataset unique index for multi-tenancy
+	DB.Exec("ALTER TABLE \"Dataset\" DROP CONSTRAINT IF EXISTS \"Dataset_moduleName_fileName_key\"")
+	DB.Exec("DROP INDEX IF EXISTS \"Dataset_moduleName_fileName_key\"")
+	DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS \"Dataset_userId_moduleName_fileName_idx\" ON \"Dataset\" (\"userId\", \"moduleName\", \"fileName\")")
 
 	// Ensure any legacy users without a role receive 'operator'
 	DB.Model(&User{}).Where("role IS NULL OR role = ''").Update("role", "operator")

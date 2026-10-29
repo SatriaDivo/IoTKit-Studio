@@ -82,7 +82,8 @@ export const useMQTTStore = create<MQTTState>((set, get) => ({
       }
 
       if (isGoEngine) {
-        const wsUrl = API_URL.replace(/^http/, "ws") + "/ws";
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
+        const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws?token=${encodeURIComponent(token)}`;
         const ws = new WebSocket(wsUrl);
         wsClient = ws;
 

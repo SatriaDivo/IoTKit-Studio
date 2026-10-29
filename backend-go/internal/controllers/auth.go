@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
 	"iotkit-studio-go/internal/database"
 	"iotkit-studio-go/internal/middleware"
@@ -63,23 +64,42 @@ func Register(c *fiber.Ctx) error {
 		namePtr = &name
 	}
 
-	var userCount int64
-	database.DB.Model(&database.User{}).Count(&userCount)
-	role := "operator"
-	if userCount == 0 {
-		role = "admin"
-	}
-
 	now := time.Now()
 	user := database.User{
 		Email:     email,
 		Password:  string(hashed),
 		Name:      namePtr,
-		Role:      role,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	if err := database.DB.Create(&user).Error; err != nil {
+
+	// Use transaction with advisory lock to eliminate race conditions on first-user admin (F-10)
+	txErr := database.DB.Transaction(func(tx *gorm.DB) error {
+		tx.Exec("SELECT pg_advisory_xact_lock(7421)")
+
+		var existing database.User
+		if err := tx.Where("LOWER(email) = ?", email).First(&existing).Error; err == nil {
+			return fiber.NewError(fiber.StatusBadRequest, "Email sudah terdaftar. Silakan gunakan email lain atau login.")
+		}
+
+		var userCount int64
+		if err := tx.Model(&database.User{}).Count(&userCount).Error; err != nil {
+			return err
+		}
+
+		role := "operator"
+		if userCount == 0 {
+			role = "admin"
+		}
+		user.Role = role
+
+		return tx.Create(&user).Error
+	})
+
+	if txErr != nil {
+		if fiberErr, ok := txErr.(*fiber.Error); ok {
+			return c.Status(fiberErr.Code).JSON(fiber.Map{"error": fiberErr.Message})
+		}
 		return c.Status(500).JSON(fiber.Map{"error": "Gagal mendaftarkan pengguna baru"})
 	}
 
@@ -172,35 +192,61 @@ func GetProfile(c *fiber.Ctx) error {
 }
 
 func UpdateProfile(c *fiber.Ctx) error {
-	userID := c.Locals("userId").(string)
+	userID, ok := c.Locals("userId").(string)
+	if !ok || userID == "" {
+		return c.Status(401).JSON(fiber.Map{"error": "Autentikasi diperlukan"})
+	}
 
 	var input struct {
 		Name  string `json:"name"`
 		Email string `json:"email"`
 	}
 	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+		return c.Status(400).JSON(fiber.Map{"error": "Format data tidak valid"})
 	}
 
 	var user database.User
 	if err := database.DB.First(&user, "id = ?", userID).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+		return c.Status(404).JSON(fiber.Map{"error": "Pengguna tidak ditemukan"})
 	}
 
-	// Update fields
-	user.Name = &input.Name
-	user.Email = input.Email
+	cleanEmail := strings.ToLower(strings.TrimSpace(input.Email))
+	cleanName := strings.TrimSpace(input.Name)
+
+	if cleanEmail == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Email wajib diisi"})
+	}
+
+	if len(cleanEmail) > 255 || !emailRegex.MatchString(cleanEmail) {
+		return c.Status(400).JSON(fiber.Map{"error": "Format email tidak valid"})
+	}
+
+	// Check case-insensitive collision if email changed (F-08, F-09)
+	if cleanEmail != strings.ToLower(user.Email) {
+		var existing database.User
+		if err := database.DB.Where("LOWER(email) = ? AND id != ?", cleanEmail, userID).First(&existing).Error; err == nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Email sudah digunakan oleh akun lain"})
+		}
+	}
+
+	user.Email = cleanEmail
+	if cleanName != "" {
+		user.Name = &cleanName
+	}
+	user.UpdatedAt = time.Now()
 
 	if err := database.DB.Save(&user).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to update profile"})
+		return c.Status(500).JSON(fiber.Map{"error": "Gagal memperbarui profil pengguna"})
 	}
 
 	return c.JSON(fiber.Map{
-		"message": "Profile updated successfully",
+		"message": "Profil berhasil diperbarui",
 		"user": fiber.Map{
-			"id":    user.ID,
-			"email": user.Email,
-			"name":  user.Name,
+			"id":        user.ID,
+			"email":     user.Email,
+			"name":      user.Name,
+			"role":      user.Role,
+			"updatedAt": user.UpdatedAt,
 		},
 	})
 }
