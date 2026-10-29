@@ -125,9 +125,6 @@ export default function Sidebar({ collapsed = false }: SidebarProps) {
                 <span className="font-semibold text-sm text-[#0F172A] tracking-tight truncate">
                   IoTKit Studio
                 </span>
-                <span className="font-mono text-[9px] font-bold px-1 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                  PRO
-                </span>
               </div>
               <p className="font-mono text-[10px] text-[#64748B] tracking-wider uppercase -mt-0.5">
                 TELEMETRY_ENGINE
