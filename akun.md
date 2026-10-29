@@ -12,8 +12,8 @@ Digunakan untuk manajemen sistem, konfigurasi global, pembuatan node simulasi, d
 | Parameter | Keterangan |
 | :--- | :--- |
 | **Nama** | `System Administrator` |
-| **Email** | `admin@iotkit.local` |
-| **Password** | `admin123456` |
+| **Email** | `admin@iotkit.com` |
+| **Password** | `Admin12!` |
 | **Role** | Administrator |
 | **Status** | Aktif (`ACTIVE`) |
 
