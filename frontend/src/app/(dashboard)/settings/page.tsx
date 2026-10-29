@@ -363,7 +363,7 @@ export default function SettingsPage() {
                     value={profile.email}
                     onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                     type="email"
-                    placeholder="operator@iotkit.local"
+                    placeholder="name@example.com"
                     className="w-full h-8 px-2.5 font-mono border border-[#CBD5E1] rounded bg-white outline-none focus:border-[#2563EB]"
                   />
                 </div>

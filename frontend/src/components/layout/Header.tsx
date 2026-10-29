@@ -368,7 +368,7 @@ export default function Header({
                       {user?.name || "Operator"}
                     </p>
                     <p className="text-[11px] font-mono text-[#64748B] truncate">
-                      {user?.email || "operator@iotkit.local"}
+                      {user?.email || "operator@iotkit.io"}
                     </p>
                   </div>
                   <div className="py-1">
