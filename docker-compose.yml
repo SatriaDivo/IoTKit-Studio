@@ -19,46 +19,24 @@ services:
       timeout: 5s
       retries: 5
 
-  # Node.js Express Backend (Commented out - not started by default)
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: iotkit-backend
-  #   restart: unless-stopped
-  #   ports:
-  #     - "4001:4000"
-  #   environment:
-  #     - NODE_ENV=development
-  #     - PORT=4000
-  #     - DATABASE_URL=postgresql://iotkit:iotkit123@postgres:5432/iotkit_studio?schema=public
-  #     - JWT_SECRET=your-super-secret-jwt-key-change-this
-  #     - CORS_ORIGIN=http://localhost:3000
-  #   volumes:
-  #     - ./backend:/app
-  #     - /app/node_modules
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   networks:
-  #     - iotkit-network
-
-  # Go Fiber Backend (Primary Active Backend - Exposed on 4000)
-
-  backend-go:
+  # Node.js Express Backend
+  backend:
     build:
-      context: ./backend-go
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: iotkit-backend-go
+    container_name: iotkit-backend
     restart: unless-stopped
     ports:
       - "4001:4000"
-    env_file:
-      - ./backend-go/.env
     environment:
-      - HOST=0.0.0.0
-      - DATABASE_URL=host=postgres user=iotkit password=iotkit123 dbname=iotkit_studio port=5432 sslmode=disable
+      - NODE_ENV=development
+      - PORT=4000
+      - DATABASE_URL=postgresql://iotkit:iotkit123@postgres:5432/iotkit_studio?schema=public
+      - JWT_SECRET=your-super-secret-jwt-key-change-this
       - CORS_ORIGIN=http://localhost:3001
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,7 +56,7 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:4001
     depends_on:
-      - backend-go
+      - backend
     networks:
       - iotkit-network
 

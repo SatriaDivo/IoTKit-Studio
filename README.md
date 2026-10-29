@@ -23,21 +23,13 @@ Platform simulasi IoT berbasis dashboard untuk membuat, mengelola, dan mengirim 
 - Zustand (State Management)
 - Socket.IO Client / HTTP Polling
 
-### Backend (Dual-Backend Architecture)
-IoTKit-Studio mendukung arsitektur paralel dual-backend dengan **100% kesamaan fitur (Feature Parity)**. Anda dapat memilih untuk menjalankan salah satu dari kedua backend di bawah secara mandiri:
-
-1. **Go Backend (`/backend-go`)** — *Sangat direkomendasikan untuk performa tinggi & hemat RAM*:
-   - Go (Golang)
-   - Go Fiber v2 (Web Framework)
-   - GORM (ORM)
-   - Go WebSocket Hub (`gofiber/contrib/websocket`)
-   - Eclipse Paho MQTT Go Client
-2. **Node.js Backend (`/backend`)**:
-   - Node.js & Express
-   - TypeScript
-   - Prisma ORM
-   - Socket.IO Engine
-   - MQTT.js & WS Client
+### Backend (Node.js Edition)
+Branch ini secara spesifik dikonfigurasi untuk **Node.js + Express Backend (`/backend`)**:
+- Node.js & Express
+- TypeScript
+- Prisma ORM
+- Socket.IO Engine
+- MQTT.js & WS Client
 
 ---
 
@@ -87,19 +79,8 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-### 4. Menjalankan Backend (Pilih Salah Satu)
+### 4. Menjalankan Backend (Node.js)
 
-#### Opsi A: Backend Go (Sangat Ringan & Cepat)
-```bash
-cd backend-go
-# Run program secara langsung
-go run cmd/api/main.go
-# Atau build & run executable binary
-go build -o iotkit-studio.exe ./cmd/api/
-./iotkit-studio.exe
-```
-
-#### Opsi B: Backend Node.js
 ```bash
 cd backend
 npm install
@@ -111,7 +92,7 @@ npm run dev
 
 ### Access URL
 - **Frontend App**: http://localhost:3000
-- **Backend API (Go / Node.js)**: http://localhost:4000
+- **Backend API**: http://localhost:4000
 
 ---
 
