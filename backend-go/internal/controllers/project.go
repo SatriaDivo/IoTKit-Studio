@@ -149,8 +149,9 @@ func UpdateProject(c *fiber.Ctx) error {
 	})
 
 	database.DB.First(&project, "id = ?", id)
-	ws.HubInstance.Broadcast("projects", "project:updated", project)
-	ws.HubInstance.Broadcast("global", "project:updated", project)
+	sanitized := sanitizeProjectForBroadcast(&project)
+	ws.HubInstance.Broadcast("projects", "project:updated", sanitized)
+	ws.HubInstance.Broadcast("global", "project:updated", sanitized)
 	return c.JSON(project)
 }
 

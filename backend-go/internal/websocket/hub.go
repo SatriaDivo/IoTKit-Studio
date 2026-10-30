@@ -242,6 +242,13 @@ func SetupWebSocket(app *fiber.App) {
 						})
 						continue
 					}
+				} else if room == "projects" {
+					// Allowed for any authenticated user
+				} else {
+					sendEvent(c, connMu, "ws_error", map[string]string{
+						"error": "Forbidden: unknown room",
+					})
+					continue
 				}
 
 				HubInstance.Subscribe(room, c)

@@ -514,9 +514,13 @@ func ExecuteAction(c *fiber.Ctx) error {
 	}
 
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"success": false,
+		status := 500
+		if err.Error() == "project not found or access denied" {
+			status = 403
+		}
+		return c.Status(status).JSON(fiber.Map{
 			"error":   err.Error(),
+			"success": false,
 		})
 	}
 
